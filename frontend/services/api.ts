@@ -16,21 +16,24 @@ class ApiService {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        // Add auth token if available
-        const token = localStorage.getItem('wms_auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        // Only access localStorage in browser environment
+        if (typeof window !== 'undefined') {
+          // Add auth token if available
+          const token = localStorage.getItem('wms_auth_token');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
 
-        // Add selected warehouse/company headers
-        const warehouseId = localStorage.getItem('wms_selected_warehouse');
-        const companyId = localStorage.getItem('wms_selected_company');
+          // Add selected warehouse/company headers
+          const warehouseId = localStorage.getItem('wms_selected_warehouse');
+          const companyId = localStorage.getItem('wms_selected_company');
 
-        if (warehouseId) {
-          config.headers['X-Warehouse-ID'] = warehouseId;
-        }
-        if (companyId) {
-          config.headers['X-Company-ID'] = companyId;
+          if (warehouseId) {
+            config.headers['X-Warehouse-ID'] = warehouseId;
+          }
+          if (companyId) {
+            config.headers['X-Company-ID'] = companyId;
+          }
         }
 
         return config;
@@ -44,16 +47,18 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => response.data,
       (error: AxiosError) => {
-        // Handle errors globally
-        if (error.response?.status === 401) {
-          // Unauthorized - redirect to login
-          localStorage.removeItem('wms_auth_token');
-          window.location.href = '/auth/login';
-        }
+        // Handle errors globally (only in browser)
+        if (typeof window !== 'undefined') {
+          if (error.response?.status === 401) {
+            // Unauthorized - redirect to login
+            localStorage.removeItem('wms_auth_token');
+            window.location.href = '/auth/login';
+          }
 
-        if (error.response?.status === 403) {
-          // Forbidden
-          console.error('Access denied');
+          if (error.response?.status === 403) {
+            // Forbidden
+            console.error('Access denied');
+          }
         }
 
         return Promise.reject(error);
