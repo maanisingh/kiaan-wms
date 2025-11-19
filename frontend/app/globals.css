@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #f5f5f5;
+    --foreground: #171717;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+/* Ant Design customizations */
+.ant-layout {
+  background: transparent;
+}
+
+.ant-layout-content {
+  background: transparent;
+}

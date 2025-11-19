@@ -1,0 +1,428 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "box-plot Kiaan WMS" [ref=e7] [cursor=pointer]:
+          - /url: /dashboard
+          - img "box-plot" [ref=e8]:
+            - img [ref=e9]
+          - generic [ref=e11]: Kiaan WMS
+        - menu [ref=e12]:
+          - menuitem "dashboard Dashboard" [ref=e13] [cursor=pointer]:
+            - img "dashboard" [ref=e14]:
+              - img [ref=e15]
+            - link "Dashboard" [ref=e18]:
+              - /url: /dashboard
+          - menuitem "shop Companies" [ref=e19] [cursor=pointer]:
+            - img "shop" [ref=e20]:
+              - img [ref=e21]
+            - generic [ref=e23]: Companies
+          - menuitem "home Warehouses" [ref=e24] [cursor=pointer]:
+            - img "home" [ref=e25]:
+              - img [ref=e26]
+            - generic [ref=e28]: Warehouses
+          - menuitem "appstore Products" [ref=e29] [cursor=pointer]:
+            - img "appstore" [ref=e30]:
+              - img [ref=e31]
+            - generic [ref=e33]: Products
+          - menuitem "database Inventory" [ref=e34] [cursor=pointer]:
+            - img "database" [ref=e35]:
+              - img [ref=e36]
+            - generic [ref=e38]: Inventory
+          - menuitem "inbox Inbound" [ref=e39] [cursor=pointer]:
+            - img "inbox" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]: Inbound
+          - menuitem "shopping-cart Outbound" [ref=e44] [cursor=pointer]:
+            - img "shopping-cart" [ref=e45]:
+              - img [ref=e46]
+            - generic [ref=e48]: Outbound
+          - menuitem "box-plot Fulfillment" [ref=e49] [cursor=pointer]:
+            - img "box-plot" [ref=e50]:
+              - img [ref=e51]
+            - generic [ref=e53]: Fulfillment
+          - menuitem "car Shipping" [ref=e54] [cursor=pointer]:
+            - img "car" [ref=e55]:
+              - img [ref=e56]
+            - generic [ref=e58]: Shipping
+          - menuitem "undo Returns" [ref=e59] [cursor=pointer]:
+            - img "undo" [ref=e60]:
+              - img [ref=e61]
+            - link "Returns" [ref=e64]:
+              - /url: /returns
+          - menuitem "swap Transfers" [ref=e65] [cursor=pointer]:
+            - img "swap" [ref=e66]:
+              - img [ref=e67]
+            - generic [ref=e69]: Transfers
+          - menuitem "api Integrations" [ref=e70] [cursor=pointer]:
+            - img "api" [ref=e71]:
+              - img [ref=e72]
+            - generic [ref=e74]: Integrations
+          - menuitem "printer Label Printing" [ref=e75] [cursor=pointer]:
+            - img "printer" [ref=e76]:
+              - img [ref=e77]
+            - link "Label Printing" [ref=e80]:
+              - /url: /labels
+          - menuitem "bar-chart Reports" [ref=e81] [cursor=pointer]:
+            - img "bar-chart" [ref=e82]:
+              - img [ref=e83]
+            - link "Reports" [ref=e86]:
+              - /url: /reports
+          - menuitem "team Users & Access" [ref=e87] [cursor=pointer]:
+            - img "team" [ref=e88]:
+              - img [ref=e89]
+            - link "Users & Access" [ref=e92]:
+              - /url: /users
+          - menuitem "setting Settings" [ref=e93] [cursor=pointer]:
+            - img "setting" [ref=e94]:
+              - img [ref=e95]
+            - link "Settings" [ref=e98]:
+              - /url: /settings
+    - generic [ref=e99]:
+      - banner [ref=e100]:
+        - generic [ref=e101]:
+          - button "menu-fold" [ref=e102] [cursor=pointer]:
+            - img "menu-fold" [ref=e104]:
+              - img [ref=e105]
+          - generic [ref=e107]:
+            - img "search" [ref=e109]:
+              - img [ref=e110]
+            - textbox "Search orders, products, customers..." [ref=e112]
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - button "bell" [ref=e115] [cursor=pointer]:
+              - img "bell" [ref=e117]:
+                - img [ref=e118]
+            - superscript [ref=e120]:
+              - generic [ref=e122]: "5"
+          - generic [ref=e123] [cursor=pointer]:
+            - img "user" [ref=e125]:
+              - img [ref=e126]
+            - generic [ref=e128]:
+              - generic [ref=e129]: John Doe
+              - generic [ref=e130]: admin
+      - main [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - heading "Dashboard" [level=1] [ref=e135]
+              - paragraph [ref=e136]: Welcome back! Here's what's happening today.
+            - link "plus New Order" [ref=e138] [cursor=pointer]:
+              - /url: /sales-orders/new
+              - button "plus New Order" [ref=e139]:
+                - img "plus" [ref=e141]:
+                  - img [ref=e142]
+                - generic [ref=e145]: New Order
+          - generic [ref=e146]:
+            - generic [ref=e150]:
+              - generic [ref=e151]:
+                - paragraph [ref=e152]: Total Stock
+                - generic [ref=e153]:
+                  - heading "58,982" [level=3] [ref=e154]
+                  - generic [ref=e155]: units
+                - generic [ref=e156]:
+                  - img "minus" [ref=e157]:
+                    - img [ref=e158]
+                  - generic [ref=e160]: +13.5% from last period
+              - img "database" [ref=e163]:
+                - img [ref=e164]
+            - generic [ref=e169]:
+              - generic [ref=e170]:
+                - paragraph [ref=e171]: Orders Today
+                - heading "172" [level=3] [ref=e173]
+                - generic [ref=e174]:
+                  - img "arrow-down" [ref=e175]:
+                    - img [ref=e176]
+                  - generic [ref=e178]: +2.1% from last period
+              - img "shopping-cart" [ref=e181]:
+                - img [ref=e182]
+            - generic [ref=e187]:
+              - generic [ref=e188]:
+                - paragraph [ref=e189]: Pick Backlog
+                - heading "125" [level=3] [ref=e191]
+                - generic [ref=e192]:
+                  - img "minus" [ref=e193]:
+                    - img [ref=e194]
+                  - generic [ref=e196]: +27.8% from last period
+              - img "inbox" [ref=e199]:
+                - img [ref=e200]
+            - generic [ref=e205]:
+              - generic [ref=e206]:
+                - paragraph [ref=e207]: Expiry Alerts
+                - heading "28" [level=3] [ref=e209]
+                - generic [ref=e210]:
+                  - img "arrow-up" [ref=e211]:
+                    - img [ref=e212]
+                  - generic [ref=e214]: +0.7% from last period
+              - img "warning" [ref=e217]:
+                - img [ref=e218]
+          - generic [ref=e220]:
+            - generic [ref=e222]:
+              - generic [ref=e225]: Daily Orders (Last 7 Days)
+              - img [ref=e227]
+            - generic [ref=e229]:
+              - generic [ref=e232]: Receiving vs Shipping (Last 4 Weeks)
+              - img [ref=e234]
+          - generic [ref=e235]:
+            - generic [ref=e237]:
+              - generic [ref=e240]: Warehouse Utilization
+              - generic [ref=e241]:
+                - img [ref=e243]
+                - generic [ref=e244]:
+                  - paragraph [ref=e245]: 66%
+                  - paragraph [ref=e246]: Capacity Used
+            - generic [ref=e248]:
+              - generic [ref=e251]: Orders by Status
+              - generic [ref=e253]:
+                - generic [ref=e255]:
+                  - generic [ref=e256]: pending
+                  - generic [ref=e257]: 37 orders
+                - generic [ref=e262]:
+                  - generic [ref=e263]: confirmed
+                  - generic [ref=e264]: 72 orders
+                - generic [ref=e269]:
+                  - generic [ref=e270]: picking
+                  - generic [ref=e271]: 39 orders
+                - generic [ref=e276]:
+                  - generic [ref=e277]: packing
+                  - generic [ref=e278]: 16 orders
+                - generic [ref=e283]:
+                  - generic [ref=e284]: shipped
+                  - generic [ref=e285]: 65 orders
+          - generic [ref=e289]:
+            - generic [ref=e291]:
+              - generic [ref=e292]: Recent Orders
+              - link "View All" [ref=e294] [cursor=pointer]:
+                - /url: /sales-orders
+                - button "View All" [ref=e295]:
+                  - generic [ref=e296]: View All
+            - table [ref=e304]:
+              - rowgroup [ref=e305]:
+                - 'row "Order # Customer Status Priority Total Date Action" [ref=e306]':
+                  - 'columnheader "Order #" [ref=e307]'
+                  - columnheader "Customer" [ref=e308]
+                  - columnheader "Status" [ref=e309]
+                  - columnheader "Priority" [ref=e310]
+                  - columnheader "Total" [ref=e311]
+                  - columnheader "Date" [ref=e312]
+                  - columnheader "Action" [ref=e313]
+              - rowgroup [ref=e314]:
+                - row "SO000001 Stamm - Little pending normal $7,598.41 Nov 12, 2025 eye View" [ref=e315]:
+                  - cell "SO000001" [ref=e316]:
+                    - link "SO000001" [ref=e317] [cursor=pointer]:
+                      - /url: /sales-orders/order-1
+                  - cell "Stamm - Little" [ref=e318]
+                  - cell "pending" [ref=e319]:
+                    - generic [ref=e320]: pending
+                  - cell "normal" [ref=e321]:
+                    - generic [ref=e322]: normal
+                  - cell "$7,598.41" [ref=e323]
+                  - cell "Nov 12, 2025" [ref=e324]
+                  - cell "eye View" [ref=e325]:
+                    - link "eye View" [ref=e326] [cursor=pointer]:
+                      - /url: /sales-orders/order-1
+                      - button "eye View" [ref=e327]:
+                        - img "eye" [ref=e329]:
+                          - img [ref=e330]
+                        - generic [ref=e332]: View
+                - row "SO000002 Gutmann, Tillman and Nitzsche pending low $8,476.33 Nov 4, 2025 eye View" [ref=e333]:
+                  - cell "SO000002" [ref=e334]:
+                    - link "SO000002" [ref=e335] [cursor=pointer]:
+                      - /url: /sales-orders/order-2
+                  - cell "Gutmann, Tillman and Nitzsche" [ref=e336]
+                  - cell "pending" [ref=e337]:
+                    - generic [ref=e338]: pending
+                  - cell "low" [ref=e339]:
+                    - generic [ref=e340]: low
+                  - cell "$8,476.33" [ref=e341]
+                  - cell "Nov 4, 2025" [ref=e342]
+                  - cell "eye View" [ref=e343]:
+                    - link "eye View" [ref=e344] [cursor=pointer]:
+                      - /url: /sales-orders/order-2
+                      - button "eye View" [ref=e345]:
+                        - img "eye" [ref=e347]:
+                          - img [ref=e348]
+                        - generic [ref=e350]: View
+                - row "SO000003 Bogan, Jenkins and Bahringer packing urgent $4,469.69 Nov 7, 2025 eye View" [ref=e351]:
+                  - cell "SO000003" [ref=e352]:
+                    - link "SO000003" [ref=e353] [cursor=pointer]:
+                      - /url: /sales-orders/order-3
+                  - cell "Bogan, Jenkins and Bahringer" [ref=e354]
+                  - cell "packing" [ref=e355]:
+                    - generic [ref=e356]: packing
+                  - cell "urgent" [ref=e357]:
+                    - generic [ref=e358]: urgent
+                  - cell "$4,469.69" [ref=e359]
+                  - cell "Nov 7, 2025" [ref=e360]
+                  - cell "eye View" [ref=e361]:
+                    - link "eye View" [ref=e362] [cursor=pointer]:
+                      - /url: /sales-orders/order-3
+                      - button "eye View" [ref=e363]:
+                        - img "eye" [ref=e365]:
+                          - img [ref=e366]
+                        - generic [ref=e368]: View
+                - row "SO000004 Kling Inc packing high $7,363.89 Nov 10, 2025 eye View" [ref=e369]:
+                  - cell "SO000004" [ref=e370]:
+                    - link "SO000004" [ref=e371] [cursor=pointer]:
+                      - /url: /sales-orders/order-4
+                  - cell "Kling Inc" [ref=e372]
+                  - cell "packing" [ref=e373]:
+                    - generic [ref=e374]: packing
+                  - cell "high" [ref=e375]:
+                    - generic [ref=e376]: high
+                  - cell "$7,363.89" [ref=e377]
+                  - cell "Nov 10, 2025" [ref=e378]
+                  - cell "eye View" [ref=e379]:
+                    - link "eye View" [ref=e380] [cursor=pointer]:
+                      - /url: /sales-orders/order-4
+                      - button "eye View" [ref=e381]:
+                        - img "eye" [ref=e383]:
+                          - img [ref=e384]
+                        - generic [ref=e386]: View
+                - row "SO000005 Feil Group confirmed low $10,000.89 Oct 19, 2025 eye View" [ref=e387]:
+                  - cell "SO000005" [ref=e388]:
+                    - link "SO000005" [ref=e389] [cursor=pointer]:
+                      - /url: /sales-orders/order-5
+                  - cell "Feil Group" [ref=e390]
+                  - cell "confirmed" [ref=e391]:
+                    - generic [ref=e392]: confirmed
+                  - cell "low" [ref=e393]:
+                    - generic [ref=e394]: low
+                  - cell "$10,000.89" [ref=e395]
+                  - cell "Oct 19, 2025" [ref=e396]
+                  - cell "eye View" [ref=e397]:
+                    - link "eye View" [ref=e398] [cursor=pointer]:
+                      - /url: /sales-orders/order-5
+                      - button "eye View" [ref=e399]:
+                        - img "eye" [ref=e401]:
+                          - img [ref=e402]
+                        - generic [ref=e404]: View
+                - row "SO000006 Jast - Gibson confirmed normal $6,413.61 Oct 17, 2025 eye View" [ref=e405]:
+                  - cell "SO000006" [ref=e406]:
+                    - link "SO000006" [ref=e407] [cursor=pointer]:
+                      - /url: /sales-orders/order-6
+                  - cell "Jast - Gibson" [ref=e408]
+                  - cell "confirmed" [ref=e409]:
+                    - generic [ref=e410]: confirmed
+                  - cell "normal" [ref=e411]:
+                    - generic [ref=e412]: normal
+                  - cell "$6,413.61" [ref=e413]
+                  - cell "Oct 17, 2025" [ref=e414]
+                  - cell "eye View" [ref=e415]:
+                    - link "eye View" [ref=e416] [cursor=pointer]:
+                      - /url: /sales-orders/order-6
+                      - button "eye View" [ref=e417]:
+                        - img "eye" [ref=e419]:
+                          - img [ref=e420]
+                        - generic [ref=e422]: View
+                - row "SO000007 Kuhic - Bechtelar pending urgent $10,451.04 Oct 31, 2025 eye View" [ref=e423]:
+                  - cell "SO000007" [ref=e424]:
+                    - link "SO000007" [ref=e425] [cursor=pointer]:
+                      - /url: /sales-orders/order-7
+                  - cell "Kuhic - Bechtelar" [ref=e426]
+                  - cell "pending" [ref=e427]:
+                    - generic [ref=e428]: pending
+                  - cell "urgent" [ref=e429]:
+                    - generic [ref=e430]: urgent
+                  - cell "$10,451.04" [ref=e431]
+                  - cell "Oct 31, 2025" [ref=e432]
+                  - cell "eye View" [ref=e433]:
+                    - link "eye View" [ref=e434] [cursor=pointer]:
+                      - /url: /sales-orders/order-7
+                      - button "eye View" [ref=e435]:
+                        - img "eye" [ref=e437]:
+                          - img [ref=e438]
+                        - generic [ref=e440]: View
+                - row "SO000008 Bogan, Jenkins and Bahringer delivered normal $1,970.98 Nov 3, 2025 eye View" [ref=e441]:
+                  - cell "SO000008" [ref=e442]:
+                    - link "SO000008" [ref=e443] [cursor=pointer]:
+                      - /url: /sales-orders/order-8
+                  - cell "Bogan, Jenkins and Bahringer" [ref=e444]
+                  - cell "delivered" [ref=e445]:
+                    - generic [ref=e446]: delivered
+                  - cell "normal" [ref=e447]:
+                    - generic [ref=e448]: normal
+                  - cell "$1,970.98" [ref=e449]
+                  - cell "Nov 3, 2025" [ref=e450]
+                  - cell "eye View" [ref=e451]:
+                    - link "eye View" [ref=e452] [cursor=pointer]:
+                      - /url: /sales-orders/order-8
+                      - button "eye View" [ref=e453]:
+                        - img "eye" [ref=e455]:
+                          - img [ref=e456]
+                        - generic [ref=e458]: View
+                - row "SO000009 Hayes and Sons delivered normal $10,662.42 Nov 6, 2025 eye View" [ref=e459]:
+                  - cell "SO000009" [ref=e460]:
+                    - link "SO000009" [ref=e461] [cursor=pointer]:
+                      - /url: /sales-orders/order-9
+                  - cell "Hayes and Sons" [ref=e462]
+                  - cell "delivered" [ref=e463]:
+                    - generic [ref=e464]: delivered
+                  - cell "normal" [ref=e465]:
+                    - generic [ref=e466]: normal
+                  - cell "$10,662.42" [ref=e467]
+                  - cell "Nov 6, 2025" [ref=e468]
+                  - cell "eye View" [ref=e469]:
+                    - link "eye View" [ref=e470] [cursor=pointer]:
+                      - /url: /sales-orders/order-9
+                      - button "eye View" [ref=e471]:
+                        - img "eye" [ref=e473]:
+                          - img [ref=e474]
+                        - generic [ref=e476]: View
+                - row "SO000010 Hermiston, Orn and Ritchie pending low $3,385.71 Oct 30, 2025 eye View" [ref=e477]:
+                  - cell "SO000010" [ref=e478]:
+                    - link "SO000010" [ref=e479] [cursor=pointer]:
+                      - /url: /sales-orders/order-10
+                  - cell "Hermiston, Orn and Ritchie" [ref=e480]
+                  - cell "pending" [ref=e481]:
+                    - generic [ref=e482]: pending
+                  - cell "low" [ref=e483]:
+                    - generic [ref=e484]: low
+                  - cell "$3,385.71" [ref=e485]
+                  - cell "Oct 30, 2025" [ref=e486]
+                  - cell "eye View" [ref=e487]:
+                    - link "eye View" [ref=e488] [cursor=pointer]:
+                      - /url: /sales-orders/order-10
+                      - button "eye View" [ref=e489]:
+                        - img "eye" [ref=e491]:
+                          - img [ref=e492]
+                        - generic [ref=e494]: View
+          - generic [ref=e495]:
+            - generic [ref=e498]: Quick Actions
+            - generic [ref=e500]:
+              - link "Create Order" [ref=e501] [cursor=pointer]:
+                - /url: /sales-orders/new
+                - button "Create Order" [ref=e502]:
+                  - generic [ref=e503]: Create Order
+              - link "Receive Goods" [ref=e504] [cursor=pointer]:
+                - /url: /goods-receiving/new
+                - button "Receive Goods" [ref=e505]:
+                  - generic [ref=e506]: Receive Goods
+              - link "Adjust Inventory" [ref=e507] [cursor=pointer]:
+                - /url: /inventory/adjustments/new
+                - button "Adjust Inventory" [ref=e508]:
+                  - generic [ref=e509]: Adjust Inventory
+              - link "Generate Report" [ref=e510] [cursor=pointer]:
+                - /url: /reports
+                - button "Generate Report" [ref=e511]:
+                  - generic [ref=e512]: Generate Report
+      - contentinfo [ref=e513]:
+        - generic [ref=e514]:
+          - generic [ref=e515]: © 2025 Kiaan WMS. All rights reserved.
+          - generic [ref=e516]:
+            - link "Demo" [ref=e517] [cursor=pointer]:
+              - /url: /demo
+            - text: "|"
+            - link "About" [ref=e518] [cursor=pointer]:
+              - /url: /about
+            - text: "|"
+            - link "Contact" [ref=e519] [cursor=pointer]:
+              - /url: /contact
+            - text: "|"
+            - link "Privacy" [ref=e520] [cursor=pointer]:
+              - /url: /privacy
+  - alert [ref=e521]
+```

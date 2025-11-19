@@ -1,0 +1,396 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "box-plot Kiaan WMS" [ref=e7] [cursor=pointer]:
+          - /url: /dashboard
+          - img "box-plot" [ref=e8]:
+            - img [ref=e9]
+          - generic [ref=e11]: Kiaan WMS
+        - menu [ref=e12]:
+          - menuitem "dashboard Dashboard" [ref=e13] [cursor=pointer]:
+            - img "dashboard" [ref=e14]:
+              - img [ref=e15]
+            - link "Dashboard" [ref=e18]:
+              - /url: /dashboard
+          - menuitem "shop Companies" [ref=e19] [cursor=pointer]:
+            - img "shop" [ref=e20]:
+              - img [ref=e21]
+            - generic [ref=e23]: Companies
+          - menuitem "home Warehouses" [ref=e24] [cursor=pointer]:
+            - img "home" [ref=e25]:
+              - img [ref=e26]
+            - generic [ref=e28]: Warehouses
+          - menuitem "appstore Products" [ref=e29] [cursor=pointer]:
+            - img "appstore" [ref=e30]:
+              - img [ref=e31]
+            - generic [ref=e33]: Products
+          - menuitem "database Inventory" [ref=e34] [cursor=pointer]:
+            - img "database" [ref=e35]:
+              - img [ref=e36]
+            - generic [ref=e38]: Inventory
+          - menuitem "inbox Inbound" [ref=e39] [cursor=pointer]:
+            - img "inbox" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]: Inbound
+          - menuitem "shopping-cart Outbound" [ref=e44] [cursor=pointer]:
+            - img "shopping-cart" [ref=e45]:
+              - img [ref=e46]
+            - generic [ref=e48]: Outbound
+          - menuitem "box-plot Fulfillment" [ref=e49] [cursor=pointer]:
+            - img "box-plot" [ref=e50]:
+              - img [ref=e51]
+            - generic [ref=e53]: Fulfillment
+          - menuitem "car Shipping" [ref=e54] [cursor=pointer]:
+            - img "car" [ref=e55]:
+              - img [ref=e56]
+            - generic [ref=e58]: Shipping
+          - menuitem "undo Returns" [ref=e59] [cursor=pointer]:
+            - img "undo" [ref=e60]:
+              - img [ref=e61]
+            - link "Returns" [ref=e64]:
+              - /url: /returns
+          - menuitem "swap Transfers" [ref=e65] [cursor=pointer]:
+            - img "swap" [ref=e66]:
+              - img [ref=e67]
+            - generic [ref=e69]: Transfers
+          - menuitem "api Integrations" [ref=e70] [cursor=pointer]:
+            - img "api" [ref=e71]:
+              - img [ref=e72]
+            - generic [ref=e74]: Integrations
+          - menuitem "printer Label Printing" [ref=e75] [cursor=pointer]:
+            - img "printer" [ref=e76]:
+              - img [ref=e77]
+            - link "Label Printing" [ref=e80]:
+              - /url: /labels
+          - menuitem "bar-chart Reports" [ref=e81] [cursor=pointer]:
+            - img "bar-chart" [ref=e82]:
+              - img [ref=e83]
+            - link "Reports" [ref=e86]:
+              - /url: /reports
+          - menuitem "team Users & Access" [ref=e87] [cursor=pointer]:
+            - img "team" [ref=e88]:
+              - img [ref=e89]
+            - link "Users & Access" [ref=e92]:
+              - /url: /users
+          - menuitem "setting Settings" [ref=e93] [cursor=pointer]:
+            - img "setting" [ref=e94]:
+              - img [ref=e95]
+            - link "Settings" [ref=e98]:
+              - /url: /settings
+    - generic [ref=e99]:
+      - banner [ref=e100]:
+        - generic [ref=e101]:
+          - button "menu-fold" [ref=e102] [cursor=pointer]:
+            - img "menu-fold" [ref=e104]:
+              - img [ref=e105]
+          - generic [ref=e107]:
+            - img "search" [ref=e109]:
+              - img [ref=e110]
+            - textbox "Search orders, products, customers..." [ref=e112]
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - button "bell" [ref=e115] [cursor=pointer]:
+              - img "bell" [ref=e117]:
+                - img [ref=e118]
+            - superscript [ref=e120]:
+              - generic [ref=e122]: "5"
+          - generic [ref=e123] [cursor=pointer]:
+            - img "user" [ref=e125]:
+              - img [ref=e126]
+            - generic [ref=e128]:
+              - generic [ref=e129]: John Doe
+              - generic [ref=e130]: admin
+      - main [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - heading "Inventory Overview" [level=1] [ref=e135]
+              - paragraph [ref=e136]: View and manage stock levels
+            - link "plus Stock Adjustment" [ref=e137] [cursor=pointer]:
+              - /url: /inventory/adjustments/new
+              - button "plus Stock Adjustment" [ref=e138]:
+                - img "plus" [ref=e140]:
+                  - img [ref=e141]
+                - generic [ref=e144]: Stock Adjustment
+          - generic [ref=e148]:
+            - table [ref=e152]:
+              - rowgroup [ref=e163]:
+                - row "Product SKU Product Name Location Quantity Available Reserved Status Batch Expiry Date" [ref=e164]:
+                  - columnheader "Product SKU" [ref=e165]
+                  - columnheader "Product Name" [ref=e166]
+                  - columnheader "Location" [ref=e167]
+                  - columnheader "Quantity" [ref=e168]
+                  - columnheader "Available" [ref=e169]
+                  - columnheader "Reserved" [ref=e170]
+                  - columnheader "Status" [ref=e171]
+                  - columnheader "Batch" [ref=e172]
+                  - columnheader "Expiry Date" [ref=e173]
+              - rowgroup [ref=e174]:
+                - row "SKU000023 Electronic Metal Tuna loc-7 417 321 96 available - -" [ref=e175]:
+                  - cell "SKU000023" [ref=e176]
+                  - cell "Electronic Metal Tuna" [ref=e177]
+                  - cell "loc-7" [ref=e178]
+                  - cell "417" [ref=e179]
+                  - cell "321" [ref=e180]
+                  - cell "96" [ref=e181]
+                  - cell "available" [ref=e182]:
+                    - generic [ref=e183]: available
+                  - cell "-" [ref=e184]
+                  - cell "-" [ref=e185]
+                - row "SKU000006 Rustic Plastic Shoes loc-75 530 440 90 available - -" [ref=e186]:
+                  - cell "SKU000006" [ref=e187]
+                  - cell "Rustic Plastic Shoes" [ref=e188]
+                  - cell "loc-75" [ref=e189]
+                  - cell "530" [ref=e190]
+                  - cell "440" [ref=e191]
+                  - cell "90" [ref=e192]
+                  - cell "available" [ref=e193]:
+                    - generic [ref=e194]: available
+                  - cell "-" [ref=e195]
+                  - cell "-" [ref=e196]
+                - row "SKU000046 Handcrafted Gold Tuna loc-23 21 16 5 available - May 17, 2026" [ref=e197]:
+                  - cell "SKU000046" [ref=e198]
+                  - cell "Handcrafted Gold Tuna" [ref=e199]
+                  - cell "loc-23" [ref=e200]
+                  - cell "21" [ref=e201]
+                  - cell "16" [ref=e202]
+                  - cell "5" [ref=e203]
+                  - cell "available" [ref=e204]:
+                    - generic [ref=e205]: available
+                  - cell "-" [ref=e206]
+                  - cell "May 17, 2026" [ref=e207]
+                - row "SKU000017 Sleek Concrete Pizza loc-43 489 378 111 quarantine BATCH57444437 -" [ref=e208]:
+                  - cell "SKU000017" [ref=e209]
+                  - cell "Sleek Concrete Pizza" [ref=e210]
+                  - cell "loc-43" [ref=e211]
+                  - cell "489" [ref=e212]
+                  - cell "378" [ref=e213]
+                  - cell "111" [ref=e214]
+                  - cell "quarantine" [ref=e215]:
+                    - generic [ref=e216]: quarantine
+                  - cell "BATCH57444437" [ref=e217]
+                  - cell "-" [ref=e218]
+                - row "SKU000012 Awesome Cotton Keyboard loc-86 836 776 60 reserved - -" [ref=e219]:
+                  - cell "SKU000012" [ref=e220]
+                  - cell "Awesome Cotton Keyboard" [ref=e221]
+                  - cell "loc-86" [ref=e222]
+                  - cell "836" [ref=e223]
+                  - cell "776" [ref=e224]
+                  - cell "60" [ref=e225]
+                  - cell "reserved" [ref=e226]:
+                    - generic [ref=e227]: reserved
+                  - cell "-" [ref=e228]
+                  - cell "-" [ref=e229]
+                - row "SKU000036 Practical Marble Mouse loc-23 132 98 34 available - -" [ref=e230]:
+                  - cell "SKU000036" [ref=e231]
+                  - cell "Practical Marble Mouse" [ref=e232]
+                  - cell "loc-23" [ref=e233]
+                  - cell "132" [ref=e234]
+                  - cell "98" [ref=e235]
+                  - cell "34" [ref=e236]
+                  - cell "available" [ref=e237]:
+                    - generic [ref=e238]: available
+                  - cell "-" [ref=e239]
+                  - cell "-" [ref=e240]
+                - row "SKU000001 Bespoke Bamboo Bacon loc-78 184 172 12 available BATCH15586941 -" [ref=e241]:
+                  - cell "SKU000001" [ref=e242]
+                  - cell "Bespoke Bamboo Bacon" [ref=e243]
+                  - cell "loc-78" [ref=e244]
+                  - cell "184" [ref=e245]
+                  - cell "172" [ref=e246]
+                  - cell "12" [ref=e247]
+                  - cell "available" [ref=e248]:
+                    - generic [ref=e249]: available
+                  - cell "BATCH15586941" [ref=e250]
+                  - cell "-" [ref=e251]
+                - row "SKU000042 Practical Steel Table loc-19 974 791 183 available - -" [ref=e252]:
+                  - cell "SKU000042" [ref=e253]
+                  - cell "Practical Steel Table" [ref=e254]
+                  - cell "loc-19" [ref=e255]
+                  - cell "974" [ref=e256]
+                  - cell "791" [ref=e257]
+                  - cell "183" [ref=e258]
+                  - cell "available" [ref=e259]:
+                    - generic [ref=e260]: available
+                  - cell "-" [ref=e261]
+                  - cell "-" [ref=e262]
+                - row "SKU000049 Incredible Wooden Chicken loc-79 466 435 31 available - Nov 24, 2025" [ref=e263]:
+                  - cell "SKU000049" [ref=e264]
+                  - cell "Incredible Wooden Chicken" [ref=e265]
+                  - cell "loc-79" [ref=e266]
+                  - cell "466" [ref=e267]
+                  - cell "435" [ref=e268]
+                  - cell "31" [ref=e269]
+                  - cell "available" [ref=e270]:
+                    - generic [ref=e271]: available
+                  - cell "-" [ref=e272]
+                  - cell "Nov 24, 2025" [ref=e273]
+                - row "SKU000042 Practical Steel Table loc-73 335 297 38 quarantine - -" [ref=e274]:
+                  - cell "SKU000042" [ref=e275]
+                  - cell "Practical Steel Table" [ref=e276]
+                  - cell "loc-73" [ref=e277]
+                  - cell "335" [ref=e278]
+                  - cell "297" [ref=e279]
+                  - cell "38" [ref=e280]
+                  - cell "quarantine" [ref=e281]:
+                    - generic [ref=e282]: quarantine
+                  - cell "-" [ref=e283]
+                  - cell "-" [ref=e284]
+                - row "SKU000017 Sleek Concrete Pizza loc-40 349 325 24 available BATCH53577845 -" [ref=e285]:
+                  - cell "SKU000017" [ref=e286]
+                  - cell "Sleek Concrete Pizza" [ref=e287]
+                  - cell "loc-40" [ref=e288]
+                  - cell "349" [ref=e289]
+                  - cell "325" [ref=e290]
+                  - cell "24" [ref=e291]
+                  - cell "available" [ref=e292]:
+                    - generic [ref=e293]: available
+                  - cell "BATCH53577845" [ref=e294]
+                  - cell "-" [ref=e295]
+                - row "SKU000046 Handcrafted Gold Tuna loc-26 973 914 59 quarantine - Feb 13, 2026" [ref=e296]:
+                  - cell "SKU000046" [ref=e297]
+                  - cell "Handcrafted Gold Tuna" [ref=e298]
+                  - cell "loc-26" [ref=e299]
+                  - cell "973" [ref=e300]
+                  - cell "914" [ref=e301]
+                  - cell "59" [ref=e302]
+                  - cell "quarantine" [ref=e303]:
+                    - generic [ref=e304]: quarantine
+                  - cell "-" [ref=e305]
+                  - cell "Feb 13, 2026" [ref=e306]
+                - row "SKU000007 Modern Plastic Pants loc-65 502 485 17 available - Sep 12, 2026" [ref=e307]:
+                  - cell "SKU000007" [ref=e308]
+                  - cell "Modern Plastic Pants" [ref=e309]
+                  - cell "loc-65" [ref=e310]
+                  - cell "502" [ref=e311]
+                  - cell "485" [ref=e312]
+                  - cell "17" [ref=e313]
+                  - cell "available" [ref=e314]:
+                    - generic [ref=e315]: available
+                  - cell "-" [ref=e316]
+                  - cell "Sep 12, 2026" [ref=e317]
+                - row "SKU000005 Rustic Marble Fish loc-98 295 264 31 available - -" [ref=e318]:
+                  - cell "SKU000005" [ref=e319]
+                  - cell "Rustic Marble Fish" [ref=e320]
+                  - cell "loc-98" [ref=e321]
+                  - cell "295" [ref=e322]
+                  - cell "264" [ref=e323]
+                  - cell "31" [ref=e324]
+                  - cell "available" [ref=e325]:
+                    - generic [ref=e326]: available
+                  - cell "-" [ref=e327]
+                  - cell "-" [ref=e328]
+                - row "SKU000005 Rustic Marble Fish loc-20 522 501 21 quarantine - -" [ref=e329]:
+                  - cell "SKU000005" [ref=e330]
+                  - cell "Rustic Marble Fish" [ref=e331]
+                  - cell "loc-20" [ref=e332]
+                  - cell "522" [ref=e333]
+                  - cell "501" [ref=e334]
+                  - cell "21" [ref=e335]
+                  - cell "quarantine" [ref=e336]:
+                    - generic [ref=e337]: quarantine
+                  - cell "-" [ref=e338]
+                  - cell "-" [ref=e339]
+                - row "SKU000040 Frozen Metal Salad loc-74 246 194 52 available BATCH59042927 -" [ref=e340]:
+                  - cell "SKU000040" [ref=e341]
+                  - cell "Frozen Metal Salad" [ref=e342]
+                  - cell "loc-74" [ref=e343]
+                  - cell "246" [ref=e344]
+                  - cell "194" [ref=e345]
+                  - cell "52" [ref=e346]
+                  - cell "available" [ref=e347]:
+                    - generic [ref=e348]: available
+                  - cell "BATCH59042927" [ref=e349]
+                  - cell "-" [ref=e350]
+                - row "SKU000005 Rustic Marble Fish loc-51 799 797 2 available - -" [ref=e351]:
+                  - cell "SKU000005" [ref=e352]
+                  - cell "Rustic Marble Fish" [ref=e353]
+                  - cell "loc-51" [ref=e354]
+                  - cell "799" [ref=e355]
+                  - cell "797" [ref=e356]
+                  - cell "2" [ref=e357]
+                  - cell "available" [ref=e358]:
+                    - generic [ref=e359]: available
+                  - cell "-" [ref=e360]
+                  - cell "-" [ref=e361]
+                - row "SKU000011 Ergonomic Plastic Shoes loc-62 752 657 95 available BATCH43070808 -" [ref=e362]:
+                  - cell "SKU000011" [ref=e363]
+                  - cell "Ergonomic Plastic Shoes" [ref=e364]
+                  - cell "loc-62" [ref=e365]
+                  - cell "752" [ref=e366]
+                  - cell "657" [ref=e367]
+                  - cell "95" [ref=e368]
+                  - cell "available" [ref=e369]:
+                    - generic [ref=e370]: available
+                  - cell "BATCH43070808" [ref=e371]
+                  - cell "-" [ref=e372]
+                - row "SKU000003 Small Aluminum Sausages loc-76 128 125 3 quarantine BATCH82704158 -" [ref=e373]:
+                  - cell "SKU000003" [ref=e374]
+                  - cell "Small Aluminum Sausages" [ref=e375]
+                  - cell "loc-76" [ref=e376]
+                  - cell "128" [ref=e377]
+                  - cell "125" [ref=e378]
+                  - cell "3" [ref=e379]
+                  - cell "quarantine" [ref=e380]:
+                    - generic [ref=e381]: quarantine
+                  - cell "BATCH82704158" [ref=e382]
+                  - cell "-" [ref=e383]
+                - row "SKU000001 Bespoke Bamboo Bacon loc-51 536 490 46 available BATCH10062290 -" [ref=e384]:
+                  - cell "SKU000001" [ref=e385]
+                  - cell "Bespoke Bamboo Bacon" [ref=e386]
+                  - cell "loc-51" [ref=e387]
+                  - cell "536" [ref=e388]
+                  - cell "490" [ref=e389]
+                  - cell "46" [ref=e390]
+                  - cell "available" [ref=e391]:
+                    - generic [ref=e392]: available
+                  - cell "BATCH10062290" [ref=e393]
+                  - cell "-" [ref=e394]
+            - list [ref=e395]:
+              - listitem "Previous Page" [ref=e396]:
+                - button "left" [disabled] [ref=e397]:
+                  - img "left" [ref=e398]:
+                    - img [ref=e399]
+              - listitem "1" [ref=e401] [cursor=pointer]:
+                - generic [ref=e402]: "1"
+              - listitem "2" [ref=e403] [cursor=pointer]:
+                - generic [ref=e404]: "2"
+              - listitem "3" [ref=e405] [cursor=pointer]:
+                - generic [ref=e406]: "3"
+              - listitem "4" [ref=e407] [cursor=pointer]:
+                - generic [ref=e408]: "4"
+              - listitem "5" [ref=e409] [cursor=pointer]:
+                - generic [ref=e410]: "5"
+              - listitem "Next Page" [ref=e411] [cursor=pointer]:
+                - button "right" [ref=e412]:
+                  - img "right" [ref=e413]:
+                    - img [ref=e414]
+              - listitem [ref=e416]:
+                - generic "Page Size" [ref=e417] [cursor=pointer]:
+                  - generic [ref=e419]:
+                    - combobox "Page Size" [ref=e421]
+                    - generic "20 / page" [ref=e422]
+                  - generic:
+                    - img:
+                      - img
+      - contentinfo [ref=e423]:
+        - generic [ref=e424]:
+          - generic [ref=e425]: © 2025 Kiaan WMS. All rights reserved.
+          - generic [ref=e426]:
+            - link "Demo" [ref=e427] [cursor=pointer]:
+              - /url: /demo
+            - text: "|"
+            - link "About" [ref=e428] [cursor=pointer]:
+              - /url: /about
+            - text: "|"
+            - link "Contact" [ref=e429] [cursor=pointer]:
+              - /url: /contact
+            - text: "|"
+            - link "Privacy" [ref=e430] [cursor=pointer]:
+              - /url: /privacy
+  - alert [ref=e431]
+```

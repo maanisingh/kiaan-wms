@@ -1,0 +1,202 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "box-plot Kiaan WMS" [ref=e7] [cursor=pointer]:
+          - /url: /dashboard
+          - img "box-plot" [ref=e8]:
+            - img [ref=e9]
+          - generic [ref=e11]: Kiaan WMS
+        - menu [ref=e12]:
+          - menuitem "dashboard Dashboard" [ref=e13] [cursor=pointer]:
+            - img "dashboard" [ref=e14]:
+              - img [ref=e15]
+            - link "Dashboard" [ref=e18]:
+              - /url: /dashboard
+          - menuitem "shop Companies" [ref=e19] [cursor=pointer]:
+            - img "shop" [ref=e20]:
+              - img [ref=e21]
+            - generic [ref=e23]: Companies
+          - menuitem "home Warehouses" [ref=e24] [cursor=pointer]:
+            - img "home" [ref=e25]:
+              - img [ref=e26]
+            - generic [ref=e28]: Warehouses
+          - menuitem "appstore Products" [ref=e29] [cursor=pointer]:
+            - img "appstore" [ref=e30]:
+              - img [ref=e31]
+            - generic [ref=e33]: Products
+          - menuitem "database Inventory" [ref=e34] [cursor=pointer]:
+            - img "database" [ref=e35]:
+              - img [ref=e36]
+            - generic [ref=e38]: Inventory
+          - menuitem "inbox Inbound" [ref=e39] [cursor=pointer]:
+            - img "inbox" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]: Inbound
+          - menuitem "shopping-cart Outbound" [ref=e44] [cursor=pointer]:
+            - img "shopping-cart" [ref=e45]:
+              - img [ref=e46]
+            - generic [ref=e48]: Outbound
+          - menuitem "box-plot Fulfillment" [ref=e49] [cursor=pointer]:
+            - img "box-plot" [ref=e50]:
+              - img [ref=e51]
+            - generic [ref=e53]: Fulfillment
+          - menuitem "car Shipping" [ref=e54] [cursor=pointer]:
+            - img "car" [ref=e55]:
+              - img [ref=e56]
+            - generic [ref=e58]: Shipping
+          - menuitem "undo Returns" [ref=e59] [cursor=pointer]:
+            - img "undo" [ref=e60]:
+              - img [ref=e61]
+            - link "Returns" [ref=e64]:
+              - /url: /returns
+          - menuitem "swap Transfers" [ref=e65] [cursor=pointer]:
+            - img "swap" [ref=e66]:
+              - img [ref=e67]
+            - generic [ref=e69]: Transfers
+          - menuitem "api Integrations" [ref=e70] [cursor=pointer]:
+            - img "api" [ref=e71]:
+              - img [ref=e72]
+            - generic [ref=e74]: Integrations
+          - menuitem "printer Label Printing" [ref=e75] [cursor=pointer]:
+            - img "printer" [ref=e76]:
+              - img [ref=e77]
+            - link "Label Printing" [ref=e80]:
+              - /url: /labels
+          - menuitem "bar-chart Reports" [ref=e81] [cursor=pointer]:
+            - img "bar-chart" [ref=e82]:
+              - img [ref=e83]
+            - link "Reports" [ref=e86]:
+              - /url: /reports
+          - menuitem "team Users & Access" [ref=e87] [cursor=pointer]:
+            - img "team" [ref=e88]:
+              - img [ref=e89]
+            - link "Users & Access" [ref=e92]:
+              - /url: /users
+          - menuitem "setting Settings" [ref=e93] [cursor=pointer]:
+            - img "setting" [ref=e94]:
+              - img [ref=e95]
+            - link "Settings" [ref=e98]:
+              - /url: /settings
+    - generic [ref=e99]:
+      - banner [ref=e100]:
+        - generic [ref=e101]:
+          - button "menu-fold" [ref=e102] [cursor=pointer]:
+            - img "menu-fold" [ref=e104]:
+              - img [ref=e105]
+          - generic [ref=e107]:
+            - img "search" [ref=e109]:
+              - img [ref=e110]
+            - textbox "Search orders, products, customers..." [ref=e112]
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - button "bell" [ref=e115] [cursor=pointer]:
+              - img "bell" [ref=e117]:
+                - img [ref=e118]
+            - superscript [ref=e120]:
+              - generic [ref=e122]: "5"
+          - generic [ref=e123] [cursor=pointer]:
+            - img "user" [ref=e125]:
+              - img [ref=e126]
+            - generic [ref=e128]:
+              - generic [ref=e129]: John Doe
+              - generic [ref=e130]: admin
+      - main [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - heading "Multi-Company Management" [level=1] [ref=e135]
+              - paragraph [ref=e136]: Manage multiple companies and tenants
+            - button "plus Add New" [ref=e137] [cursor=pointer]:
+              - img "plus" [ref=e139]:
+                - img [ref=e140]
+              - generic [ref=e143]: Add New
+          - generic [ref=e144]:
+            - generic [ref=e147]:
+              - paragraph [ref=e148]: Total Companies
+              - paragraph [ref=e149]: "8"
+            - generic [ref=e152]:
+              - paragraph [ref=e153]: Active Users
+              - paragraph [ref=e154]: "145"
+            - generic [ref=e157]:
+              - paragraph [ref=e158]: Total Warehouses
+              - paragraph [ref=e159]: "24"
+            - generic [ref=e162]:
+              - paragraph [ref=e163]: Combined Revenue
+              - paragraph [ref=e164]: $12.4M
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e169]:
+                - generic [ref=e170]:
+                  - img "search" [ref=e172]:
+                    - img [ref=e173]
+                  - searchbox "Search..." [ref=e175]
+                - button "search" [ref=e177] [cursor=pointer]:
+                  - img "search" [ref=e179]:
+                    - img [ref=e180]
+              - generic [ref=e182] [cursor=pointer]:
+                - generic [ref=e184]:
+                  - combobox [ref=e186]
+                  - generic: Filter
+                - generic:
+                  - img:
+                    - img
+              - button "filter More Filters" [ref=e187] [cursor=pointer]:
+                - img "filter" [ref=e189]:
+                  - img [ref=e190]
+                - generic [ref=e192]: More Filters
+            - generic [ref=e195]:
+              - table [ref=e199]:
+                - rowgroup [ref=e200]:
+                  - row "Company Name Code Warehouses Users Status" [ref=e201]:
+                    - columnheader "Company Name" [ref=e202]
+                    - columnheader "Code" [ref=e203]
+                    - columnheader "Warehouses" [ref=e204]
+                    - columnheader "Users" [ref=e205]
+                    - columnheader "Status" [ref=e206]
+                - rowgroup [ref=e207]:
+                  - row "Kiaan Logistics LLC KIAN001 5 45 active" [ref=e208]:
+                    - cell "Kiaan Logistics LLC" [ref=e209]
+                    - cell "KIAN001" [ref=e210]
+                    - cell "5" [ref=e211]
+                    - cell "45" [ref=e212]
+                    - cell "active" [ref=e213]:
+                      - generic [ref=e214]: active
+                  - row "Global Trading Inc GLOB002 8 67 active" [ref=e215]:
+                    - cell "Global Trading Inc" [ref=e216]
+                    - cell "GLOB002" [ref=e217]
+                    - cell "8" [ref=e218]
+                    - cell "67" [ref=e219]
+                    - cell "active" [ref=e220]:
+                      - generic [ref=e221]: active
+              - list [ref=e222]:
+                - listitem "Previous Page" [ref=e223]:
+                  - button "left" [disabled] [ref=e224]:
+                    - img "left" [ref=e225]:
+                      - img [ref=e226]
+                - listitem "1" [ref=e228] [cursor=pointer]:
+                  - generic [ref=e229]: "1"
+                - listitem "Next Page" [ref=e230]:
+                  - button "right" [disabled] [ref=e231]:
+                    - img "right" [ref=e232]:
+                      - img [ref=e233]
+      - contentinfo [ref=e235]:
+        - generic [ref=e236]:
+          - generic [ref=e237]: © 2025 Kiaan WMS. All rights reserved.
+          - generic [ref=e238]:
+            - link "Demo" [ref=e239] [cursor=pointer]:
+              - /url: /demo
+            - text: "|"
+            - link "About" [ref=e240] [cursor=pointer]:
+              - /url: /about
+            - text: "|"
+            - link "Contact" [ref=e241] [cursor=pointer]:
+              - /url: /contact
+            - text: "|"
+            - link "Privacy" [ref=e242] [cursor=pointer]:
+              - /url: /privacy
+  - alert [ref=e243]
+```
