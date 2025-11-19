@@ -25,7 +25,7 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   EnvironmentOutlined,
-  BarcodeFilled,
+  BarcodeOutlined,
   CalendarOutlined,
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
@@ -313,7 +313,7 @@ export default function InventoryDetailPage() {
                         </Descriptions.Item>
                         <Descriptions.Item label="Lot Number">
                           <div className="flex items-center gap-2">
-                            <BarcodeFilled className="text-blue-600" />
+                            <BarcodeOutlined className="text-blue-600" />
                             <span className="font-mono font-semibold">
                               {mockInventory.lotNumber}
                             </span>
