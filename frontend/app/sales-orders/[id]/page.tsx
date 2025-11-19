@@ -9,6 +9,10 @@ import {
   PrinterOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  ShopOutlined,
+  CalendarOutlined,
+  WarningOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
@@ -52,6 +56,26 @@ export default function SalesOrderDetailPage() {
       title: 'Quantity',
       dataIndex: 'quantity',
       key: 'quantity',
+    },
+    {
+      title: 'Best-Before Date',
+      key: 'bestBefore',
+      render: (record: any) => {
+        // Mock BB date - in real app this would come from allocated inventory
+        const bbDate = '2026-06-08';
+        const daysUntilExpiry = Math.floor((new Date(bbDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        return (
+          <span className={daysUntilExpiry < 180 ? 'text-orange-600 font-semibold' : ''}>
+            {formatDate(bbDate)}
+            {daysUntilExpiry < 180 && <WarningOutlined className="ml-1" />}
+          </span>
+        );
+      },
+    },
+    {
+      title: 'Lot Number',
+      key: 'lotNumber',
+      render: () => <span className="font-mono text-xs">LOT-2024-11-15-001</span>,
     },
     {
       title: 'Unit Price',
@@ -105,26 +129,32 @@ export default function SalesOrderDetailPage() {
           </Space>
         </div>
 
-        {/* Status and Priority */}
+        {/* B2B/B2C Badge and Channel */}
         <Card>
-          <Row gutter={16}>
-            <Col span={12}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <Tag color={order.channel === 'B2B' || order.channel === 'Wholesale' ? 'blue' : 'green'} style={{ fontSize: 18, padding: '8px 16px' }}>
+                <ShopOutlined /> {order.channel === 'B2B' || order.channel === 'Wholesale' ? 'B2B' : 'B2C'} Order
+              </Tag>
+              <Tag color="purple" icon={<GlobalOutlined />} style={{ fontSize: 16, padding: '6px 12px' }}>
+                {order.channel || 'Direct'}
+              </Tag>
+            </div>
+            <div className="flex items-center gap-4">
               <div>
                 <span className="text-gray-600">Status:</span>
                 <Tag color={getStatusColor(order.status)} className="ml-2 uppercase text-lg px-4 py-1">
                   {order.status.replace('_', ' ')}
                 </Tag>
               </div>
-            </Col>
-            <Col span={12}>
               <div>
                 <span className="text-gray-600">Priority:</span>
                 <Tag color={getStatusColor(order.priority)} className="ml-2 uppercase text-lg px-4 py-1">
                   {order.priority}
                 </Tag>
               </div>
-            </Col>
-          </Row>
+            </div>
+          </div>
         </Card>
 
         {/* Order Details */}

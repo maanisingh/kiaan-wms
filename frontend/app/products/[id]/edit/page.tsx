@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, Button, Form, Input, Select, InputNumber, message, Space, Tabs } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { Card, Button, Form, Input, Select, InputNumber, message, Space, Tabs, Switch } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { mockProducts, mockCategories } from '@/lib/mockData';
 
@@ -39,6 +39,11 @@ export default function ProductEditPage() {
         width: foundProduct.dimensions?.width,
         height: foundProduct.dimensions?.height,
         dimensionUnit: foundProduct.dimensions?.unit,
+        // Expiry tracking fields (defaults)
+        shelfLifeDays: 365,
+        expiryTrackingEnabled: true,
+        fefoEnabled: true,
+        alertThresholdDays: 180,
       });
     }
   }, [params.id, form]);
@@ -306,6 +311,97 @@ export default function ProductEditPage() {
                             <Option value="m">Meters (m)</Option>
                           </Select>
                         </Form.Item>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'expiry',
+                  label: (
+                    <span>
+                      <CalendarOutlined /> Expiry & Tracking
+                    </span>
+                  ),
+                  children: (
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <p className="text-blue-800 text-sm">
+                          <strong>📅 Expiry Tracking:</strong> Configure how this product's expiration dates are managed.
+                          Best-Before dates and lot numbers help ensure FIFO/FEFO compliance.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Form.Item
+                          label="Shelf Life (Days)"
+                          name="shelfLifeDays"
+                          tooltip="Default number of days from manufacturing date until expiry"
+                          rules={[{ required: true, message: 'Please enter shelf life' }]}
+                        >
+                          <InputNumber
+                            size="large"
+                            style={{ width: '100%' }}
+                            min={1}
+                            max={3650}
+                            placeholder="365"
+                            suffix="days"
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Alert Threshold (Days)"
+                          name="alertThresholdDays"
+                          tooltip="Show warnings when stock is within this many days of expiry"
+                          rules={[{ required: true, message: 'Please enter alert threshold' }]}
+                        >
+                          <InputNumber
+                            size="large"
+                            style={{ width: '100%' }}
+                            min={1}
+                            max={365}
+                            placeholder="180"
+                            suffix="days"
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Enable Expiry Tracking"
+                          name="expiryTrackingEnabled"
+                          valuePropName="checked"
+                          tooltip="Track Best-Before dates for all inventory of this product"
+                        >
+                          <Switch
+                            checkedChildren="Enabled"
+                            unCheckedChildren="Disabled"
+                            defaultChecked
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Enable FEFO Picking"
+                          name="fefoEnabled"
+                          valuePropName="checked"
+                          tooltip="First-Expiry, First-Out: Always pick items with nearest expiry date first"
+                        >
+                          <Switch
+                            checkedChildren="Enabled"
+                            unCheckedChildren="Disabled"
+                            defaultChecked
+                          />
+                        </Form.Item>
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
+                        <h4 className="font-semibold mb-2 text-gray-700">Lot & Batch Tracking</h4>
+                        <p className="text-sm text-gray-600 mb-3">
+                          When receiving inventory of this product, you will be prompted to enter:
+                        </p>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                          <li>Lot Number (unique identifier for this batch)</li>
+                          <li>Batch Number (manufacturer's batch code)</li>
+                          <li>Best-Before Date (when this lot expires)</li>
+                          <li>Manufacturing Date (optional)</li>
+                        </ul>
                       </div>
                     </div>
                   ),

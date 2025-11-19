@@ -27,6 +27,8 @@ import {
   CarOutlined,
   UndoOutlined,
   PrinterOutlined,
+  ContactsOutlined,
+  UsergroupAddOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -104,12 +106,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       ],
     },
     {
+      key: '/suppliers',
+      icon: <ContactsOutlined />,
+      label: 'Suppliers',
+      children: [
+        { key: '/suppliers', label: <Link href="/suppliers">All Suppliers</Link> },
+        { key: '/suppliers/categories', label: <Link href="/suppliers/categories">Categories</Link> },
+      ],
+    },
+    {
       key: 'outbound',
       icon: <ShoppingCartOutlined />,
       label: 'Outbound',
       children: [
         { key: '/sales-orders', label: <Link href="/sales-orders">Sales Orders</Link> },
         { key: '/customers', label: <Link href="/customers">Customers</Link> },
+      ],
+    },
+    {
+      key: '/clients',
+      icon: <UsergroupAddOutlined />,
+      label: 'Clients',
+      children: [
+        { key: '/clients', label: <Link href="/clients">All Clients</Link> },
+        { key: '/clients/segments', label: <Link href="/clients/segments">Segments</Link> },
       ],
     },
     {

@@ -22,7 +22,7 @@ export default function InventoryPage() {
       key: 'sku',
       width: 120,
       render: (text: string, record: any) => (
-        <Link href={`/products/${record.productId}`}>
+        <Link href={`/inventory/${record.id}`}>
           <span className="font-medium text-blue-600 cursor-pointer hover:underline">{text}</span>
         </Link>
       )
@@ -61,7 +61,7 @@ export default function InventoryPage() {
         scroll={{ x: 1200 }}
         pagination={{ pageSize: 15 }}
         onRow={(record) => ({
-          onClick: () => router.push(`/products/${record.productId}`),
+          onClick: () => router.push(`/inventory/${record.id}`),
           style: { cursor: 'pointer' }
         })}
       />
