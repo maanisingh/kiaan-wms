@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Table, Button, Tag, Card, Space, Statistic, Row, Col } from 'antd';
-import { PackageOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { BoxPlotOutlined, ShoppingOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 import Link from 'next/link';
 
@@ -57,7 +57,7 @@ export default function BundlesPage() {
       key: 'items',
       width: 150,
       render: (_: any, record: any) => (
-        <Tag color="purple" icon={<PackageOutlined />}>
+        <Tag color="purple" icon={<BoxPlotOutlined />}>
           {record.bundleItems?.length || 0} items
         </Tag>
       ),
@@ -122,7 +122,7 @@ export default function BundlesPage() {
               <Statistic
                 title="Total Bundles"
                 value={totalBundles}
-                prefix={<PackageOutlined />}
+                prefix={<BoxPlotOutlined />}
               />
             </Card>
           </Col>
