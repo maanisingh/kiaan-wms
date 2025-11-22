@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert } from 'antd';
+import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, message } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -13,8 +13,11 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   RocketOutlined,
+  EditOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { GET_SALES_ORDERS } from '@/lib/graphql/queries';
+import { DELETE_SALES_ORDER } from '@/lib/graphql/mutations';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -31,7 +34,7 @@ export default function SalesOrdersPageReal() {
     if (searchText) {
       where._or = [
         { orderNumber: { _ilike: `%${searchText}%` } },
-        { Customer: { name: { _ilike: `%${searchText}%` } } },
+        { customer: { name: { _ilike: `%${searchText}%` } } },  // Fixed: Customer → customer
       ];
     }
 
@@ -57,6 +60,29 @@ export default function SalesOrdersPageReal() {
     fetchPolicy: 'cache-and-network',
   });
 
+  // Delete sales order mutation
+  const [deleteSalesOrder] = useMutation(DELETE_SALES_ORDER, {
+    onCompleted: () => {
+      message.success('Sales order deleted successfully');
+      refetch();
+    },
+    onError: (err) => {
+      message.error(`Failed to delete sales order: ${err.message}`);
+    },
+  });
+
+  const handleDelete = (id: string, orderNumber: string) => {
+    Modal.confirm({
+      title: 'Delete Sales Order',
+      content: `Are you sure you want to delete order ${orderNumber}? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        await deleteSalesOrder({ variables: { id } });
+      },
+    });
+  };
+
   const orders = data?.SalesOrder || [];
   const totalCount = data?.SalesOrder_aggregate?.aggregate?.count || 0;
 
@@ -75,10 +101,11 @@ export default function SalesOrdersPageReal() {
     },
     {
       title: 'Customer',
-      dataIndex: ['Customer', 'name'],
+      dataIndex: ['customer', 'name'],  // Fixed: Customer → customer
       key: 'customer',
       width: 200,
       ellipsis: true,
+      render: (text: string) => text || '-',
     },
     {
       title: 'Type',
@@ -111,7 +138,7 @@ export default function SalesOrdersPageReal() {
     },
     {
       title: 'Items',
-      dataIndex: 'SalesOrderItems',
+      dataIndex: 'salesOrderItems',  // Fixed: SalesOrderItems → salesOrderItems
       key: 'items',
       width: 80,
       align: 'center' as const,
@@ -150,13 +177,29 @@ export default function SalesOrdersPageReal() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right' as const,
-      width: 100,
+      width: 180,
       render: (_: any, record: any) => (
-        <Link href={`/sales-orders/${record.id}`}>
-          <Button type="link" icon={<EyeOutlined />} size="small">
-            View
+        <Space>
+          <Link href={`/sales-orders/${record.id}`}>
+            <Button type="link" icon={<EyeOutlined />} size="small">
+              View
+            </Button>
+          </Link>
+          <Link href={`/sales-orders/${record.id}/edit`}>
+            <Button type="link" icon={<EditOutlined />} size="small">
+              Edit
+            </Button>
+          </Link>
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            onClick={() => handleDelete(record.id, record.orderNumber)}
+          >
+            Delete
           </Button>
-        </Link>
+        </Space>
       ),
     },
   ];

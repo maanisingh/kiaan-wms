@@ -111,20 +111,37 @@ export const CREATE_SALES_ORDER = gql`
       orderNumber
       orderDate
       status
-      Customer {
+      totalAmount
+      subtotal
+      customer {
+        id
         name
+      }
+      salesOrderItems {
+        id
+        quantity
+        unitPrice
       }
     }
   }
 `;
 
 export const UPDATE_SALES_ORDER_STATUS = gql`
-  mutation UpdateSalesOrderStatus($id: uuid!, $status: String!) {
-    update_SalesOrder_by_pk(pk_columns: { id: $id }, _set: { status: $status }) {
+  mutation UpdateSalesOrderStatus($id: String!, $status: String!) {
+    update_SalesOrder_by_pk(pk_columns: { id: $id }, _set: { status: $status, updatedAt: "now()" }) {
       id
       orderNumber
       status
       updatedAt
+    }
+  }
+`;
+
+export const DELETE_SALES_ORDER = gql`
+  mutation DeleteSalesOrder($id: String!) {
+    delete_SalesOrder_by_pk(id: $id) {
+      id
+      orderNumber
     }
   }
 `;

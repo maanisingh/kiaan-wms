@@ -194,17 +194,17 @@ export const GET_SALES_ORDERS = gql`
       notes
       createdAt
       updatedAt
-      Customer {
+      customer {
         id
         name
         email
         phone
       }
-      SalesOrderItems {
+      salesOrderItems {
         id
         quantity
         unitPrice
-        Product {
+        product {
           id
           name
           sku

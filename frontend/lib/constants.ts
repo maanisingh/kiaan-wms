@@ -6,15 +6,14 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost
 
 // Order statuses
 export const ORDER_STATUSES = [
-  { value: 'pending', label: 'Pending', color: 'orange' },
-  { value: 'confirmed', label: 'Confirmed', color: 'blue' },
-  { value: 'allocated', label: 'Allocated', color: 'cyan' },
-  { value: 'picking', label: 'Picking', color: 'purple' },
-  { value: 'packing', label: 'Packing', color: 'purple' },
-  { value: 'shipped', label: 'Shipped', color: 'green' },
-  { value: 'delivered', label: 'Delivered', color: 'green' },
-  { value: 'cancelled', label: 'Cancelled', color: 'red' },
-  { value: 'on_hold', label: 'On Hold', color: 'orange' },
+  { value: 'PENDING', label: 'Pending', color: 'orange' },
+  { value: 'CONFIRMED', label: 'Confirmed', color: 'blue' },
+  { value: 'ALLOCATED', label: 'Allocated', color: 'cyan' },
+  { value: 'PICKING', label: 'Picking', color: 'purple' },
+  { value: 'PACKING', label: 'Packing', color: 'purple' },
+  { value: 'SHIPPED', label: 'Shipped', color: 'green' },
+  { value: 'DELIVERED', label: 'Delivered', color: 'green' },
+  { value: 'CANCELLED', label: 'Cancelled', color: 'red' },
 ];
 
 // Inventory statuses
@@ -28,10 +27,10 @@ export const INVENTORY_STATUSES = [
 
 // Priority levels
 export const PRIORITY_LEVELS = [
-  { value: 'low', label: 'Low', color: 'gray' },
-  { value: 'normal', label: 'Normal', color: 'blue' },
-  { value: 'high', label: 'High', color: 'orange' },
-  { value: 'urgent', label: 'Urgent', color: 'red' },
+  { value: 'LOW', label: 'Low', color: 'gray' },
+  { value: 'MEDIUM', label: 'Medium', color: 'blue' },
+  { value: 'HIGH', label: 'High', color: 'orange' },
+  { value: 'URGENT', label: 'Urgent', color: 'red' },
 ];
 
 // User roles

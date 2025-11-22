@@ -58,24 +58,36 @@ export default function NewSalesOrderPage() {
     }
 
     try {
+      // Generate UUID for the sales order
+      const uuid = crypto.randomUUID();
       const totalAmount = calculateTotal();
 
       const orderData = {
-        orderNumber: `SO-${Date.now()}`,
+        id: uuid,  // Required field
+        orderNumber: values.orderNumber || `SO-${Date.now()}`,
         orderDate: values.orderDate?.toISOString() || new Date().toISOString(),
-        requiredDate: values.requiredDate?.toISOString(),
+        requiredDate: values.requiredDate?.toISOString() || null,
         customerId: values.customerId,
         status: 'PENDING',
-        totalAmount: totalAmount,
-        priority: values.priority || 'NORMAL',
+        priority: values.priority || 'MEDIUM',
         salesChannel: values.salesChannel || 'DIRECT',
-        notes: values.notes,
-        SalesOrderItems: {
+        isWholesale: false,  // Required field
+        subtotal: totalAmount,  // Required field
+        taxAmount: 0,  // Required field
+        shippingCost: 0,  // Required field
+        discountAmount: 0,  // Required field
+        totalAmount: totalAmount,
+        notes: values.notes || null,
+        updatedAt: new Date().toISOString(),  // Required field
+        salesOrderItems: {  // Changed to lowercase
           data: orderItems.map(item => ({
+            id: crypto.randomUUID(),  // Generate UUID for each line item
             productId: item.product,
-            quantity: item.quantity,
-            unitPrice: item.price,
-            totalPrice: item.total,
+            quantity: parseInt(item.quantity),
+            unitPrice: parseFloat(item.price),
+            discount: 0,  // Required field
+            tax: 0,  // Required field
+            totalPrice: parseFloat(item.total),
           })),
         },
       };
@@ -189,9 +201,9 @@ export default function NewSalesOrderPage() {
             layout="vertical"
             onFinish={handleSubmit}
             initialValues={{
-              priority: 'normal',
-              channel: 'direct',
-              status: 'pending',
+              priority: 'MEDIUM',
+              salesChannel: 'DIRECT',
+              status: 'PENDING',
             }}
           >
             <h3 className="text-lg font-semibold mb-4">Order Information</h3>
@@ -260,15 +272,15 @@ export default function NewSalesOrderPage() {
               <Col xs={24} md={12}>
                 <Form.Item
                   label="Sales Channel"
-                  name="channel"
+                  name="salesChannel"
                   rules={[{ required: true }]}
                 >
                   <Select size="large">
-                    <Option value="direct">Direct</Option>
-                    <Option value="amazon">Amazon</Option>
-                    <Option value="shopify">Shopify</Option>
-                    <Option value="ebay">eBay</Option>
-                    <Option value="website">Website</Option>
+                    <Option value="DIRECT">Direct</Option>
+                    <Option value="AMAZON">Amazon</Option>
+                    <Option value="SHOPIFY">Shopify</Option>
+                    <Option value="EBAY">eBay</Option>
+                    <Option value="WEBSITE">Website</Option>
                   </Select>
                 </Form.Item>
               </Col>
