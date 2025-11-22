@@ -633,3 +633,103 @@ export const GET_PICK_LIST_BY_ID = gql`
   }
 `;
 
+// ============================================
+// TRANSFER QUERIES
+// ============================================
+
+export const GET_TRANSFERS = gql`
+  query GetTransfers($limit: Int, $offset: Int, $where: Transfer_bool_exp) {
+    Transfer(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      transferNumber
+      type
+      fromWarehouseId
+      toWarehouseId
+      status
+      fbaShipmentId
+      fbaDestination
+      shipmentBuilt
+      notes
+      createdAt
+      shippedAt
+      receivedAt
+      updatedAt
+      fromWarehouse {
+        id
+        name
+        code
+      }
+      toWarehouse {
+        id
+        name
+        code
+      }
+      transferItems {
+        id
+        quantity
+        receivedQuantity
+        product {
+          id
+          name
+          sku
+        }
+      }
+    }
+    Transfer_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_TRANSFER_BY_ID = gql`
+  query GetTransferById($id: String!) {
+    Transfer_by_pk(id: $id) {
+      id
+      transferNumber
+      type
+      fromWarehouseId
+      toWarehouseId
+      status
+      fbaShipmentId
+      fbaDestination
+      shipmentBuilt
+      notes
+      createdAt
+      shippedAt
+      receivedAt
+      updatedAt
+      fromWarehouse {
+        id
+        name
+        code
+        address
+      }
+      toWarehouse {
+        id
+        name
+        code
+        address
+      }
+      transferItems {
+        id
+        transferId
+        productId
+        quantity
+        receivedQuantity
+        isFBABundle
+        fbaSku
+        product {
+          id
+          name
+          sku
+          barcode
+          sellingPrice
+          costPrice
+        }
+      }
+    }
+  }
+`;
+

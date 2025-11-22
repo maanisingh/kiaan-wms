@@ -541,3 +541,100 @@ export const DELETE_WAREHOUSE = gql`
     }
   }
 `;
+
+// ============================================
+// TRANSFER MUTATIONS
+// ============================================
+
+export const CREATE_TRANSFER = gql`
+  mutation CreateTransfer($object: Transfer_insert_input!) {
+    insert_Transfer_one(object: $object) {
+      id
+      transferNumber
+      type
+      fromWarehouseId
+      toWarehouseId
+      status
+      fbaShipmentId
+      fbaDestination
+      shipmentBuilt
+      notes
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_TRANSFER = gql`
+  mutation UpdateTransfer($id: String!, $set: Transfer_set_input!) {
+    update_Transfer_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      transferNumber
+      type
+      fromWarehouseId
+      toWarehouseId
+      status
+      fbaShipmentId
+      fbaDestination
+      shipmentBuilt
+      notes
+      shippedAt
+      receivedAt
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_TRANSFER = gql`
+  mutation DeleteTransfer($id: String!) {
+    delete_Transfer_by_pk(id: $id) {
+      id
+      transferNumber
+    }
+  }
+`;
+
+export const CREATE_TRANSFER_ITEM = gql`
+  mutation CreateTransferItem($object: TransferItem_insert_input!) {
+    insert_TransferItem_one(object: $object) {
+      id
+      transferId
+      productId
+      quantity
+      receivedQuantity
+      isFBABundle
+      fbaSku
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_TRANSFER_ITEM = gql`
+  mutation UpdateTransferItem($id: String!, $set: TransferItem_set_input!) {
+    update_TransferItem_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      transferId
+      productId
+      quantity
+      receivedQuantity
+      isFBABundle
+      fbaSku
+    }
+  }
+`;
+
+export const DELETE_TRANSFER_ITEM = gql`
+  mutation DeleteTransferItem($id: String!) {
+    delete_TransferItem_by_pk(id: $id) {
+      id
+    }
+  }
+`;
+
+export const DELETE_TRANSFER_ITEMS_BY_TRANSFER = gql`
+  mutation DeleteTransferItemsByTransfer($transferId: String!) {
+    delete_TransferItem(where: { transferId: { _eq: $transferId } }) {
+      affected_rows
+    }
+  }
+`;
