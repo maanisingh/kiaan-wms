@@ -1,8 +1,21 @@
 import { ApolloClient, InMemoryCache, HttpLink, from, ApolloLink } from '@apollo/client';
 
 // HTTP connection to Hasura GraphQL API
+// Auto-detect environment: use public Hasura in production, localhost in development
+const getGraphQLUrl = () => {
+  if (process.env.NEXT_PUBLIC_GRAPHQL_URL) {
+    return process.env.NEXT_PUBLIC_GRAPHQL_URL;
+  }
+  // If deployed (no localhost in window.location), use public Hasura
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+    return 'http://91.98.157.75:8090/v1/graphql';
+  }
+  // Default to localhost for development
+  return 'http://localhost:8090/v1/graphql';
+};
+
 const httpLink = new HttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:8090/v1/graphql',
+  uri: getGraphQLUrl(),
 });
 
 // Authentication link to add JWT token to requests
