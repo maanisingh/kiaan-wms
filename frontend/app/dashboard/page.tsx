@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client/react';
+import { useQuery } from '@apollo/client';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { KPICard } from '@/components/ui/KPICard';
 import { Card, Table, Button, Tag, Row, Col, Spin, Alert } from 'antd';

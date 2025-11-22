@@ -1,6 +1,6 @@
 'use client';
 
-import { ApolloProvider as ApolloProviderBase } from '@apollo/client/react';
+import { ApolloProvider as ApolloProviderBase } from '@apollo/client';
 import { apolloClient } from '@/lib/graphql/client';
 import { ReactNode } from 'react';
 

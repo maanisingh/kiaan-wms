@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client/react';
+import { useQuery } from '@apollo/client';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space } from 'antd';
 import { PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined, SearchOutlined, ExportOutlined } from '@ant-design/icons';

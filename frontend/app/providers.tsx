@@ -3,7 +3,7 @@
 import React from 'react';
 import { ConfigProvider, App as AntApp } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ApolloProvider } from '@apollo/client/react';
+import { ApolloProvider } from '@apollo/client';
 import { apolloClient } from '@/lib/graphql/client';
 
 const queryClient = new QueryClient({

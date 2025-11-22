@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client/react';
+import { useQuery } from '@apollo/client';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert } from 'antd';
 import {
