@@ -324,6 +324,61 @@ export const GET_BRAND_BY_ID = gql`
 `;
 
 // ============================================
+// LOCATION QUERIES
+// ============================================
+
+export const GET_LOCATIONS = gql`
+  query GetLocations($limit: Int, $offset: Int, $where: Location_bool_exp) {
+    Location(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      name
+      code
+      warehouseId
+      zoneId
+      aisle
+      rack
+      shelf
+      bin
+      createdAt
+      updatedAt
+      warehouse {
+        id
+        name
+        code
+      }
+    }
+    Location_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_LOCATION_BY_ID = gql`
+  query GetLocationById($id: String!) {
+    Location_by_pk(id: $id) {
+      id
+      name
+      code
+      warehouseId
+      zoneId
+      aisle
+      rack
+      shelf
+      bin
+      createdAt
+      updatedAt
+      warehouse {
+        id
+        name
+        code
+      }
+    }
+  }
+`;
+
+// ============================================
 // WAREHOUSE QUERIES
 // ============================================
 

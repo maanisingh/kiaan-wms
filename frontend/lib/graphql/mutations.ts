@@ -322,6 +322,55 @@ export const DELETE_BRAND = gql`
 `;
 
 // ============================================
+// LOCATION MUTATIONS
+// ============================================
+
+export const CREATE_LOCATION = gql`
+  mutation CreateLocation($object: Location_insert_input!) {
+    insert_Location_one(object: $object) {
+      id
+      name
+      code
+      warehouseId
+      zoneId
+      aisle
+      rack
+      shelf
+      bin
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_LOCATION = gql`
+  mutation UpdateLocation($id: String!, $set: Location_set_input!) {
+    update_Location_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      name
+      code
+      warehouseId
+      zoneId
+      aisle
+      rack
+      shelf
+      bin
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_LOCATION = gql`
+  mutation DeleteLocation($id: String!) {
+    delete_Location_by_pk(id: $id) {
+      id
+      name
+      code
+    }
+  }
+`;
+
+// ============================================
 // WAREHOUSE MUTATIONS
 // ============================================
 
