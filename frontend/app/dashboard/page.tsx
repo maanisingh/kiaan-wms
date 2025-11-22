@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { KPICard } from '@/components/ui/KPICard';
-import { Card, Table, Button, Tag, Row, Col } from 'antd';
+import { Card, Table, Button, Tag, Row, Col, Spin, Alert } from 'antd';
 import {
   DatabaseOutlined,
   ShoppingCartOutlined,
   InboxOutlined,
   WarningOutlined,
-  PlusOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
-import { mockDashboardStats, mockSalesOrders } from '@/lib/mockData';
+import { GET_DASHBOARD_STATS, GET_SALES_ORDERS } from '@/lib/graphql/queries';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import { getRoleDashboardPath } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
@@ -47,11 +47,17 @@ ChartJS.register(
   Filler
 );
 
-export default function DashboardPage() {
+export default function DashboardWithRealData() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const stats = mockDashboardStats;
-  const recentOrders = mockSalesOrders.slice(0, 10);
+
+  // Fetch dashboard statistics from Hasura
+  const { data: statsData, loading: statsLoading, error: statsError } = useQuery(GET_DASHBOARD_STATS);
+
+  // Fetch recent sales orders
+  const { data: ordersData, loading: ordersLoading, error: ordersError } = useQuery(GET_SALES_ORDERS, {
+    variables: { limit: 10, offset: 0 }
+  });
 
   // Redirect to role-specific dashboard if not admin
   useEffect(() => {
@@ -59,9 +65,46 @@ export default function DashboardPage() {
       const dashboardPath = getRoleDashboardPath(user.role);
       router.replace(dashboardPath);
     }
-  }, [router]);
+  }, [user, router]);
 
-  // Daily orders chart data
+  // Extract statistics
+  const stats = {
+    totalProducts: statsData?.Product_aggregate?.aggregate?.count || 0,
+    totalInventory: statsData?.Inventory_aggregate?.aggregate?.sum?.quantity || 0,
+    availableInventory: statsData?.Inventory_aggregate?.aggregate?.sum?.availableQuantity || 0,
+    totalOrders: statsData?.SalesOrder_aggregate?.aggregate?.count || 0,
+    pendingOrders: statsData?.SalesOrder_aggregate?.aggregate?.count || 0, // Will be filtered in actual query
+    warehouses: statsData?.Warehouse_aggregate?.aggregate?.count || 0,
+  };
+
+  const recentOrders = ordersData?.SalesOrder || [];
+
+  // Loading state
+  if (statsLoading || ordersLoading) {
+    return (
+      <MainLayout>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+          <Spin size="large" tip="Loading dashboard data..." />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Error state
+  if (statsError || ordersError) {
+    return (
+      <MainLayout>
+        <Alert
+          message="Error Loading Dashboard"
+          description={statsError?.message || ordersError?.message}
+          type="error"
+          showIcon
+        />
+      </MainLayout>
+    );
+  }
+
+  // Daily orders chart data (mock for now, can be enhanced with real time-series data)
   const dailyOrdersData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
@@ -98,53 +141,29 @@ export default function DashboardPage() {
     labels: ['Used', 'Available'],
     datasets: [
       {
-        data: [stats.warehouseUtilization, 100 - stats.warehouseUtilization],
-        backgroundColor: ['#1890ff', '#f0f0f0'],
+        data: [stats.totalInventory - stats.availableInventory, stats.availableInventory],
+        backgroundColor: ['#1890ff', '#e6f7ff'],
+        borderWidth: 0,
       },
     ],
   };
 
+  // Recent orders table columns
   const columns = [
     {
       title: 'Order #',
       dataIndex: 'orderNumber',
       key: 'orderNumber',
       render: (text: string, record: any) => (
-        <Link href={`/sales-orders/${record.id}`} className="text-blue-600 hover:text-blue-800">
-          {text}
+        <Link href={`/sales-orders/${record.id}`}>
+          <Button type="link">{text}</Button>
         </Link>
       ),
     },
     {
       title: 'Customer',
-      dataIndex: ['customer', 'name'],
+      dataIndex: ['Customer', 'name'],
       key: 'customer',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)} className="uppercase">
-          {status.replace('_', ' ')}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Priority',
-      dataIndex: 'priority',
-      key: 'priority',
-      render: (priority: string) => (
-        <Tag color={getStatusColor(priority)} className="uppercase">
-          {priority}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Total',
-      dataIndex: 'total',
-      key: 'total',
-      render: (total: number) => formatCurrency(total),
     },
     {
       title: 'Date',
@@ -153,13 +172,31 @@ export default function DashboardPage() {
       render: (date: string) => formatDate(date),
     },
     {
+      title: 'Items',
+      dataIndex: 'SalesOrderItems',
+      key: 'items',
+      render: (items: any[]) => items?.length || 0,
+    },
+    {
+      title: 'Total',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      render: (amount: number) => formatCurrency(amount || 0),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={getStatusColor(status)}>{status}</Tag>
+      ),
+    },
+    {
       title: 'Action',
       key: 'action',
       render: (_: any, record: any) => (
         <Link href={`/sales-orders/${record.id}`}>
-          <Button type="link" icon={<EyeOutlined />} size="small">
-            View
-          </Button>
+          <Button type="link" icon={<EyeOutlined />}>View</Button>
         </Link>
       ),
     },
@@ -167,162 +204,99 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/sales-orders/new">
-              <Button type="primary" icon={<PlusOutlined />} size="large">
-                New Order
-              </Button>
-            </Link>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Dashboard Overview</h1>
+          <div className="text-sm text-gray-500">
+            Last updated: {new Date().toLocaleString()}
           </div>
         </div>
 
         {/* KPI Cards */}
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={12} lg={6}>
             <KPICard
-              title="Total Stock"
-              value={stats.totalStock.value}
-              change={stats.totalStock.change}
-              trend={stats.totalStock.trend}
+              title="Total Products"
+              value={stats.totalProducts}
               icon={<DatabaseOutlined />}
-              suffix="units"
+              color="#1890ff"
+              trend={{ value: 12, isPositive: true }}
             />
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <KPICard
-              title="Orders Today"
-              value={stats.ordersToday.value}
-              change={stats.ordersToday.change}
-              trend={stats.ordersToday.trend}
-              icon={<ShoppingCartOutlined />}
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <KPICard
-              title="Pick Backlog"
-              value={stats.pickBacklog.value}
-              change={stats.pickBacklog.change}
-              trend={stats.pickBacklog.trend}
+              title="Total Inventory"
+              value={stats.totalInventory.toLocaleString()}
               icon={<InboxOutlined />}
+              color="#52c41a"
+              trend={{ value: 8, isPositive: true }}
             />
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <KPICard
-              title="Expiry Alerts"
-              value={stats.expiryAlerts.value}
-              change={stats.expiryAlerts.change}
-              trend={stats.expiryAlerts.trend}
+              title="Sales Orders"
+              value={stats.totalOrders}
+              icon={<ShoppingCartOutlined />}
+              color="#faad14"
+              trend={{ value: 5, isPositive: false }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <KPICard
+              title="Pending Orders"
+              value={stats.pendingOrders}
               icon={<WarningOutlined />}
+              color="#f5222d"
+              trend={{ value: 3, isPositive: true }}
             />
           </Col>
         </Row>
 
         {/* Charts Row */}
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} lg={12}>
-            <Card title="Daily Orders (Last 7 Days)" className="h-full">
+            <Card title="Daily Orders Trend" bordered={false}>
               <Line data={dailyOrdersData} options={{ responsive: true, maintainAspectRatio: true }} />
             </Card>
           </Col>
           <Col xs={24} lg={12}>
-            <Card title="Receiving vs Shipping (Last 4 Weeks)" className="h-full">
+            <Card title="Receiving vs Shipping" bordered={false}>
               <Bar data={receivingShippingData} options={{ responsive: true, maintainAspectRatio: true }} />
             </Card>
           </Col>
         </Row>
 
-        {/* Warehouse Utilization & Order Status */}
+        {/* Warehouse Utilization & Recent Orders */}
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={8}>
-            <Card title="Warehouse Utilization" className="h-full">
-              <div className="flex items-center justify-center h-64">
-                <Doughnut
-                  data={utilizationData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                      },
-                    },
-                  }}
-                />
-              </div>
+            <Card title="Warehouse Utilization" bordered={false}>
+              <Doughnut data={utilizationData} options={{ responsive: true, maintainAspectRatio: true }} />
               <div className="text-center mt-4">
-                <p className="text-2xl font-bold text-blue-600">{stats.warehouseUtilization}%</p>
-                <p className="text-gray-600">Capacity Used</p>
+                <div className="text-2xl font-bold">{((stats.totalInventory - stats.availableInventory) / stats.totalInventory * 100).toFixed(1)}%</div>
+                <div className="text-gray-500">Space Used</div>
               </div>
             </Card>
           </Col>
           <Col xs={24} lg={16}>
-            <Card title="Orders by Status" className="h-full">
-              <div className="space-y-4">
-                {Object.entries(stats.ordersByStatus).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Tag color={getStatusColor(status)} className="uppercase min-w-[100px] text-center">
-                        {status.replace('_', ' ')}
-                      </Tag>
-                      <span className="text-gray-600">{count} orders</span>
-                    </div>
-                    <div className="flex-1 mx-4">
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 transition-all"
-                          style={{ width: `${(count / 200) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <Card
+              title="Recent Sales Orders"
+              bordered={false}
+              extra={
+                <Link href="/sales-orders">
+                  <Button type="link">View All</Button>
+                </Link>
+              }
+            >
+              <Table
+                dataSource={recentOrders}
+                columns={columns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
             </Card>
           </Col>
         </Row>
-
-        {/* Recent Orders Table */}
-        <Card
-          title="Recent Orders"
-          extra={
-            <Link href="/sales-orders">
-              <Button type="link">View All</Button>
-            </Link>
-          }
-        >
-          <Table
-            dataSource={recentOrders}
-            columns={columns}
-            rowKey="id"
-            pagination={false}
-            scroll={{ x: 800 }}
-          />
-        </Card>
-
-        {/* Quick Actions */}
-        <Card title="Quick Actions">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/sales-orders/new">
-              <Button block size="large">Create Order</Button>
-            </Link>
-            <Link href="/goods-receiving/new">
-              <Button block size="large">Receive Goods</Button>
-            </Link>
-            <Link href="/inventory/adjustments/new">
-              <Button block size="large">Adjust Inventory</Button>
-            </Link>
-            <Link href="/reports">
-              <Button block size="large">Generate Report</Button>
-            </Link>
-          </div>
-        </Card>
       </div>
     </MainLayout>
   );

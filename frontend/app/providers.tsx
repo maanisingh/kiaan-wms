@@ -3,6 +3,8 @@
 import React from 'react';
 import { ConfigProvider, App as AntApp } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApolloProvider } from '@apollo/client/react';
+import { apolloClient } from '@/lib/graphql/client';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,12 +38,14 @@ const antdTheme = {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConfigProvider theme={antdTheme}>
-        <AntApp>
-          {children}
-        </AntApp>
-      </ConfigProvider>
-    </QueryClientProvider>
+    <ApolloProvider client={apolloClient}>
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider theme={antdTheme}>
+          <AntApp>
+            {children}
+          </AntApp>
+        </ConfigProvider>
+      </QueryClientProvider>
+    </ApolloProvider>
   );
 }
