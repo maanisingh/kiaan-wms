@@ -6,9 +6,9 @@ const getGraphQLUrl = () => {
   if (process.env.NEXT_PUBLIC_GRAPHQL_URL) {
     return process.env.NEXT_PUBLIC_GRAPHQL_URL;
   }
-  // If deployed (no localhost in window.location), use public Hasura
+  // If deployed (no localhost in window.location), use public Hasura over HTTPS
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-    return 'http://91.98.157.75:8090/v1/graphql';
+    return 'https://hasura-wms.alexandratechlab.com/v1/graphql';
   }
   // Default to localhost for development
   return 'http://localhost:8090/v1/graphql';
