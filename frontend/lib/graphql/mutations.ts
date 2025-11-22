@@ -226,19 +226,39 @@ export const CREATE_CUSTOMER = gql`
     insert_Customer_one(object: $object) {
       id
       name
+      code
       email
+      phone
+      address
       customerType
+      companyId
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const UPDATE_CUSTOMER = gql`
-  mutation UpdateCustomer($id: uuid!, $set: Customer_set_input!) {
+  mutation UpdateCustomer($id: String!, $set: Customer_set_input!) {
     update_Customer_by_pk(pk_columns: { id: $id }, _set: $set) {
       id
       name
+      code
       email
+      phone
+      address
+      customerType
       updatedAt
+    }
+  }
+`;
+
+export const DELETE_CUSTOMER = gql`
+  mutation DeleteCustomer($id: String!) {
+    delete_Customer_by_pk(id: $id) {
+      id
+      name
+      code
     }
   }
 `;

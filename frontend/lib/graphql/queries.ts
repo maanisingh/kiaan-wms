@@ -219,3 +219,44 @@ export const GET_SALES_ORDERS = gql`
   }
 `;
 
+// ============================================
+// CUSTOMER QUERIES
+// ============================================
+
+export const GET_CUSTOMERS = gql`
+  query GetCustomers($limit: Int, $offset: Int, $where: Customer_bool_exp) {
+    Customer(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      customerType
+      createdAt
+      updatedAt
+    }
+    Customer_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_CUSTOMER_BY_ID = gql`
+  query GetCustomerById($id: String!) {
+    Customer_by_pk(id: $id) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      customerType
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
