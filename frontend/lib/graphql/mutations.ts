@@ -11,30 +11,45 @@ export const CREATE_PRODUCT = gql`
       name
       sku
       barcode
-      price
+      description
+      sellingPrice
+      costPrice
       status
+      type
+      weight
+      length
+      width
+      height
+      dimensionUnit
+      weightUnit
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const UPDATE_PRODUCT = gql`
-  mutation UpdateProduct($id: uuid!, $set: Product_set_input!) {
+  mutation UpdateProduct($id: String!, $set: Product_set_input!) {
     update_Product_by_pk(pk_columns: { id: $id }, _set: $set) {
       id
       name
       sku
-      price
+      sellingPrice
+      costPrice
       status
+      type
+      description
       updatedAt
     }
   }
 `;
 
 export const DELETE_PRODUCT = gql`
-  mutation DeleteProduct($id: uuid!) {
+  mutation DeleteProduct($id: String!) {
     delete_Product_by_pk(id: $id) {
       id
       name
+      sku
     }
   }
 `;

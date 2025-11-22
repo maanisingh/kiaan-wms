@@ -19,19 +19,28 @@ export default function NewProductPage() {
 
   const handleSubmit = async (values: any) => {
     try {
+      // Generate UUID for the product
+      const uuid = crypto.randomUUID();
+
       // Prepare the data for the mutation
       const productData = {
+        id: uuid,
         name: values.name,
         sku: values.sku,
-        barcode: values.barcode,
-        description: values.description,
-        type: values.type,
-        status: values.status,
-        price: values.sellingPrice,
-        costPrice: values.costPrice,
-        weight: values.weight,
-        dimensions: values.dimensions,
-        // Add any other fields as needed
+        barcode: values.barcode || null,
+        description: values.description || null,
+        type: values.type || 'SIMPLE',
+        status: values.status || 'ACTIVE',
+        sellingPrice: values.sellingPrice || null,
+        costPrice: values.costPrice || null,
+        weight: values.weight || null,
+        length: values.dimensions?.length || null,
+        width: values.dimensions?.width || null,
+        height: values.dimensions?.height || null,
+        dimensionUnit: values.dimensionUnit || 'cm',
+        weightUnit: values.weightUnit || 'kg',
+        companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df', // Default company ID
+        updatedAt: new Date().toISOString(),
       };
 
       const { data } = await createProduct({

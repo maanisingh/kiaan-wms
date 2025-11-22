@@ -46,6 +46,53 @@ export const GET_PRODUCTS = gql`
   }
 `;
 
+export const GET_PRODUCT_BY_ID = gql`
+  query GetProductById($id: String!) {
+    Product_by_pk(id: $id) {
+      id
+      name
+      sku
+      barcode
+      description
+      sellingPrice
+      costPrice
+      weight
+      weightUnit
+      length
+      width
+      height
+      dimensionUnit
+      status
+      type
+      isPerishable
+      requiresBatch
+      requiresSerial
+      shelfLifeDays
+      images
+      createdAt
+      updatedAt
+      Brand {
+        id
+        name
+      }
+      inventoryItems {
+        id
+        quantity
+        availableQuantity
+        bestBeforeDate
+        lotNumber
+        location {
+          code
+          name
+          warehouse {
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_BRANDS = gql`
   query GetBrands {
     Brand(order_by: { name: asc }) {

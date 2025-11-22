@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic } from 'antd';
+import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Spin } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -15,27 +15,36 @@ import {
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
-import { mockProducts } from '@/lib/mockData';
+import { useQuery } from '@apollo/client';
+import { GET_PRODUCT_BY_ID } from '@/lib/graphql/queries';
 import Link from 'next/link';
 
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const [product, setProduct] = useState<any>(null);
+  const { data, loading, error } = useQuery(GET_PRODUCT_BY_ID, {
+    variables: { id: params.id as string },
+    skip: !params.id,
+  });
 
-  useEffect(() => {
-    // Simulate fetching product data
-    const foundProduct = mockProducts.find((p) => p.id === params.id);
-    if (foundProduct) {
-      setProduct(foundProduct);
-    }
-  }, [params.id]);
+  const product = data?.Product_by_pk;
 
-  if (!product) {
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center py-12">
+          <Spin size="large" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error || !product) {
     return (
       <MainLayout>
         <div className="text-center py-12">
           <h2 className="text-2xl">Product not found</h2>
+          <p className="text-gray-600 mt-2">{error?.message || 'The product you are looking for does not exist.'}</p>
           <Button className="mt-4" onClick={() => router.push('/products')}>
             Back to Products
           </Button>
