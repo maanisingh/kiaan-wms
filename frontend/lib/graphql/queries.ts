@@ -733,3 +733,65 @@ export const GET_TRANSFER_BY_ID = gql`
   }
 `;
 
+// ============================================
+// ZONE QUERIES
+// ============================================
+
+export const GET_ZONES = gql`
+  query GetZones($limit: Int, $offset: Int, $where: Zone_bool_exp) {
+    Zone(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      name
+      code
+      warehouseId
+      zoneType
+      createdAt
+      updatedAt
+      warehouse {
+        id
+        name
+        code
+      }
+      locations {
+        id
+        code
+        name
+      }
+    }
+    Zone_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_ZONE_BY_ID = gql`
+  query GetZoneById($id: String!) {
+    Zone_by_pk(id: $id) {
+      id
+      name
+      code
+      warehouseId
+      zoneType
+      createdAt
+      updatedAt
+      warehouse {
+        id
+        name
+        code
+        address
+      }
+      locations {
+        id
+        code
+        name
+        aisle
+        rack
+        shelf
+        bin
+      }
+    }
+  }
+`;
+

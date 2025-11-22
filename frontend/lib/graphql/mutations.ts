@@ -638,3 +638,44 @@ export const DELETE_TRANSFER_ITEMS_BY_TRANSFER = gql`
     }
   }
 `;
+
+// ============================================
+// ZONE MUTATIONS
+// ============================================
+
+export const CREATE_ZONE = gql`
+  mutation CreateZone($object: Zone_insert_input!) {
+    insert_Zone_one(object: $object) {
+      id
+      name
+      code
+      warehouseId
+      zoneType
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_ZONE = gql`
+  mutation UpdateZone($id: String!, $set: Zone_set_input!) {
+    update_Zone_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      name
+      code
+      warehouseId
+      zoneType
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_ZONE = gql`
+  mutation DeleteZone($id: String!) {
+    delete_Zone_by_pk(id: $id) {
+      id
+      name
+      code
+    }
+  }
+`;
