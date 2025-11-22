@@ -123,6 +123,49 @@ export const ADJUST_INVENTORY = gql`
 `;
 
 // ============================================
+// BUNDLE ITEM MUTATIONS
+// ============================================
+
+export const CREATE_BUNDLE_ITEM = gql`
+  mutation CreateBundleItem($object: BundleItem_insert_input!) {
+    insert_BundleItem_one(object: $object) {
+      id
+      parentId
+      childId
+      quantity
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_BUNDLE_ITEM = gql`
+  mutation UpdateBundleItem($id: String!, $set: BundleItem_set_input!) {
+    update_BundleItem_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      parentId
+      childId
+      quantity
+    }
+  }
+`;
+
+export const DELETE_BUNDLE_ITEM = gql`
+  mutation DeleteBundleItem($id: String!) {
+    delete_BundleItem_by_pk(id: $id) {
+      id
+    }
+  }
+`;
+
+export const DELETE_BUNDLE_ITEMS_BY_PARENT = gql`
+  mutation DeleteBundleItemsByParent($parentId: String!) {
+    delete_BundleItem(where: { parentId: { _eq: $parentId } }) {
+      affected_rows
+    }
+  }
+`;
+
+// ============================================
 // SALES ORDER MUTATIONS
 // ============================================
 

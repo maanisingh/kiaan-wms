@@ -214,6 +214,67 @@ export const GET_INVENTORY_BY_ID = gql`
   }
 `;
 
+export const GET_BUNDLES = gql`
+  query GetBundles($limit: Int, $offset: Int, $where: Product_bool_exp) {
+    Product(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      name
+      sku
+      barcode
+      description
+      sellingPrice
+      costPrice
+      status
+      createdAt
+      updatedAt
+      bundleItems {
+        id
+        quantity
+        child {
+          id
+          name
+          sku
+          sellingPrice
+        }
+      }
+    }
+    Product_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_BUNDLE_BY_ID = gql`
+  query GetBundleById($id: String!) {
+    Product_by_pk(id: $id) {
+      id
+      name
+      sku
+      barcode
+      description
+      sellingPrice
+      costPrice
+      status
+      type
+      createdAt
+      updatedAt
+      bundleItems {
+        id
+        quantity
+        child {
+          id
+          name
+          sku
+          sellingPrice
+          costPrice
+        }
+      }
+    }
+  }
+`;
+
 export const GET_SALES_ORDERS = gql`
   query GetSalesOrders($limit: Int, $offset: Int, $where: SalesOrder_bool_exp) {
     SalesOrder(limit: $limit, offset: $offset, where: $where, order_by: { orderDate: desc }) {
