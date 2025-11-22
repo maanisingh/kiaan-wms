@@ -62,33 +62,55 @@ export const CREATE_INVENTORY = gql`
   mutation CreateInventory($object: Inventory_insert_input!) {
     insert_Inventory_one(object: $object) {
       id
+      productId
+      warehouseId
+      locationId
+      lotNumber
+      batchNumber
+      serialNumber
+      bestBeforeDate
+      receivedDate
       quantity
       availableQuantity
-      Product {
-        name
-        sku
-      }
-      Location {
-        code
-      }
+      reservedQuantity
+      status
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const UPDATE_INVENTORY = gql`
-  mutation UpdateInventory($id: uuid!, $set: Inventory_set_input!) {
+  mutation UpdateInventory($id: String!, $set: Inventory_set_input!) {
     update_Inventory_by_pk(pk_columns: { id: $id }, _set: $set) {
       id
+      productId
+      warehouseId
+      locationId
+      lotNumber
+      batchNumber
+      serialNumber
+      bestBeforeDate
       quantity
       availableQuantity
+      reservedQuantity
       status
       updatedAt
     }
   }
 `;
 
+export const DELETE_INVENTORY = gql`
+  mutation DeleteInventory($id: String!) {
+    delete_Inventory_by_pk(id: $id) {
+      id
+      lotNumber
+    }
+  }
+`;
+
 export const ADJUST_INVENTORY = gql`
-  mutation AdjustInventory($id: uuid!, $quantity: numeric!, $reason: String) {
+  mutation AdjustInventory($id: String!, $quantity: Int!) {
     update_Inventory_by_pk(
       pk_columns: { id: $id }
       _inc: { quantity: $quantity, availableQuantity: $quantity }

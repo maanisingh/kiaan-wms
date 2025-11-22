@@ -132,29 +132,35 @@ export const GET_INVENTORY = gql`
   query GetInventory($limit: Int, $offset: Int, $where: Inventory_bool_exp) {
     Inventory(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
       id
+      productId
+      warehouseId
+      locationId
+      lotNumber
+      batchNumber
+      serialNumber
+      bestBeforeDate
+      receivedDate
       quantity
       availableQuantity
       reservedQuantity
       status
-      lotNumber
-      bestBeforeDate
-      serialNumber
       createdAt
       updatedAt
-      Product {
+      product {
         id
         name
         sku
         barcode
       }
-      Location {
+      warehouse {
+        id
+        name
+        code
+      }
+      location {
         id
         code
         name
-        Warehouse {
-          id
-          name
-        }
       }
     }
     Inventory_aggregate(where: $where) {
@@ -163,7 +169,46 @@ export const GET_INVENTORY = gql`
         sum {
           quantity
           availableQuantity
+          reservedQuantity
         }
+      }
+    }
+  }
+`;
+
+export const GET_INVENTORY_BY_ID = gql`
+  query GetInventoryById($id: String!) {
+    Inventory_by_pk(id: $id) {
+      id
+      productId
+      warehouseId
+      locationId
+      lotNumber
+      batchNumber
+      serialNumber
+      bestBeforeDate
+      receivedDate
+      quantity
+      availableQuantity
+      reservedQuantity
+      status
+      createdAt
+      updatedAt
+      product {
+        id
+        name
+        sku
+        barcode
+      }
+      warehouse {
+        id
+        name
+        code
+      }
+      location {
+        id
+        code
+        name
       }
     }
   }
