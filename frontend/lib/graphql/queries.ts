@@ -12,27 +12,33 @@ export const GET_PRODUCTS = gql`
       sku
       barcode
       description
-      price
+      sellingPrice
       costPrice
       weight
-      dimensions
+      weightUnit
+      length
+      width
+      height
+      dimensionUnit
       status
       type
-      isSerialized
-      trackBestBefore
+      isPerishable
+      requiresBatch
+      requiresSerial
+      shelfLifeDays
       createdAt
       updatedAt
       Brand {
         id
         name
       }
-      Inventories {
+      inventoryItems {
         id
         quantity
         availableQuantity
-        Location {
+        location {
           code
-          Warehouse {
+          warehouse {
             name
           }
         }
