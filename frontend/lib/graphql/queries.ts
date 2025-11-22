@@ -28,7 +28,7 @@ export const GET_PRODUCTS = gql`
       shelfLifeDays
       createdAt
       updatedAt
-      Brand {
+      brand {
         id
         name
       }
@@ -77,7 +77,7 @@ export const GET_PRODUCT_BY_ID = gql`
       images
       createdAt
       updatedAt
-      Brand {
+      brand {
         id
         name
       }
