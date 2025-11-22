@@ -527,3 +527,109 @@ export const GET_WAREHOUSE_BY_ID = gql`
   }
 `;
 
+// ============================================
+// PICK LIST QUERIES
+// ============================================
+
+export const GET_PICK_LISTS = gql`
+  query GetPickLists($limit: Int, $offset: Int, $where: PickList_bool_exp) {
+    PickList(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      pickListNumber
+      type
+      orderId
+      assignedUserId
+      status
+      priority
+      enforceSingleBBDate
+      startedAt
+      completedAt
+      createdAt
+      updatedAt
+      SalesOrder {
+        id
+        orderNumber
+        customer {
+          name
+        }
+      }
+      User {
+        id
+        name
+        email
+      }
+      pickItems {
+        id
+        quantityRequired
+        quantityPicked
+        status
+      }
+    }
+    PickList_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_PICK_LIST_BY_ID = gql`
+  query GetPickListById($id: String!) {
+    PickList_by_pk(id: $id) {
+      id
+      pickListNumber
+      type
+      orderId
+      assignedUserId
+      status
+      priority
+      enforceSingleBBDate
+      startedAt
+      completedAt
+      createdAt
+      updatedAt
+      SalesOrder {
+        id
+        orderNumber
+        customer {
+          id
+          name
+          email
+        }
+      }
+      User {
+        id
+        name
+        email
+      }
+      pickItems {
+        id
+        pickListId
+        productId
+        locationId
+        selectedBBDate
+        lotNumber
+        quantityRequired
+        quantityPicked
+        status
+        sequenceNumber
+        product {
+          id
+          name
+          sku
+          barcode
+        }
+        location {
+          id
+          code
+          name
+          aisle
+          rack
+          shelf
+          bin
+        }
+      }
+    }
+  }
+`;
+

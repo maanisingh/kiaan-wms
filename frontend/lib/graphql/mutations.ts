@@ -220,38 +220,97 @@ export const CREATE_PICK_LIST = gql`
     insert_PickList_one(object: $object) {
       id
       pickListNumber
+      type
+      orderId
+      assignedUserId
       status
-      SalesOrder {
-        orderNumber
-      }
+      priority
+      enforceSingleBBDate
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_PICK_LIST = gql`
+  mutation UpdatePickList($id: String!, $set: PickList_set_input!) {
+    update_PickList_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      pickListNumber
+      type
+      orderId
+      assignedUserId
+      status
+      priority
+      enforceSingleBBDate
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_PICK_LIST = gql`
+  mutation DeletePickList($id: String!) {
+    delete_PickList_by_pk(id: $id) {
+      id
+      pickListNumber
+    }
+  }
+`;
+
+export const CREATE_PICK_ITEM = gql`
+  mutation CreatePickItem($object: PickItem_insert_input!) {
+    insert_PickItem_one(object: $object) {
+      id
+      pickListId
+      productId
+      locationId
+      selectedBBDate
+      lotNumber
+      quantityRequired
+      quantityPicked
+      status
+      sequenceNumber
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const UPDATE_PICK_ITEM = gql`
-  mutation UpdatePickItem($id: uuid!, $pickedQuantity: Int!, $status: String!) {
-    update_PickItem_by_pk(
-      pk_columns: { id: $id }
-      _set: { pickedQuantity: $pickedQuantity, status: $status }
-    ) {
+  mutation UpdatePickItem($id: String!, $set: PickItem_set_input!) {
+    update_PickItem_by_pk(pk_columns: { id: $id }, _set: $set) {
       id
-      requestedQuantity
-      pickedQuantity
+      pickListId
+      productId
+      locationId
+      quantityRequired
+      quantityPicked
       status
+      sequenceNumber
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_PICK_ITEM = gql`
+  mutation DeletePickItem($id: String!) {
+    delete_PickItem_by_pk(id: $id) {
+      id
     }
   }
 `;
 
 export const COMPLETE_PICK_LIST = gql`
-  mutation CompletePickList($id: uuid!) {
+  mutation CompletePickList($id: String!, $completedAt: String!) {
     update_PickList_by_pk(
       pk_columns: { id: $id }
-      _set: { status: "COMPLETED", completedAt: "now()" }
+      _set: { status: "COMPLETED", completedAt: $completedAt, updatedAt: $completedAt }
     ) {
       id
       pickListNumber
       status
       completedAt
+      updatedAt
     }
   }
 `;
