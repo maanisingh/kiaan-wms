@@ -260,3 +260,42 @@ export const GET_CUSTOMER_BY_ID = gql`
   }
 `;
 
+// ============================================
+// SUPPLIER QUERIES
+// ============================================
+
+export const GET_SUPPLIERS = gql`
+  query GetSuppliers($limit: Int, $offset: Int, $where: Supplier_bool_exp) {
+    Supplier(limit: $limit, offset: $offset, where: $where, order_by: { createdAt: desc }) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      createdAt
+      updatedAt
+    }
+    Supplier_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_SUPPLIER_BY_ID = gql`
+  query GetSupplierById($id: String!) {
+    Supplier_by_pk(id: $id) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      createdAt
+      updatedAt
+    }
+  }
+`;
+

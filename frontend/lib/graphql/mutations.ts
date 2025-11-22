@@ -262,3 +262,47 @@ export const DELETE_CUSTOMER = gql`
     }
   }
 `;
+
+// ============================================
+// SUPPLIER MUTATIONS
+// ============================================
+
+export const CREATE_SUPPLIER = gql`
+  mutation CreateSupplier($object: Supplier_insert_input!) {
+    insert_Supplier_one(object: $object) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      companyId
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_SUPPLIER = gql`
+  mutation UpdateSupplier($id: String!, $set: Supplier_set_input!) {
+    update_Supplier_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      name
+      code
+      email
+      phone
+      address
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_SUPPLIER = gql`
+  mutation DeleteSupplier($id: String!) {
+    delete_Supplier_by_pk(id: $id) {
+      id
+      name
+      code
+    }
+  }
+`;
