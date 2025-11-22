@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Hasura GraphQL Engine (already have)
+  hasura:
+    image: hasura/graphql-engine:v2.36.0
+    ports:
+      - "8090:8080"
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgresql://wms_user:wms_secure_password_2024@host.docker.internal:5439/kiaan_wms
+      HASURA_GRAPHQL_ADMIN_SECRET: kiaan_hasura_admin_secret_2024
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+    restart: unless-stopped
+
+  # Metabase - Analytics & BI Tool
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3002:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5439
+      MB_DB_USER: wms_user
+      MB_DB_PASS: wms_secure_password_2024
+      MB_DB_HOST: host.docker.internal
+    volumes:
+      - metabase-data:/metabase-data
+    restart: unless-stopped
+
+  # Redis - Caching & Real-time
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  metabase-data:
+  redis-data:

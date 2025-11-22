@@ -1,0 +1,151 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    KIAAN WMS - RAILWAY ARCHITECTURE                       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+CURRENT STATE (Frontend Only):
+═════════════════════════════════
+
+┌─────────────┐
+│   User's    │
+│   Browser   │
+└──────┬──────┘
+       │
+       ├─ Visit: frontend-production-c9100.up.railway.app
+       │
+       ▼
+┌─────────────────────────────┐
+│  Railway: Next.js Frontend  │  ✅ DEPLOYED
+│  Port: 3000                 │
+│  Status: Active             │
+└──────────┬──────────────────┘
+           │
+           ├─ Tries to fetch from: http://localhost:8090/v1/graphql
+           │
+           ▼
+          ❌ NOT FOUND (localhost doesn't exist on Railway)
+           
+Result: Pages show "Loading..." forever
+
+
+
+TARGET STATE (After Deployment):
+═════════════════════════════════
+
+┌─────────────┐
+│   User's    │
+│   Browser   │
+└──────┬──────┘
+       │
+       ├─ Visit: frontend-production-c9100.up.railway.app
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│           Railway: Next.js Frontend                         │
+│           Port: 3000                                        │
+│           ✅ DEPLOYED                                       │
+│                                                             │
+│  Environment Variables:                                     │
+│  • NEXT_PUBLIC_GRAPHQL_URL = https://hasura.../v1/graphql  │
+│  • NEXT_PUBLIC_HASURA_ADMIN_SECRET = kiaan_hasura_...      │
+└──────────┬──────────────────────────────────────────────────┘
+           │
+           ├─ Fetches data from GraphQL endpoint
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│           Railway: Hasura GraphQL Engine                    │
+│           Docker: hasura/graphql-engine:latest              │
+│           🔄 TO BE DEPLOYED                                 │
+│                                                             │
+│  Endpoints:                                                 │
+│  • https://[domain]/v1/graphql  (GraphQL API)              │
+│  • https://[domain]/console     (Admin Console)            │
+│                                                             │
+│  Environment Variables:                                     │
+│  • HASURA_GRAPHQL_DATABASE_URL = ${{Postgres.DATABASE_URL}}│
+│  • HASURA_GRAPHQL_ADMIN_SECRET = kiaan_hasura_admin_...    │
+│  • HASURA_GRAPHQL_ENABLE_CONSOLE = true                    │
+└──────────┬──────────────────────────────────────────────────┘
+           │
+           ├─ Queries database via SQL
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│           Railway: PostgreSQL Database                      │
+│           Version: 15.x                                     │
+│           🔄 TO BE DEPLOYED                                 │
+│                                                             │
+│  Data:                                                      │
+│  • 21 Tables                                               │
+│  • 32 Products                                             │
+│  • 10,707 Inventory Items                                  │
+│  • 30 Sales Orders                                         │
+│  • 5 Purchase Orders                                       │
+│                                                             │
+│  Source: full_database.sql (214KB)                         │
+└─────────────────────────────────────────────────────────────┘
+
+Result: ✅ All pages load REAL DATA from Railway PostgreSQL!
+
+
+DEPLOYMENT CHECKLIST:
+═════════════════════
+
+ [ ] Step 1: Add PostgreSQL to Railway
+ [ ] Step 2: Import full_database.sql
+ [ ] Step 3: Verify 21 tables exist
+ [ ] Step 4: Add Hasura service
+ [ ] Step 5: Configure Hasura variables
+ [ ] Step 6: Generate Hasura public domain
+ [ ] Step 7: Track all 21 tables in Hasura
+ [ ] Step 8: Update frontend environment variables
+ [ ] Step 9: Test GraphQL endpoint
+ [ ] Step 10: Verify frontend shows real data
+
+
+DATA FLOW AFTER DEPLOYMENT:
+════════════════════════════
+
+User → Frontend (Railway) → Hasura (Railway) → PostgreSQL (Railway)
+  ↓
+Dashboard shows: 
+  • 32 total products
+  • 15 low stock items
+  • 8 pending orders
+  • Recent orders table with real data
+
+Products page shows:
+  • 32 products with SKUs, prices
+  • Brand filters
+  • Stock levels
+
+Inventory page shows:
+  • 10,707 items
+  • Locations and zones
+  • Expiry dates
+
+Orders page shows:
+  • 30 sales orders
+  • Customer details
+  • Order statuses
+
+
+TIME ESTIMATE:
+══════════════
+
+PostgreSQL setup:       2 min
+Database import:        5 min
+Hasura setup:          3 min
+Variable config:       2 min
+Domain generation:     1 min
+Table tracking:        2 min
+Frontend config:       1 min
+─────────────────────────────
+TOTAL:                ~15 min
+
+
+GUIDE LOCATION:
+═══════════════
+
+/root/kiaan-wms/railway-deployment/DEPLOY_NOW.md
+

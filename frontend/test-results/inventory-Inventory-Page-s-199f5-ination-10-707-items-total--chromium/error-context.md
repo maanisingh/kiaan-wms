@@ -1,0 +1,95 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic [active]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - navigation [ref=e6]:
+            - button "previous" [disabled] [ref=e7]:
+              - img "previous" [ref=e8]
+            - generic [ref=e10]:
+              - generic [ref=e11]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e12]:
+              - img "next" [ref=e13]
+          - img
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - img [ref=e17]
+            - generic "Latest available version is detected (16.0.3)." [ref=e19]: Next.js 16.0.3
+            - generic [ref=e20]: Turbopack
+          - img
+      - dialog "Build Error" [ref=e22]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]:
+              - generic [ref=e29]: Build Error
+              - generic [ref=e30]:
+                - button "Copy Error Info" [ref=e31] [cursor=pointer]:
+                  - img [ref=e32]
+                - button "No related documentation found" [disabled] [ref=e34]:
+                  - img [ref=e35]
+                - link "Learn more about enabling Node.js inspector for server code with Chrome DevTools" [ref=e37] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/app/building-your-application/configuring/debugging#server-side-code
+                  - img [ref=e38]
+            - generic [ref=e47]: Export GET_SALES_ORDERS doesn't exist in target module
+          - generic [ref=e49]:
+            - generic [ref=e51]:
+              - img [ref=e53]
+              - generic [ref=e56]: ./kiaan-wms/frontend/app/dashboard/page.tsx (16:1)
+              - button "Open in editor" [ref=e57] [cursor=pointer]:
+                - img [ref=e59]
+            - generic [ref=e62]:
+              - generic [ref=e63]: Export
+              - text: GET_SALES_ORDERS
+              - generic [ref=e64]: doesn't exist in target module
+              - generic [ref=e65]: 14 |
+              - text: EyeOutlined,
+              - generic [ref=e66]: 15 |
+              - generic [ref=e67]: "}"
+              - text: from '@ant-design/icons'; >
+              - generic [ref=e68]: 16 |
+              - text: import
+              - generic [ref=e69]: "{"
+              - text: GET_DASHBOARD_STATS, GET_SALES_ORDERS
+              - generic [ref=e70]: "}"
+              - text: from '@/lib/graphql/queries';
+              - generic [ref=e71]: "|"
+              - text: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              - generic [ref=e72]: 17 |
+              - text: import
+              - generic [ref=e73]: "{ formatCurrency"
+              - text: ","
+              - generic [ref=e74]: formatDate
+              - text: ","
+              - generic [ref=e75]: "getStatusColor }"
+              - text: from '@/lib/utils';
+              - generic [ref=e76]: 18 |
+              - text: import
+              - generic [ref=e77]: "{ getRoleDashboardPath }"
+              - text: from '@/lib/auth';
+              - generic [ref=e78]: 19 |
+              - text: import
+              - generic [ref=e79]: "{ useAuthStore }"
+              - text: from '@/store/authStore';
+              - generic [ref=e80]: The export
+              - text: GET_SALES_ORDERS
+              - generic [ref=e81]: was not found in module
+              - generic [ref=e82]: "[project]/kiaan-wms/frontend/lib/graphql/queries.ts [app-client] (ecmascript)"
+              - generic [ref=e83]: . Did you mean to import
+              - text: GET_DASHBOARD_STATS
+              - generic [ref=e84]: "? All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist. Import traces: Client Component Browser: ./kiaan-wms/frontend/app/dashboard/page.tsx [Client Component Browser] ./kiaan-wms/frontend/app/dashboard/page.tsx [Server Component] Client Component SSR: ./kiaan-wms/frontend/app/dashboard/page.tsx [Client Component SSR] ./kiaan-wms/frontend/app/dashboard/page.tsx [Server Component]"
+        - generic [ref=e85]: "1"
+        - generic [ref=e86]: "2"
+    - generic [ref=e91] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e92]:
+        - img [ref=e93]
+      - button "Open issues overlay" [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e99]: "0"
+          - generic [ref=e100]: "1"
+        - generic [ref=e101]: Issue
+  - alert [ref=e102]
+```

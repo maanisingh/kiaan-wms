@@ -99,17 +99,6 @@ export const GET_PRODUCT_BY_ID = gql`
   }
 `;
 
-export const GET_BRANDS = gql`
-  query GetBrands {
-    Brand(order_by: { name: asc }) {
-      id
-      name
-      description
-      createdAt
-    }
-  }
-`;
-
 export const GET_DASHBOARD_STATS = gql`
   query GetDashboardStats {
     Product_aggregate {
@@ -328,6 +317,49 @@ export const GET_BRAND_BY_ID = gql`
       name
       code
       description
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+// ============================================
+// WAREHOUSE QUERIES
+// ============================================
+
+export const GET_WAREHOUSES = gql`
+  query GetWarehouses($limit: Int, $offset: Int, $where: Warehouse_bool_exp) {
+    Warehouse(limit: $limit, offset: $offset, where: $where, order_by: { name: asc }) {
+      id
+      name
+      code
+      type
+      status
+      address
+      phone
+      capacity
+      createdAt
+      updatedAt
+    }
+    Warehouse_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_WAREHOUSE_BY_ID = gql`
+  query GetWarehouseById($id: String!) {
+    Warehouse_by_pk(id: $id) {
+      id
+      name
+      code
+      type
+      status
+      address
+      phone
+      capacity
       createdAt
       updatedAt
     }

@@ -192,32 +192,6 @@ export const COMPLETE_PICK_LIST = gql`
 `;
 
 // ============================================
-// WAREHOUSE MUTATIONS
-// ============================================
-
-export const CREATE_WAREHOUSE = gql`
-  mutation CreateWarehouse($object: Warehouse_insert_input!) {
-    insert_Warehouse_one(object: $object) {
-      id
-      code
-      name
-      type
-      status
-    }
-  }
-`;
-
-export const UPDATE_WAREHOUSE = gql`
-  mutation UpdateWarehouse($id: uuid!, $set: Warehouse_set_input!) {
-    update_Warehouse_by_pk(pk_columns: { id: $id }, _set: $set) {
-      id
-      name
-      updatedAt
-    }
-  }
-`;
-
-// ============================================
 // CUSTOMER MUTATIONS
 // ============================================
 
@@ -340,6 +314,54 @@ export const UPDATE_BRAND = gql`
 export const DELETE_BRAND = gql`
   mutation DeleteBrand($id: String!) {
     delete_Brand_by_pk(id: $id) {
+      id
+      name
+      code
+    }
+  }
+`;
+
+// ============================================
+// WAREHOUSE MUTATIONS
+// ============================================
+
+export const CREATE_WAREHOUSE = gql`
+  mutation CreateWarehouse($object: Warehouse_insert_input!) {
+    insert_Warehouse_one(object: $object) {
+      id
+      name
+      code
+      type
+      status
+      address
+      phone
+      capacity
+      companyId
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_WAREHOUSE = gql`
+  mutation UpdateWarehouse($id: String!, $set: Warehouse_set_input!) {
+    update_Warehouse_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      name
+      code
+      type
+      status
+      address
+      phone
+      capacity
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_WAREHOUSE = gql`
+  mutation DeleteWarehouse($id: String!) {
+    delete_Warehouse_by_pk(id: $id) {
       id
       name
       code
