@@ -306,3 +306,43 @@ export const DELETE_SUPPLIER = gql`
     }
   }
 `;
+
+// ============================================
+// BRAND MUTATIONS
+// ============================================
+
+export const CREATE_BRAND = gql`
+  mutation CreateBrand($object: Brand_insert_input!) {
+    insert_Brand_one(object: $object) {
+      id
+      name
+      code
+      description
+      companyId
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_BRAND = gql`
+  mutation UpdateBrand($id: String!, $set: Brand_set_input!) {
+    update_Brand_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      name
+      code
+      description
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_BRAND = gql`
+  mutation DeleteBrand($id: String!) {
+    delete_Brand_by_pk(id: $id) {
+      id
+      name
+      code
+    }
+  }
+`;

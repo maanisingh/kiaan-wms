@@ -299,3 +299,38 @@ export const GET_SUPPLIER_BY_ID = gql`
   }
 `;
 
+// ============================================
+// BRAND QUERIES
+// ============================================
+
+export const GET_BRANDS = gql`
+  query GetBrands($limit: Int, $offset: Int, $where: Brand_bool_exp) {
+    Brand(limit: $limit, offset: $offset, where: $where, order_by: { name: asc }) {
+      id
+      name
+      code
+      description
+      createdAt
+      updatedAt
+    }
+    Brand_aggregate(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+export const GET_BRAND_BY_ID = gql`
+  query GetBrandById($id: String!) {
+    Brand_by_pk(id: $id) {
+      id
+      name
+      code
+      description
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
