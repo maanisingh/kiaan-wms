@@ -36,14 +36,14 @@ export default function ProductEditPage() {
         description: product.description,
         type: product.type,
         status: product.status,
-        cost: product.costPrice,
-        price: product.price,
+        costPrice: product.costPrice,
+        sellingPrice: product.sellingPrice,
         weight: product.weight,
-        weightUnit: product.dimensions?.weightUnit || 'kg',
-        length: product.dimensions?.length,
-        width: product.dimensions?.width,
-        height: product.dimensions?.height,
-        dimensionUnit: product.dimensions?.unit || 'cm',
+        weightUnit: product.weightUnit || 'kg',
+        length: product.length,
+        width: product.width,
+        height: product.height,
+        dimensionUnit: product.dimensionUnit || 'cm',
       });
     }
   }, [product, form]);
@@ -53,26 +53,24 @@ export default function ProductEditPage() {
       const updateData = {
         name: values.name,
         sku: values.sku,
-        barcode: values.barcode,
-        description: values.description,
+        barcode: values.barcode || null,
+        description: values.description || null,
         type: values.type,
         status: values.status,
-        costPrice: values.cost,
-        price: values.price,
-        weight: values.weight,
-        dimensions: {
-          weight: values.weight,
-          weightUnit: values.weightUnit,
-          length: values.length,
-          width: values.width,
-          height: values.height,
-          unit: values.dimensionUnit,
-        },
+        costPrice: values.costPrice || null,
+        sellingPrice: values.sellingPrice || null,
+        weight: values.weight || null,
+        weightUnit: values.weightUnit || 'kg',
+        length: values.length || null,
+        width: values.width || null,
+        height: values.height || null,
+        dimensionUnit: values.dimensionUnit || 'cm',
+        updatedAt: new Date().toISOString(),
       };
 
       const { data } = await updateProduct({
         variables: {
-          id: params.id,
+          id: params.id as string,
           set: updateData,
         },
       });

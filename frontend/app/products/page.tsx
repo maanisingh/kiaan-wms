@@ -113,10 +113,10 @@ export default function ProductsPageWithRealData() {
     const csvData = products.map((p: any) => [
       p.sku,
       p.name,
-      p.Brand?.name || '',
-      p.price || 0,
+      p.brand?.name || '',
+      p.sellingPrice || 0,
       p.costPrice || 0,
-      p.Inventories?.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0) || 0,
+      p.inventoryItems?.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0) || 0,
       p.status,
     ]);
 
@@ -189,7 +189,7 @@ export default function ProductsPageWithRealData() {
       key: 'stock',
       width: 100,
       render: (_: any, record: any) => {
-        const totalStock = record.Inventories?.reduce((sum: number, inv: any) =>
+        const totalStock = record.inventoryItems?.reduce((sum: number, inv: any) =>
           sum + (inv.quantity || 0), 0) || 0;
         return (
           <Space>
