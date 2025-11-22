@@ -5,6 +5,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Form, Input, Select, Button, Row, Col, message, DatePicker, InputNumber, Table } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@apollo/client';
+import { ADJUST_INVENTORY } from '@/lib/graphql/mutations';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -12,7 +14,7 @@ const { TextArea } = Input;
 export default function NewStockAdjustmentPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [adjustInventory, { loading }] = useMutation(ADJUST_INVENTORY);
   const [adjustmentItems, setAdjustmentItems] = useState<any[]>([]);
 
   const handleAddItem = () => {
@@ -51,22 +53,25 @@ export default function NewStockAdjustmentPage() {
       return;
     }
 
-    setLoading(true);
     try {
-      const adjustmentData = {
-        ...values,
-        items: adjustmentItems,
-      };
-      // TODO: API call to create adjustment
-      console.log('Creating stock adjustment:', adjustmentData);
+      // Process each adjustment item
+      const adjustmentPromises = adjustmentItems.map(item =>
+        adjustInventory({
+          variables: {
+            id: item.product, // This would be the inventory ID
+            quantity: item.adjustmentQty,
+            reason: values.reason || item.reason,
+          },
+        })
+      );
+
+      await Promise.all(adjustmentPromises);
+
       message.success('Stock adjustment created successfully!');
-      setTimeout(() => {
-        router.push('/inventory/adjustments');
-      }, 1000);
-    } catch (error) {
-      message.error('Failed to create stock adjustment');
-    } finally {
-      setLoading(false);
+      router.push('/inventory/adjustments');
+    } catch (error: any) {
+      console.error('Error creating stock adjustment:', error);
+      message.error(error?.message || 'Failed to create stock adjustment. Please try again.');
     }
   };
 

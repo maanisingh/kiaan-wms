@@ -5,6 +5,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Form, Input, Select, Button, Row, Col, message, InputNumber, Upload } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@apollo/client';
+import { CREATE_PRODUCT } from '@/lib/graphql/mutations';
 import { PRODUCT_TYPES, UNITS_OF_MEASURE, DIMENSION_UNITS, WEIGHT_UNITS } from '@/lib/constants';
 
 const { Option } = Select;
@@ -13,21 +15,36 @@ const { TextArea } = Input;
 export default function NewProductPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const [loading, setLoading] = React.useState(false);
+  const [createProduct, { loading }] = useMutation(CREATE_PRODUCT);
 
   const handleSubmit = async (values: any) => {
-    setLoading(true);
     try {
-      // TODO: API call to create product
-      console.log('Creating product:', values);
-      message.success('Product created successfully!');
-      setTimeout(() => {
+      // Prepare the data for the mutation
+      const productData = {
+        name: values.name,
+        sku: values.sku,
+        barcode: values.barcode,
+        description: values.description,
+        type: values.type,
+        status: values.status,
+        price: values.sellingPrice,
+        costPrice: values.costPrice,
+        weight: values.weight,
+        dimensions: values.dimensions,
+        // Add any other fields as needed
+      };
+
+      const { data } = await createProduct({
+        variables: { object: productData },
+      });
+
+      if (data?.insert_Product_one) {
+        message.success('Product created successfully!');
         router.push('/products');
-      }, 1000);
-    } catch (error) {
-      message.error('Failed to create product');
-    } finally {
-      setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('Error creating product:', error);
+      message.error(error?.message || 'Failed to create product. Please try again.');
     }
   };
 

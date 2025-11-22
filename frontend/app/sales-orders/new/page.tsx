@@ -5,6 +5,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, Form, Input, Select, Button, Row, Col, message, DatePicker, Table, InputNumber, Divider } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@apollo/client';
+import { CREATE_SALES_ORDER } from '@/lib/graphql/mutations';
 import { PRIORITY_LEVELS } from '@/lib/constants';
 
 const { Option } = Select;
@@ -13,7 +15,7 @@ const { TextArea } = Input;
 export default function NewSalesOrderPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [createSalesOrder, { loading }] = useMutation(CREATE_SALES_ORDER);
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
   const handleAddItem = () => {
@@ -55,23 +57,40 @@ export default function NewSalesOrderPage() {
       return;
     }
 
-    setLoading(true);
     try {
+      const totalAmount = calculateTotal();
+
       const orderData = {
-        ...values,
-        items: orderItems,
-        total: calculateTotal(),
+        orderNumber: `SO-${Date.now()}`,
+        orderDate: values.orderDate?.toISOString() || new Date().toISOString(),
+        requiredDate: values.requiredDate?.toISOString(),
+        customerId: values.customerId,
+        status: 'PENDING',
+        totalAmount: totalAmount,
+        priority: values.priority || 'NORMAL',
+        salesChannel: values.salesChannel || 'DIRECT',
+        notes: values.notes,
+        SalesOrderItems: {
+          data: orderItems.map(item => ({
+            productId: item.product,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.total,
+          })),
+        },
       };
-      // TODO: API call to create order
-      console.log('Creating order:', orderData);
-      message.success('Sales order created successfully!');
-      setTimeout(() => {
+
+      const { data } = await createSalesOrder({
+        variables: { object: orderData },
+      });
+
+      if (data?.insert_SalesOrder_one) {
+        message.success('Sales order created successfully!');
         router.push('/sales-orders');
-      }, 1000);
-    } catch (error) {
-      message.error('Failed to create sales order');
-    } finally {
-      setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('Error creating sales order:', error);
+      message.error(error?.message || 'Failed to create sales order. Please try again.');
     }
   };
 

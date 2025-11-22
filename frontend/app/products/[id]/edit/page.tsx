@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, Button, Form, Input, Select, InputNumber, message, Space, Tabs, Switch } from 'antd';
+import { Card, Button, Form, Input, Select, InputNumber, message, Space, Tabs, Switch, Spin } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
-import { mockProducts, mockCategories } from '@/lib/mockData';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_PRODUCTS } from '@/lib/graphql/queries';
+import { UPDATE_PRODUCT } from '@/lib/graphql/mutations';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -14,56 +16,88 @@ export default function ProductEditPage() {
   const router = useRouter();
   const params = useParams();
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [product, setProduct] = useState<any>(null);
+
+  // Fetch product data
+  const { data, loading: queryLoading, error } = useQuery(GET_PRODUCTS, {
+    variables: { where: { id: { _eq: params.id } }, limit: 1 },
+  });
+
+  const [updateProduct, { loading: mutationLoading }] = useMutation(UPDATE_PRODUCT);
+
+  const product = data?.Product?.[0];
 
   useEffect(() => {
-    // Simulate fetching product data
-    const foundProduct = mockProducts.find((p) => p.id === params.id);
-    if (foundProduct) {
-      setProduct(foundProduct);
-      // Set form values
+    if (product) {
+      // Set form values from fetched product
       form.setFieldsValue({
-        name: foundProduct.name,
-        sku: foundProduct.sku,
-        barcode: foundProduct.barcode,
-        description: foundProduct.description,
-        categoryId: foundProduct.category?.id,
-        type: foundProduct.type,
-        status: foundProduct.status,
-        cost: foundProduct.pricing?.cost,
-        price: foundProduct.pricing?.price,
-        weight: foundProduct.dimensions?.weight,
-        weightUnit: foundProduct.dimensions?.weightUnit,
-        length: foundProduct.dimensions?.length,
-        width: foundProduct.dimensions?.width,
-        height: foundProduct.dimensions?.height,
-        dimensionUnit: foundProduct.dimensions?.unit,
-        // Expiry tracking fields (defaults)
-        shelfLifeDays: 365,
-        expiryTrackingEnabled: true,
-        fefoEnabled: true,
-        alertThresholdDays: 180,
+        name: product.name,
+        sku: product.sku,
+        barcode: product.barcode,
+        description: product.description,
+        type: product.type,
+        status: product.status,
+        cost: product.costPrice,
+        price: product.price,
+        weight: product.weight,
+        weightUnit: product.dimensions?.weightUnit || 'kg',
+        length: product.dimensions?.length,
+        width: product.dimensions?.width,
+        height: product.dimensions?.height,
+        dimensionUnit: product.dimensions?.unit || 'cm',
       });
     }
-  }, [params.id, form]);
+  }, [product, form]);
 
   const handleSubmit = async (values: any) => {
-    setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Updated product values:', values);
-      message.success('Product updated successfully!');
-      router.push(`/products/${params.id}`);
-    } catch (error) {
-      message.error('Failed to update product');
-    } finally {
-      setLoading(false);
+      const updateData = {
+        name: values.name,
+        sku: values.sku,
+        barcode: values.barcode,
+        description: values.description,
+        type: values.type,
+        status: values.status,
+        costPrice: values.cost,
+        price: values.price,
+        weight: values.weight,
+        dimensions: {
+          weight: values.weight,
+          weightUnit: values.weightUnit,
+          length: values.length,
+          width: values.width,
+          height: values.height,
+          unit: values.dimensionUnit,
+        },
+      };
+
+      const { data } = await updateProduct({
+        variables: {
+          id: params.id,
+          set: updateData,
+        },
+      });
+
+      if (data?.update_Product_by_pk) {
+        message.success('Product updated successfully!');
+        router.push(`/products/${params.id}`);
+      }
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      message.error(error?.message || 'Failed to update product. Please try again.');
     }
   };
 
-  if (!product) {
+  if (queryLoading) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center py-12">
+          <Spin size="large" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error || !product) {
     return (
       <MainLayout>
         <div className="text-center py-12">
@@ -101,7 +135,7 @@ export default function ProductEditPage() {
               type="primary"
               icon={<SaveOutlined />}
               onClick={() => form.submit()}
-              loading={loading}
+              loading={mutationLoading}
               size="large"
             >
               Save Changes
