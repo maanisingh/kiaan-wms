@@ -18,87 +18,172 @@ import {
   StopOutlined,
 } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_CUSTOMERS } from '@/lib/graphql/queries';
+import { CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER } from '@/lib/graphql/mutations';
+import { useRouter } from 'next/navigation';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function CustomersPage() {
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const addModal = useModal();
   const editModal = useModal();
   const [form] = Form.useForm();
 
-  // Mock data
-  const customers = [
-    {
-      id: '1',
-      name: 'Acme Corporation',
-      email: 'contact@acme.com',
-      phone: '+1 234 567 8900',
-      address: '123 Business St, New York, NY',
-      status: 'active',
-      totalOrders: 45,
-      totalSpent: 125000,
+  // GraphQL query for customers
+  const { data, loading, error, refetch } = useQuery(GET_CUSTOMERS, {
+    variables: {
+      limit: 100,
+      offset: 0,
     },
-    {
-      id: '2',
-      name: 'TechStart Inc',
-      email: 'info@techstart.com',
-      phone: '+1 234 567 8901',
-      address: '456 Tech Ave, San Francisco, CA',
-      status: 'active',
-      totalOrders: 32,
-      totalSpent: 98000,
-    },
-    {
-      id: '3',
-      name: 'Global Traders Ltd',
-      email: 'sales@globaltraders.com',
-      phone: '+1 234 567 8902',
-      address: '789 Commerce Blvd, Chicago, IL',
-      status: 'inactive',
-      totalOrders: 18,
-      totalSpent: 54000,
-    },
-  ];
+  });
 
-  // Filter customers by status
-  const allCustomers = customers;
-  const activeCustomers = customers.filter(c => c.status === 'active');
-  const inactiveCustomers = customers.filter(c => c.status === 'inactive');
+  // GraphQL mutations
+  const [createCustomer, { loading: creating }] = useMutation(CREATE_CUSTOMER, {
+    onCompleted: () => {
+      message.success('Customer created successfully!');
+      form.resetFields();
+      addModal.close();
+      refetch();
+    },
+    onError: (err) => {
+      message.error(`Failed to create customer: ${err.message}`);
+    },
+  });
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('Customer saved successfully!');
-    form.resetFields();
-    addModal.close();
-    editModal.close();
+  const [updateCustomer, { loading: updating }] = useMutation(UPDATE_CUSTOMER, {
+    onCompleted: () => {
+      message.success('Customer updated successfully!');
+      form.resetFields();
+      editModal.close();
+      refetch();
+    },
+    onError: (err) => {
+      message.error(`Failed to update customer: ${err.message}`);
+    },
+  });
+
+  const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
+    onCompleted: () => {
+      message.success('Customer deleted successfully!');
+      refetch();
+    },
+    onError: (err) => {
+      message.error(`Failed to delete customer: ${err.message}`);
+    },
+  });
+
+  // Get customers from GraphQL data
+  const customers = data?.Customer || [];
+
+  // Filter customers by search text and status
+  const filteredCustomers = customers.filter((c: any) => {
+    const matchesSearch = !searchText ||
+      c.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.code?.toLowerCase().includes(searchText.toLowerCase());
+    return matchesSearch;
+  });
+
+  const allCustomers = filteredCustomers;
+  const b2cCustomers = filteredCustomers.filter((c: any) => c.customerType === 'B2C');
+  const b2bCustomers = filteredCustomers.filter((c: any) => c.customerType === 'B2B');
+
+  const handleSubmit = async (values: any) => {
+    try {
+      if (selectedCustomer) {
+        // UPDATE existing customer
+        await updateCustomer({
+          variables: {
+            id: selectedCustomer.id,
+            set: {
+              name: values.name,
+              email: values.email || null,
+              phone: values.phone || null,
+              address: values.address || null,
+              customerType: values.customerType,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } else {
+        // CREATE new customer
+        const uuid = crypto.randomUUID();
+        const customerCode = `CUST-${Date.now().toString().slice(-6)}`;
+
+        await createCustomer({
+          variables: {
+            object: {
+              id: uuid,
+              code: customerCode,
+              name: values.name,
+              email: values.email || null,
+              phone: values.phone || null,
+              address: values.address || null,
+              customerType: values.customerType,
+              companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error('Error saving customer:', error);
+      message.error(error?.message || 'Failed to save customer');
+    }
   };
 
   const handleEdit = (record: any) => {
     setSelectedCustomer(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      name: record.name,
+      email: record.email,
+      phone: record.phone,
+      address: record.address,
+      customerType: record.customerType,
+    });
     editModal.open();
   };
 
   const handleDelete = (record: any) => {
     Modal.confirm({
       title: 'Delete Customer',
-      content: 'Are you sure you want to delete this customer?',
-      onOk: () => {
-        message.success('Customer deleted successfully!');
+      content: `Are you sure you want to delete customer "${record.name}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        await deleteCustomer({ variables: { id: record.id } });
       },
     });
   };
 
+  const handleAddCustomer = () => {
+    setSelectedCustomer(null);
+    form.resetFields();
+    addModal.open();
+  };
+
   const columns = [
+    {
+      title: 'Customer Code',
+      dataIndex: 'code',
+      key: 'code',
+      width: 130,
+      render: (text: string) => (
+        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{text}</span>
+      ),
+    },
     {
       title: 'Customer Name',
       dataIndex: 'name',
       key: 'name',
+      width: 200,
       render: (text: string) => (
         <div className="flex items-center gap-2">
           <UserOutlined className="text-blue-500" />
@@ -110,10 +195,11 @@ export default function CustomersPage() {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      width: 200,
       render: (email: string) => (
         <div className="flex items-center gap-2">
           <MailOutlined className="text-gray-400" />
-          <span>{email}</span>
+          <span>{email || '-'}</span>
         </div>
       ),
     },
@@ -121,33 +207,22 @@ export default function CustomersPage() {
       title: 'Phone',
       dataIndex: 'phone',
       key: 'phone',
+      width: 150,
       render: (phone: string) => (
         <div className="flex items-center gap-2">
           <PhoneOutlined className="text-gray-400" />
-          <span>{phone}</span>
+          <span>{phone || '-'}</span>
         </div>
       ),
     },
     {
-      title: 'Total Orders',
-      dataIndex: 'totalOrders',
-      key: 'totalOrders',
-      sorter: (a: any, b: any) => a.totalOrders - b.totalOrders,
-    },
-    {
-      title: 'Total Spent',
-      dataIndex: 'totalSpent',
-      key: 'totalSpent',
-      render: (amount: number) => `$${amount.toLocaleString()}`,
-      sorter: (a: any, b: any) => a.totalSpent - b.totalSpent,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'active' ? 'green' : 'red'} className="uppercase">
-          {status}
+      title: 'Type',
+      dataIndex: 'customerType',
+      key: 'customerType',
+      width: 100,
+      render: (type: string) => (
+        <Tag color={type === 'B2B' ? 'blue' : 'green'} className="uppercase">
+          {type || 'N/A'}
         </Tag>
       ),
     },
@@ -181,15 +256,13 @@ export default function CustomersPage() {
     <>
       <div className="flex gap-4 flex-wrap mb-4">
         <Search
-          placeholder="Search customers..."
+          placeholder="Search by name, email, or code..."
           allowClear
-          style={{ width: 300 }}
+          style={{ width: 350 }}
           prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
         />
-        <Select placeholder="Sort by" style={{ width: 150 }} allowClear>
-          <Option value="orders">Total Orders</Option>
-          <Option value="spent">Total Spent</Option>
-        </Select>
       </div>
       <Table
         columns={columns}
@@ -213,14 +286,14 @@ export default function CustomersPage() {
       children: renderTable(allCustomers),
     },
     {
-      key: 'active',
-      label: <span className="flex items-center gap-2"><CheckCircleOutlined />Active ({activeCustomers.length})</span>,
-      children: renderTable(activeCustomers),
+      key: 'b2c',
+      label: <span className="flex items-center gap-2"><UserOutlined />B2C ({b2cCustomers.length})</span>,
+      children: renderTable(b2cCustomers),
     },
     {
-      key: 'inactive',
-      label: <span className="flex items-center gap-2"><StopOutlined />Inactive ({inactiveCustomers.length})</span>,
-      children: renderTable(inactiveCustomers),
+      key: 'b2b',
+      label: <span className="flex items-center gap-2"><CheckCircleOutlined />B2B ({b2bCustomers.length})</span>,
+      children: renderTable(b2bCustomers),
     },
   ];
 
@@ -235,13 +308,13 @@ export default function CustomersPage() {
             </h1>
             <p className="text-gray-600 mt-1">Manage your customer database and relationships</p>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={addModal.open}>
+          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddCustomer}>
             Add Customer
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Total Customers</p>
@@ -250,20 +323,14 @@ export default function CustomersPage() {
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Active Customers</p>
-              <p className="text-3xl font-bold text-green-600">{activeCustomers.length}</p>
+              <p className="text-gray-500 text-sm">B2C Customers</p>
+              <p className="text-3xl font-bold text-green-600">{b2cCustomers.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Inactive Customers</p>
-              <p className="text-3xl font-bold text-orange-600">{inactiveCustomers.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Revenue</p>
-              <p className="text-3xl font-bold text-purple-600">$277K</p>
+              <p className="text-gray-500 text-sm">B2B Customers</p>
+              <p className="text-3xl font-bold text-purple-600">{b2bCustomers.length}</p>
             </div>
           </Card>
         </div>
@@ -290,14 +357,14 @@ export default function CustomersPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-semibold text-lg">{selectedCustomer.name}</h3>
-                <p className="text-gray-600">{selectedCustomer.email}</p>
+                <p className="text-gray-600">{selectedCustomer.email || 'No email provided'}</p>
               </div>
               <div className="border-t pt-4">
-                <p><strong>Phone:</strong> {selectedCustomer.phone}</p>
-                <p><strong>Address:</strong> {selectedCustomer.address}</p>
-                <p><strong>Status:</strong> <Tag color={selectedCustomer.status === 'active' ? 'green' : 'red'}>{selectedCustomer.status}</Tag></p>
-                <p><strong>Total Orders:</strong> {selectedCustomer.totalOrders}</p>
-                <p><strong>Total Spent:</strong> ${selectedCustomer.totalSpent.toLocaleString()}</p>
+                <p><strong>Customer Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedCustomer.code}</span></p>
+                <p><strong>Type:</strong> <Tag color={selectedCustomer.customerType === 'B2B' ? 'blue' : 'green'}>{selectedCustomer.customerType}</Tag></p>
+                <p><strong>Phone:</strong> {selectedCustomer.phone || 'Not provided'}</p>
+                <p><strong>Address:</strong> {selectedCustomer.address || 'Not provided'}</p>
+                <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
           )}
@@ -309,25 +376,26 @@ export default function CustomersPage() {
           onCancel={addModal.close}
           onOk={() => form.submit()}
           width={600}
+          confirmLoading={creating}
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Customer Name" name="name" rules={[{ required: true }]}>
+            <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
               <Input placeholder="Enter customer name" />
             </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email' }]}>
-              <Input placeholder="Enter email" />
+            <Form.Item label="Customer Type" name="customerType" rules={[{ required: true, message: 'Please select customer type' }]}>
+              <Select placeholder="Select customer type">
+                <Option value="B2C">B2C (Business to Consumer)</Option>
+                <Option value="B2B">B2B (Business to Business)</Option>
+              </Select>
             </Form.Item>
-            <Form.Item label="Phone" name="phone" rules={[{ required: true }]}>
-              <Input placeholder="Enter phone number" />
+            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
+              <Input placeholder="Enter email (optional)" />
+            </Form.Item>
+            <Form.Item label="Phone" name="phone">
+              <Input placeholder="Enter phone number (optional)" />
             </Form.Item>
             <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address" rows={3} />
-            </Form.Item>
-            <Form.Item label="Status" name="status" rules={[{ required: true }]}>
-              <Select placeholder="Select status">
-                <Option value="active">Active</Option>
-                <Option value="inactive">Inactive</Option>
-              </Select>
+              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
             </Form.Item>
           </Form>
         </Modal>
@@ -338,25 +406,26 @@ export default function CustomersPage() {
           onCancel={editModal.close}
           onOk={() => form.submit()}
           width={600}
+          confirmLoading={updating}
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Customer Name" name="name" rules={[{ required: true }]}>
+            <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
               <Input placeholder="Enter customer name" />
             </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email' }]}>
-              <Input placeholder="Enter email" />
+            <Form.Item label="Customer Type" name="customerType" rules={[{ required: true, message: 'Please select customer type' }]}>
+              <Select placeholder="Select customer type">
+                <Option value="B2C">B2C (Business to Consumer)</Option>
+                <Option value="B2B">B2B (Business to Business)</Option>
+              </Select>
             </Form.Item>
-            <Form.Item label="Phone" name="phone" rules={[{ required: true }]}>
-              <Input placeholder="Enter phone number" />
+            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
+              <Input placeholder="Enter email (optional)" />
+            </Form.Item>
+            <Form.Item label="Phone" name="phone">
+              <Input placeholder="Enter phone number (optional)" />
             </Form.Item>
             <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address" rows={3} />
-            </Form.Item>
-            <Form.Item label="Status" name="status" rules={[{ required: true }]}>
-              <Select placeholder="Select status">
-                <Option value="active">Active</Option>
-                <Option value="inactive">Inactive</Option>
-              </Select>
+              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
             </Form.Item>
           </Form>
         </Modal>
