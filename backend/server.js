@@ -2052,6 +2052,504 @@ app.get('/api/companies', verifyToken, async (req, res) => {
   }
 });
 
+// ===================================
+// SPRINT 4: BARCODE & DOCUMENT MANAGEMENT
+// ===================================
+
+// 1. Generate barcode for product
+app.post('/api/barcode/generate', verifyToken, async (req, res) => {
+  try {
+    const { productId, format = 'CODE128', width = 2, height = 100 } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { brand: true }
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Generate barcode value (use SKU or generate)
+    const barcodeValue = product.sku || `WMS${product.id.substring(0, 8)}`;
+
+    res.json({
+      productId: product.id,
+      productName: product.name,
+      sku: product.sku,
+      barcode: barcodeValue,
+      format,
+      width,
+      height,
+      createdAt: new Date()
+    });
+  } catch (error) {
+    console.error('Generate barcode error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 2. Batch generate barcodes
+app.post('/api/barcode/generate/batch', verifyToken, async (req, res) => {
+  try {
+    const { productIds, format = 'CODE128' } = req.body;
+
+    if (!productIds || !Array.isArray(productIds)) {
+      return res.status(400).json({ error: 'Product IDs array is required' });
+    }
+
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { brand: true }
+    });
+
+    const barcodes = products.map(product => ({
+      productId: product.id,
+      productName: product.name,
+      sku: product.sku,
+      barcode: product.sku || `WMS${product.id.substring(0, 8)}`,
+      format,
+      brand: product.brand?.name || 'N/A'
+    }));
+
+    res.json({
+      total: barcodes.length,
+      barcodes,
+      generatedAt: new Date()
+    });
+  } catch (error) {
+    console.error('Batch generate barcodes error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 3. Generate QR code for location
+app.post('/api/qrcode/generate', verifyToken, async (req, res) => {
+  try {
+    const { locationId, type = 'location' } = req.body;
+
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    const location = await prisma.location.findUnique({
+      where: { id: locationId },
+      include: { warehouse: true }
+    });
+
+    if (!location) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    // Generate QR code data
+    const qrData = JSON.stringify({
+      type: 'location',
+      id: location.id,
+      code: `${location.aisle}-${location.rack}-${location.bin}`,
+      warehouse: location.warehouse?.name || 'N/A',
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      locationId: location.id,
+      locationCode: `${location.aisle}-${location.rack}-${location.bin}`,
+      warehouse: location.warehouse?.name || 'N/A',
+      qrData,
+      type,
+      createdAt: new Date()
+    });
+  } catch (error) {
+    console.error('Generate QR code error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 4. Lookup product by barcode
+app.get('/api/barcode/lookup/:barcode', verifyToken, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+
+    const product = await prisma.product.findFirst({
+      where: { sku: barcode },
+      include: {
+        brand: true,
+        inventory: {
+          include: {
+            location: {
+              include: { warehouse: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found with this barcode' });
+    }
+
+    // Calculate total available quantity
+    const totalAvailable = product.inventory.reduce((sum, inv) => sum + (inv.availableQuantity || 0), 0);
+
+    res.json({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      barcode: product.sku,
+      brand: product.brand?.name || 'N/A',
+      price: product.price,
+      totalAvailable,
+      locations: product.inventory.map(inv => ({
+        id: inv.id,
+        locationCode: `${inv.location?.aisle}-${inv.location?.rack}-${inv.location?.bin}`,
+        warehouse: inv.location?.warehouse?.name || 'N/A',
+        quantity: inv.availableQuantity,
+        expiryDate: inv.expiryDate
+      }))
+    });
+  } catch (error) {
+    console.error('Barcode lookup error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 5. Generate pick list document data
+app.get('/api/documents/pick-list/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const pickList = await prisma.pickList.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: { brand: true }
+            },
+            location: {
+              include: { warehouse: true }
+            }
+          }
+        },
+        assignedTo: true,
+        createdBy: true
+      }
+    });
+
+    if (!pickList) {
+      return res.status(404).json({ error: 'Pick list not found' });
+    }
+
+    // Group items by zone/aisle for efficient picking
+    const groupedItems = pickList.items.reduce((acc, item) => {
+      const zone = item.location?.aisle || 'Unknown';
+      if (!acc[zone]) acc[zone] = [];
+      acc[zone].push({
+        productName: item.product?.name || 'Unknown',
+        sku: item.product?.sku || 'N/A',
+        brand: item.product?.brand?.name || 'N/A',
+        quantity: item.quantity,
+        location: `${item.location?.aisle}-${item.location?.rack}-${item.location?.bin}`,
+        barcode: item.product?.sku || ''
+      });
+      return acc;
+    }, {});
+
+    res.json({
+      pickListNumber: pickList.id.substring(0, 8).toUpperCase(),
+      status: pickList.status,
+      priority: pickList.priority || 'MEDIUM',
+      createdAt: pickList.createdAt,
+      assignedTo: pickList.assignedTo?.name || 'Unassigned',
+      createdBy: pickList.createdBy?.name || 'System',
+      totalItems: pickList.items.length,
+      groupedItems,
+      notes: pickList.notes || ''
+    });
+  } catch (error) {
+    console.error('Generate pick list document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 6. Generate packing slip document data
+app.post('/api/documents/packing-slip', verifyToken, async (req, res) => {
+  try {
+    const { orderId, items, shippingInfo } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+
+    // Get product details for items
+    const productIds = items.map(item => item.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { brand: true }
+    });
+
+    const itemsWithDetails = items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      return {
+        productName: product?.name || 'Unknown',
+        sku: product?.sku || 'N/A',
+        brand: product?.brand?.name || 'N/A',
+        quantity: item.quantity,
+        price: product?.price || 0
+      };
+    });
+
+    const subtotal = itemsWithDetails.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    res.json({
+      packingSlipNumber: `PS-${Date.now()}`,
+      orderId: orderId || 'N/A',
+      date: new Date(),
+      items: itemsWithDetails,
+      totalItems: items.length,
+      totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+      subtotal,
+      shippingInfo: shippingInfo || {
+        name: '',
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: ''
+      }
+    });
+  } catch (error) {
+    console.error('Generate packing slip error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 7. Generate shipping label document data
+app.post('/api/documents/shipping-label', verifyToken, async (req, res) => {
+  try {
+    const { orderId, shipTo, shipFrom, weight, dimensions } = req.body;
+
+    if (!shipTo || !shipTo.name) {
+      return res.status(400).json({ error: 'Shipping recipient information is required' });
+    }
+
+    res.json({
+      labelNumber: `LABEL-${Date.now()}`,
+      orderId: orderId || 'N/A',
+      trackingNumber: `WMS${Date.now().toString().substring(5)}`,
+      date: new Date(),
+      shipTo,
+      shipFrom: shipFrom || {
+        name: 'Kiaan WMS Warehouse',
+        address: '123 Warehouse St',
+        city: 'Commerce',
+        state: 'CA',
+        zip: '90040',
+        country: 'USA'
+      },
+      weight: weight || { value: 0, unit: 'lbs' },
+      dimensions: dimensions || { length: 0, width: 0, height: 0, unit: 'in' },
+      service: 'Standard Shipping',
+      barcode: `WMS${Date.now()}`
+    });
+  } catch (error) {
+    console.error('Generate shipping label error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 8. Generate transfer document data
+app.get('/api/documents/transfer/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const transfer = await prisma.transfer.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: { brand: true }
+            }
+          }
+        },
+        fromWarehouse: true,
+        toWarehouse: true,
+        createdBy: true
+      }
+    });
+
+    if (!transfer) {
+      return res.status(404).json({ error: 'Transfer not found' });
+    }
+
+    res.json({
+      transferNumber: transfer.id.substring(0, 8).toUpperCase(),
+      status: transfer.status,
+      transferDate: transfer.transferDate,
+      fromWarehouse: transfer.fromWarehouse?.name || 'Unknown',
+      toWarehouse: transfer.toWarehouse?.name || 'Unknown',
+      createdBy: transfer.createdBy?.name || 'System',
+      items: transfer.items.map(item => ({
+        productName: item.product?.name || 'Unknown',
+        sku: item.product?.sku || 'N/A',
+        brand: item.product?.brand?.name || 'N/A',
+        quantity: item.quantity,
+        barcode: item.product?.sku || ''
+      })),
+      totalItems: transfer.items.length,
+      totalQuantity: transfer.items.reduce((sum, item) => sum + item.quantity, 0),
+      notes: transfer.notes || ''
+    });
+  } catch (error) {
+    console.error('Generate transfer document error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 9. Generate product label data (for printing)
+app.post('/api/documents/product-label', verifyToken, async (req, res) => {
+  try {
+    const { productId, quantity = 1 } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        brand: true,
+        inventory: {
+          include: {
+            location: true
+          },
+          take: 1
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const labels = Array(quantity).fill(null).map((_, index) => ({
+      labelNumber: index + 1,
+      productName: product.name,
+      sku: product.sku,
+      brand: product.brand?.name || 'N/A',
+      barcode: product.sku || `WMS${product.id.substring(0, 8)}`,
+      price: product.price,
+      location: product.inventory[0]
+        ? `${product.inventory[0].location?.aisle}-${product.inventory[0].location?.rack}-${product.inventory[0].location?.bin}`
+        : 'N/A',
+      generatedAt: new Date()
+    }));
+
+    res.json({
+      productId: product.id,
+      quantity,
+      labels
+    });
+  } catch (error) {
+    console.error('Generate product label error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 10. Get all document templates
+app.get('/api/documents/templates', verifyToken, async (req, res) => {
+  try {
+    const templates = [
+      {
+        id: 'pick-list',
+        name: 'Pick List',
+        description: 'Printable pick list grouped by zone',
+        category: 'Operations',
+        icon: 'FileText',
+        requiresId: true
+      },
+      {
+        id: 'packing-slip',
+        name: 'Packing Slip',
+        description: 'Packing slip with order details',
+        category: 'Shipping',
+        icon: 'Package',
+        requiresId: false
+      },
+      {
+        id: 'shipping-label',
+        name: 'Shipping Label',
+        description: 'Shipping label with barcode',
+        category: 'Shipping',
+        icon: 'Tag',
+        requiresId: false
+      },
+      {
+        id: 'transfer-document',
+        name: 'Transfer Document',
+        description: 'Transfer order form',
+        category: 'Operations',
+        icon: 'Truck',
+        requiresId: true
+      },
+      {
+        id: 'product-label',
+        name: 'Product Label',
+        description: 'Product label with barcode',
+        category: 'Inventory',
+        icon: 'Barcode',
+        requiresId: false
+      },
+      {
+        id: 'location-qr',
+        name: 'Location QR Code',
+        description: 'QR code for warehouse location',
+        category: 'Inventory',
+        icon: 'QrCode',
+        requiresId: false
+      }
+    ];
+
+    res.json(templates);
+  } catch (error) {
+    console.error('Get templates error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 11. Get barcode statistics
+app.get('/api/barcode/statistics', verifyToken, async (req, res) => {
+  try {
+    const totalProducts = await prisma.product.count();
+
+    const productsWithSKU = await prisma.product.count({
+      where: {
+        sku: {
+          not: null
+        }
+      }
+    });
+
+    const totalLocations = await prisma.location.count();
+
+    res.json({
+      totalProducts,
+      productsWithBarcode: productsWithSKU,
+      productsWithoutBarcode: totalProducts - productsWithSKU,
+      totalLocations,
+      barcodeFormat: 'CODE128',
+      qrCodeFormat: 'QR_CODE'
+    });
+  } catch (error) {
+    console.error('Get barcode statistics error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
