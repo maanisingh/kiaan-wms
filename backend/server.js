@@ -558,6 +558,890 @@ app.get('/api/dashboard/activity', verifyToken, async (req, res) => {
 });
 
 // ===================================
+// INVENTORY ADJUSTMENTS
+// ===================================
+
+// Get all inventory adjustments
+app.get('/api/inventory/adjustments', verifyToken, async (req, res) => {
+  try {
+    const { type, status, startDate, endDate } = req.query;
+
+    const where = {};
+    if (type) where.type = type;
+    if (status) where.status = status;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate as string);
+      if (endDate) where.createdAt.lte = new Date(endDate as string);
+    }
+
+    const adjustments = await prisma.stockAdjustment.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(adjustments);
+  } catch (error) {
+    console.error('Get adjustments error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create inventory adjustment
+app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
+  try {
+    const { type, reason, notes, items } = req.body;
+
+    if (!type || !reason || !items || items.length === 0) {
+      return res.status(400).json({ error: 'Type, reason, and items are required' });
+    }
+
+    const adjustment = await prisma.stockAdjustment.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        type,
+        status: 'PENDING',
+        warehouseId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df', // Default warehouse
+        reason,
+        notes,
+        requestedBy: req.user.id,
+        createdAt: new Date(),
+        items: {
+          create: items.map((item: any) => ({
+            productId: item.productId,
+            locationId: item.locationId,
+            batchNumber: item.batchNumber,
+            quantity: item.quantity,
+            unitCost: item.unitCost || 0
+          }))
+        }
+      },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json(adjustment);
+  } catch (error) {
+    console.error('Create adjustment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Approve/Complete adjustment
+app.patch('/api/inventory/adjustments/:id/approve', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const adjustment = await prisma.stockAdjustment.update({
+      where: { id },
+      data: {
+        status: 'COMPLETED',
+        approvedBy: req.user.id,
+        completedAt: new Date()
+      },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    // Apply inventory changes
+    for (const item of adjustment.items) {
+      await prisma.inventory.updateMany({
+        where: {
+          productId: item.productId,
+          locationId: item.locationId
+        },
+        data: {
+          quantity: {
+            increment: adjustment.type === 'INCREASE' ? item.quantity : -item.quantity
+          },
+          availableQuantity: {
+            increment: adjustment.type === 'INCREASE' ? item.quantity : -item.quantity
+          }
+        }
+      });
+    }
+
+    res.json(adjustment);
+  } catch (error) {
+    console.error('Approve adjustment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// CYCLE COUNTS
+// ===================================
+
+// Get all cycle counts
+app.get('/api/inventory/cycle-counts', verifyToken, async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const where = {};
+    if (status) where.status = status;
+
+    const cycleCounts = await prisma.cycleCount.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(cycleCounts);
+  } catch (error) {
+    console.error('Get cycle counts error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create cycle count
+app.post('/api/inventory/cycle-counts', verifyToken, async (req, res) => {
+  try {
+    const { name, type, warehouseId, locations, scheduledDate } = req.body;
+
+    const cycleCount = await prisma.cycleCount.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        warehouseId: warehouseId || '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
+        name,
+        status: 'SCHEDULED',
+        type: type || 'FULL',
+        scheduledDate: new Date(scheduledDate),
+        locations: locations || [],
+        items: [],
+        variance: {
+          total: 0,
+          positive: 0,
+          negative: 0
+        },
+        createdAt: new Date()
+      }
+    });
+
+    res.status(201).json(cycleCount);
+  } catch (error) {
+    console.error('Create cycle count error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// STOCK ALERTS
+// ===================================
+
+// Get stock alerts (low stock, expiry warnings)
+app.get('/api/inventory/alerts', verifyToken, async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    const alerts = [];
+
+    // Low stock alerts
+    if (!type || type === 'low_stock') {
+      const lowStockItems = await prisma.inventory.findMany({
+        where: {
+          availableQuantity: {
+            lte: 50 // Low stock threshold
+          }
+        },
+        include: {
+          product: true,
+          location: true
+        },
+        take: 50
+      });
+
+      alerts.push(...lowStockItems.map(item => ({
+        id: item.id,
+        type: 'low_stock',
+        severity: item.availableQuantity < 10 ? 'critical' : item.availableQuantity < 25 ? 'high' : 'medium',
+        productId: item.productId,
+        productName: item.product?.name || 'Unknown',
+        sku: item.product?.sku || 'N/A',
+        currentStock: item.availableQuantity,
+        reorderPoint: 50,
+        location: item.location?.aisle + '-' + item.location?.rack + '-' + item.location?.bin || 'N/A',
+        createdAt: new Date()
+      })));
+    }
+
+    // Expiring items alerts
+    if (!type || type === 'expiring') {
+      const expiringItems = await prisma.inventory.findMany({
+        where: {
+          expiryDate: {
+            lte: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+            gte: new Date()
+          }
+        },
+        include: {
+          product: true,
+          location: true
+        },
+        take: 50
+      });
+
+      alerts.push(...expiringItems.map(item => {
+        const daysUntilExpiry = Math.floor((new Date(item.expiryDate!).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        return {
+          id: item.id,
+          type: 'expiring',
+          severity: daysUntilExpiry < 7 ? 'critical' : daysUntilExpiry < 30 ? 'high' : 'medium',
+          productId: item.productId,
+          productName: item.product?.name || 'Unknown',
+          sku: item.product?.sku || 'N/A',
+          quantity: item.availableQuantity,
+          expiryDate: item.expiryDate,
+          daysUntilExpiry,
+          location: item.location?.aisle + '-' + item.location?.rack + '-' + item.location?.bin || 'N/A',
+          createdAt: new Date()
+        };
+      }));
+    }
+
+    // Sort by severity
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+    res.json(alerts);
+  } catch (error) {
+    console.error('Get alerts error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// BATCH/LOT TRACKING (FIFO/LIFO)
+// ===================================
+
+// Get all batches/lots
+app.get('/api/inventory/batches', verifyToken, async (req, res) => {
+  try {
+    const { productId, locationId, status } = req.query;
+
+    const where = {};
+    if (productId) where.productId = productId;
+    if (locationId) where.locationId = locationId;
+    if (status) where.status = status;
+
+    const batches = await prisma.batch.findMany({
+      where,
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        },
+        location: true
+      },
+      orderBy: [
+        { receivedDate: 'asc' }, // FIFO ordering
+        { batchNumber: 'asc' }
+      ]
+    });
+
+    res.json(batches);
+  } catch (error) {
+    console.error('Get batches error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get batch by ID
+app.get('/api/inventory/batches/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const batch = await prisma.batch.findUnique({
+      where: { id },
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        },
+        location: true,
+        movements: {
+          orderBy: { createdAt: 'desc' },
+          take: 20
+        }
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    res.json(batch);
+  } catch (error) {
+    console.error('Get batch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create new batch
+app.post('/api/inventory/batches', verifyToken, async (req, res) => {
+  try {
+    const {
+      batchNumber,
+      productId,
+      locationId,
+      quantity,
+      receivedDate,
+      expiryDate,
+      manufacturingDate,
+      unitCost,
+      supplier
+    } = req.body;
+
+    if (!batchNumber || !productId || !locationId || !quantity) {
+      return res.status(400).json({
+        error: 'Batch number, product, location, and quantity are required'
+      });
+    }
+
+    // Check if batch number already exists for this product
+    const existingBatch = await prisma.batch.findFirst({
+      where: {
+        batchNumber,
+        productId
+      }
+    });
+
+    if (existingBatch) {
+      return res.status(400).json({
+        error: 'Batch number already exists for this product'
+      });
+    }
+
+    const batch = await prisma.batch.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        batchNumber,
+        productId,
+        locationId,
+        quantity: parseFloat(quantity),
+        availableQuantity: parseFloat(quantity),
+        receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        manufacturingDate: manufacturingDate ? new Date(manufacturingDate) : null,
+        unitCost: unitCost ? parseFloat(unitCost) : 0,
+        supplier,
+        status: 'ACTIVE',
+        createdAt: new Date()
+      },
+      include: {
+        product: true,
+        location: true
+      }
+    });
+
+    res.status(201).json(batch);
+  } catch (error) {
+    console.error('Create batch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Allocate inventory using FIFO (First In, First Out)
+app.post('/api/inventory/batches/allocate-fifo', verifyToken, async (req, res) => {
+  try {
+    const { productId, locationId, quantityNeeded } = req.body;
+
+    if (!productId || !quantityNeeded) {
+      return res.status(400).json({
+        error: 'Product ID and quantity needed are required'
+      });
+    }
+
+    // Get batches ordered by FIFO (oldest first)
+    const where = {
+      productId,
+      status: 'ACTIVE',
+      availableQuantity: {
+        gt: 0
+      }
+    };
+    if (locationId) where.locationId = locationId;
+
+    const batches = await prisma.batch.findMany({
+      where,
+      orderBy: [
+        { receivedDate: 'asc' }, // FIFO - oldest first
+        { batchNumber: 'asc' }
+      ],
+      include: {
+        product: true,
+        location: true
+      }
+    });
+
+    if (batches.length === 0) {
+      return res.status(404).json({
+        error: 'No available batches found for this product'
+      });
+    }
+
+    // Calculate total available
+    const totalAvailable = batches.reduce((sum, batch) => sum + batch.availableQuantity, 0);
+
+    if (totalAvailable < quantityNeeded) {
+      return res.status(400).json({
+        error: `Insufficient inventory. Available: ${totalAvailable}, Needed: ${quantityNeeded}`
+      });
+    }
+
+    // Allocate from batches using FIFO
+    const allocations = [];
+    let remainingNeeded = parseFloat(quantityNeeded);
+
+    for (const batch of batches) {
+      if (remainingNeeded <= 0) break;
+
+      const allocatedQty = Math.min(batch.availableQuantity, remainingNeeded);
+
+      allocations.push({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        quantity: allocatedQty,
+        receivedDate: batch.receivedDate,
+        expiryDate: batch.expiryDate,
+        location: batch.location
+      });
+
+      // Update batch available quantity
+      await prisma.batch.update({
+        where: { id: batch.id },
+        data: {
+          availableQuantity: {
+            decrement: allocatedQty
+          },
+          status: batch.availableQuantity - allocatedQty === 0 ? 'DEPLETED' : 'ACTIVE'
+        }
+      });
+
+      remainingNeeded -= allocatedQty;
+    }
+
+    res.json({
+      method: 'FIFO',
+      totalAllocated: parseFloat(quantityNeeded),
+      allocations
+    });
+  } catch (error) {
+    console.error('FIFO allocation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Allocate inventory using LIFO (Last In, First Out)
+app.post('/api/inventory/batches/allocate-lifo', verifyToken, async (req, res) => {
+  try {
+    const { productId, locationId, quantityNeeded } = req.body;
+
+    if (!productId || !quantityNeeded) {
+      return res.status(400).json({
+        error: 'Product ID and quantity needed are required'
+      });
+    }
+
+    // Get batches ordered by LIFO (newest first)
+    const where = {
+      productId,
+      status: 'ACTIVE',
+      availableQuantity: {
+        gt: 0
+      }
+    };
+    if (locationId) where.locationId = locationId;
+
+    const batches = await prisma.batch.findMany({
+      where,
+      orderBy: [
+        { receivedDate: 'desc' }, // LIFO - newest first
+        { batchNumber: 'desc' }
+      ],
+      include: {
+        product: true,
+        location: true
+      }
+    });
+
+    if (batches.length === 0) {
+      return res.status(404).json({
+        error: 'No available batches found for this product'
+      });
+    }
+
+    // Calculate total available
+    const totalAvailable = batches.reduce((sum, batch) => sum + batch.availableQuantity, 0);
+
+    if (totalAvailable < quantityNeeded) {
+      return res.status(400).json({
+        error: `Insufficient inventory. Available: ${totalAvailable}, Needed: ${quantityNeeded}`
+      });
+    }
+
+    // Allocate from batches using LIFO
+    const allocations = [];
+    let remainingNeeded = parseFloat(quantityNeeded);
+
+    for (const batch of batches) {
+      if (remainingNeeded <= 0) break;
+
+      const allocatedQty = Math.min(batch.availableQuantity, remainingNeeded);
+
+      allocations.push({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        quantity: allocatedQty,
+        receivedDate: batch.receivedDate,
+        expiryDate: batch.expiryDate,
+        location: batch.location
+      });
+
+      // Update batch available quantity
+      await prisma.batch.update({
+        where: { id: batch.id },
+        data: {
+          availableQuantity: {
+            decrement: allocatedQty
+          },
+          status: batch.availableQuantity - allocatedQty === 0 ? 'DEPLETED' : 'ACTIVE'
+        }
+      });
+
+      remainingNeeded -= allocatedQty;
+    }
+
+    res.json({
+      method: 'LIFO',
+      totalAllocated: parseFloat(quantityNeeded),
+      allocations
+    });
+  } catch (error) {
+    console.error('LIFO allocation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Allocate inventory using FEFO (First Expired, First Out)
+app.post('/api/inventory/batches/allocate-fefo', verifyToken, async (req, res) => {
+  try {
+    const { productId, locationId, quantityNeeded } = req.body;
+
+    if (!productId || !quantityNeeded) {
+      return res.status(400).json({
+        error: 'Product ID and quantity needed are required'
+      });
+    }
+
+    // Get batches ordered by FEFO (earliest expiry first)
+    const where = {
+      productId,
+      status: 'ACTIVE',
+      availableQuantity: {
+        gt: 0
+      },
+      expiryDate: {
+        not: null
+      }
+    };
+    if (locationId) where.locationId = locationId;
+
+    const batches = await prisma.batch.findMany({
+      where,
+      orderBy: [
+        { expiryDate: 'asc' }, // FEFO - earliest expiry first
+        { batchNumber: 'asc' }
+      ],
+      include: {
+        product: true,
+        location: true
+      }
+    });
+
+    if (batches.length === 0) {
+      return res.status(404).json({
+        error: 'No available batches with expiry dates found for this product'
+      });
+    }
+
+    // Calculate total available
+    const totalAvailable = batches.reduce((sum, batch) => sum + batch.availableQuantity, 0);
+
+    if (totalAvailable < quantityNeeded) {
+      return res.status(400).json({
+        error: `Insufficient inventory. Available: ${totalAvailable}, Needed: ${quantityNeeded}`
+      });
+    }
+
+    // Allocate from batches using FEFO
+    const allocations = [];
+    let remainingNeeded = parseFloat(quantityNeeded);
+
+    for (const batch of batches) {
+      if (remainingNeeded <= 0) break;
+
+      const allocatedQty = Math.min(batch.availableQuantity, remainingNeeded);
+
+      allocations.push({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        quantity: allocatedQty,
+        receivedDate: batch.receivedDate,
+        expiryDate: batch.expiryDate,
+        location: batch.location
+      });
+
+      // Update batch available quantity
+      await prisma.batch.update({
+        where: { id: batch.id },
+        data: {
+          availableQuantity: {
+            decrement: allocatedQty
+          },
+          status: batch.availableQuantity - allocatedQty === 0 ? 'DEPLETED' : 'ACTIVE'
+        }
+      });
+
+      remainingNeeded -= allocatedQty;
+    }
+
+    res.json({
+      method: 'FEFO',
+      totalAllocated: parseFloat(quantityNeeded),
+      allocations
+    });
+  } catch (error) {
+    console.error('FEFO allocation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update batch status
+app.patch('/api/inventory/batches/:id/status', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['ACTIVE', 'DEPLETED', 'EXPIRED', 'QUARANTINED', 'DAMAGED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+      });
+    }
+
+    const batch = await prisma.batch.update({
+      where: { id },
+      data: { status },
+      include: {
+        product: true,
+        location: true
+      }
+    });
+
+    res.json(batch);
+  } catch (error) {
+    console.error('Update batch status error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// INVENTORY MOVEMENTS
+// ===================================
+
+// Get all inventory movements
+app.get('/api/inventory/movements', verifyToken, async (req, res) => {
+  try {
+    const { productId, type, startDate, endDate, limit } = req.query;
+
+    const where = {};
+    if (productId) where.productId = productId;
+    if (type) where.type = type;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate as string);
+      if (endDate) where.createdAt.lte = new Date(endDate as string);
+    }
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where,
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        },
+        fromLocation: true,
+        toLocation: true,
+        batch: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit ? parseInt(limit as string) : 100
+    });
+
+    res.json(movements);
+  } catch (error) {
+    console.error('Get movements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create inventory movement
+app.post('/api/inventory/movements', verifyToken, async (req, res) => {
+  try {
+    const {
+      type,
+      productId,
+      batchId,
+      fromLocationId,
+      toLocationId,
+      quantity,
+      reason,
+      notes
+    } = req.body;
+
+    if (!type || !productId || !quantity) {
+      return res.status(400).json({
+        error: 'Type, product, and quantity are required'
+      });
+    }
+
+    const movement = await prisma.inventoryMovement.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        type,
+        productId,
+        batchId,
+        fromLocationId,
+        toLocationId,
+        quantity: parseFloat(quantity),
+        reason,
+        notes,
+        userId: req.user.id,
+        createdAt: new Date()
+      },
+      include: {
+        product: true,
+        fromLocation: true,
+        toLocation: true,
+        batch: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json(movement);
+  } catch (error) {
+    console.error('Create movement error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get movement history for a product
+app.get('/api/inventory/movements/product/:productId', verifyToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { limit } = req.query;
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { productId },
+      include: {
+        fromLocation: true,
+        toLocation: true,
+        batch: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit ? parseInt(limit as string) : 50
+    });
+
+    res.json(movements);
+  } catch (error) {
+    console.error('Get product movements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get movement history for a batch
+app.get('/api/inventory/movements/batch/:batchId', verifyToken, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { batchId },
+      include: {
+        product: true,
+        fromLocation: true,
+        toLocation: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(movements);
+  } catch (error) {
+    console.error('Get batch movements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
 // BRANDS (formerly Categories)
 // ===================================
 
