@@ -479,7 +479,7 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
 // Get recent orders
 app.get('/api/dashboard/recent-orders', verifyToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 5;
+    const limit = parseInt(req.query.limit) || 5;
 
     const orders = await prisma.salesOrder.findMany({
       take: limit,
@@ -500,7 +500,7 @@ app.get('/api/dashboard/recent-orders', verifyToken, async (req, res) => {
 // Get low stock alerts
 app.get('/api/dashboard/low-stock', verifyToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit) || 10;
 
     const lowStockItems = await prisma.inventory.findMany({
       where: {
@@ -538,7 +538,7 @@ app.get('/api/dashboard/low-stock', verifyToken, async (req, res) => {
 // Get recent activity
 app.get('/api/dashboard/activity', verifyToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit) || 10;
 
     // Get recent audit logs if AuditLog table exists
     // For now, return mock data
@@ -571,8 +571,8 @@ app.get('/api/inventory/adjustments', verifyToken, async (req, res) => {
     if (status) where.status = status;
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate as string);
-      if (endDate) where.createdAt.lte = new Date(endDate as string);
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
     const adjustments = await prisma.stockAdjustment.findMany({
@@ -621,7 +621,7 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
         requestedBy: req.user.id,
         createdAt: new Date(),
         items: {
-          create: items.map((item: any) => ({
+          create: items.map((item) => ({
             productId: item.productId,
             locationId: item.locationId,
             batchNumber: item.batchNumber,
@@ -811,7 +811,7 @@ app.get('/api/inventory/alerts', verifyToken, async (req, res) => {
       });
 
       alerts.push(...expiringItems.map(item => {
-        const daysUntilExpiry = Math.floor((new Date(item.expiryDate!).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        const daysUntilExpiry = Math.floor((new Date(item.expiryDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
         return {
           id: item.id,
           type: 'expiring',
@@ -1291,8 +1291,8 @@ app.get('/api/inventory/movements', verifyToken, async (req, res) => {
     if (type) where.type = type;
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate as string);
-      if (endDate) where.createdAt.lte = new Date(endDate as string);
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
     const movements = await prisma.inventoryMovement.findMany({
@@ -1315,7 +1315,7 @@ app.get('/api/inventory/movements', verifyToken, async (req, res) => {
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: limit ? parseInt(limit as string) : 100
+      take: limit ? parseInt(limit) : 100
     });
 
     res.json(movements);
@@ -1402,7 +1402,7 @@ app.get('/api/inventory/movements/product/:productId', verifyToken, async (req, 
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: limit ? parseInt(limit as string) : 50
+      take: limit ? parseInt(limit) : 50
     });
 
     res.json(movements);
