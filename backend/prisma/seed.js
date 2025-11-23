@@ -75,36 +75,77 @@ async function main() {
     },
   });
 
-  // Create admin user
+  // Create demo users for all 6 roles (matching frontend quick login buttons)
   console.log('👤 Creating users...');
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const hashedPassword = await bcrypt.hash('Admin@123', 10); // Match frontend password
+
+  const superAdmin = await prisma.user.create({
+    data: {
+      email: 'admin@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Super Administrator',
+      role: 'SUPER_ADMIN',
+      companyId: company.id,
+    },
+  });
+
+  const companyAdmin = await prisma.user.create({
+    data: {
+      email: 'companyadmin@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Company Admin',
+      role: 'COMPANY_ADMIN',
+      companyId: company.id,
+    },
+  });
+
+  const warehouseManager = await prisma.user.create({
+    data: {
+      email: 'warehousemanager@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Warehouse Manager',
+      role: 'WAREHOUSE_MANAGER',
+      companyId: company.id,
+    },
+  });
+
+  const inventoryManager = await prisma.user.create({
+    data: {
+      email: 'inventorymanager@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Inventory Manager',
+      role: 'INVENTORY_MANAGER',
+      companyId: company.id,
+    },
+  });
+
+  const picker = await prisma.user.create({
+    data: {
+      email: 'picker@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Picker',
+      role: 'PICKER',
+      companyId: company.id,
+    },
+  });
+
+  const viewer = await prisma.user.create({
+    data: {
+      email: 'viewer@kiaan-wms.com',
+      password: hashedPassword,
+      name: 'Viewer (Read-Only)',
+      role: 'VIEWER',
+      companyId: company.id,
+    },
+  });
+
+  // Also keep the legacy admin for backward compatibility
   const admin = await prisma.user.create({
     data: {
       email: 'admin@kiaan.com',
-      password: hashedPassword,
+      password: await bcrypt.hash('admin123', 10),
       name: 'Admin User',
       role: 'ADMIN',
-      companyId: company.id,
-    },
-  });
-
-  // Create picker users
-  const picker1 = await prisma.user.create({
-    data: {
-      email: 'picker1@kiaan.com',
-      password: hashedPassword,
-      name: 'John Picker',
-      role: 'PICKER',
-      companyId: company.id,
-    },
-  });
-
-  const picker2 = await prisma.user.create({
-    data: {
-      email: 'picker2@kiaan.com',
-      password: hashedPassword,
-      name: 'Sarah Picker',
-      role: 'PICKER',
       companyId: company.id,
     },
   });
@@ -490,7 +531,7 @@ async function main() {
   console.log('✅ Database seeded successfully!');
   console.log('\n📊 Summary:');
   console.log(`   - Companies: 1`);
-  console.log(`   - Users: 3 (1 admin, 2 pickers)`);
+  console.log(`   - Users: 7 (6 demo roles + 1 legacy admin)`);
   console.log(`   - Warehouses: 2 (Main + Prep)`);
   console.log(`   - Zones: 2`);
   console.log(`   - Locations: ${locations.length}`);
