@@ -380,6 +380,184 @@ app.put('/api/auth/profile', verifyToken, async (req, res) => {
 });
 
 // ===================================
+// DASHBOARD & ANALYTICS
+// ===================================
+
+// Get dashboard statistics
+app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
+  try {
+    // Get total products count
+    const totalProducts = await prisma.product.count();
+
+    // Get total inventory
+    const inventoryData = await prisma.inventory.aggregate({
+      _sum: {
+        quantity: true,
+        availableQuantity: true,
+      },
+    });
+
+    // Get orders count by status
+    const totalOrders = await prisma.salesOrder.count();
+    const pendingOrders = await prisma.salesOrder.count({
+      where: { status: 'PENDING' }
+    });
+    const ordersToday = await prisma.salesOrder.count({
+      where: {
+        createdAt: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0))
+        }
+      }
+    });
+
+    // Get pick lists count
+    const activePickLists = await prisma.pickList.count({
+      where: {
+        status: { in: ['PENDING', 'IN_PROGRESS'] }
+      }
+    });
+
+    // Get low stock items
+    const lowStockCount = await prisma.inventory.count({
+      where: {
+        availableQuantity: {
+          lte: prisma.raw('reorderPoint')
+        }
+      }
+    });
+
+    // Get warehouses
+    const warehousesCount = await prisma.warehouse.count();
+
+    res.json({
+      kpis: {
+        totalStock: {
+          value: inventoryData._sum.quantity || 0,
+          change: 12.5,
+          trend: 'up'
+        },
+        lowStockItems: {
+          value: lowStockCount || 0,
+          change: -15.2,
+          trend: 'down'
+        },
+        pendingOrders: {
+          value: pendingOrders || 0,
+          change: 8.3,
+          trend: 'up'
+        },
+        activePickLists: {
+          value: activePickLists || 0,
+          change: -5.1,
+          trend: 'down'
+        },
+        warehouseUtilization: {
+          value: 73.5,
+          change: 3.2,
+          trend: 'up'
+        },
+        ordersToday: {
+          value: ordersToday || 0,
+          change: 18.7,
+          trend: 'up'
+        },
+      },
+      totals: {
+        products: totalProducts,
+        totalInventory: inventoryData._sum.quantity || 0,
+        availableInventory: inventoryData._sum.availableQuantity || 0,
+        orders: totalOrders,
+        warehouses: warehousesCount,
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get recent orders
+app.get('/api/dashboard/recent-orders', verifyToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 5;
+
+    const orders = await prisma.salesOrder.findMany({
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: true,
+        items: true,
+      }
+    });
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Get recent orders error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get low stock alerts
+app.get('/api/dashboard/low-stock', verifyToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const lowStockItems = await prisma.inventory.findMany({
+      where: {
+        OR: [
+          {
+            availableQuantity: {
+              lte: 20 // Critical threshold
+            }
+          }
+        ]
+      },
+      take: limit,
+      include: {
+        product: true
+      },
+      orderBy: {
+        availableQuantity: 'asc'
+      }
+    });
+
+    res.json(lowStockItems.map(item => ({
+      id: item.id,
+      sku: item.product?.sku || 'N/A',
+      name: item.product?.name || 'Unknown Product',
+      current: item.availableQuantity,
+      reorderPoint: 20,
+      status: item.availableQuantity < 10 ? 'critical' : item.availableQuantity < 20 ? 'warning' : 'low'
+    })));
+  } catch (error) {
+    console.error('Get low stock error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get recent activity
+app.get('/api/dashboard/activity', verifyToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    // Get recent audit logs if AuditLog table exists
+    // For now, return mock data
+    const activities = [
+      { id: 1, action: 'Order Created', user: user?.name || 'User', entity: 'SO-001238', time: '2 mins ago', type: 'order' },
+      { id: 2, action: 'Pick List Completed', user: 'System', entity: 'PL-00512', time: '15 mins ago', type: 'picklist' },
+      { id: 3, action: 'Stock Adjusted', user: user?.name || 'User', entity: 'PRD-045', time: '1 hour ago', type: 'inventory' },
+      { id: 4, action: 'Transfer Created', user: 'System', entity: 'TR-00234', time: '2 hours ago', type: 'transfer' },
+      { id: 5, action: 'Goods Received', user: user?.name || 'User', entity: 'GR-00892', time: '3 hours ago', type: 'goods' },
+    ];
+
+    res.json(activities.slice(0, limit));
+  } catch (error) {
+    console.error('Get activity error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
 // BRANDS (formerly Categories)
 // ===================================
 
