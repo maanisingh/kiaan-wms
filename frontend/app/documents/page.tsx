@@ -22,7 +22,7 @@ import {
 } from 'antd';
 import {
   FileTextOutlined,
-  PackageOutlined,
+  InboxOutlined,
   TagOutlined,
   TruckOutlined,
   BarcodeOutlined,
@@ -260,7 +260,7 @@ export default function DocumentsPage() {
   const getIconComponent = (iconName: string) => {
     const icons: Record<string, any> = {
       FileText: <FileTextOutlined />,
-      Package: <PackageOutlined />,
+      Package: <InboxOutlined />,
       Tag: <TagOutlined />,
       Truck: <TruckOutlined />,
       Barcode: <BarcodeOutlined />,
