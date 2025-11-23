@@ -125,6 +125,260 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
   }
 });
 
+// Register new user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, name, role = 'USER', companyId } = req.body;
+
+    // Validate input
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = await prisma.user.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        email,
+        password: hashedPassword,
+        name,
+        role,
+        companyId: companyId || '53c65d84-4606-4b0a-8aa5-6eda9e50c3df', // Default company
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      include: { company: true }
+    });
+
+    // Generate token
+    const token = generateToken(newUser);
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = newUser;
+
+    res.status(201).json({
+      user: userWithoutPassword,
+      token
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Request password reset
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ message: 'If the email exists, a reset link will be sent' });
+    }
+
+    // Generate reset token
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Update user with reset token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken,
+        resetTokenExpiry,
+        updatedAt: new Date()
+      }
+    });
+
+    // TODO: Send email with reset link
+    // For now, return the token (in production, send via email)
+    console.log(`Password reset token for ${email}: ${resetToken}`);
+
+    res.json({
+      message: 'If the email exists, a reset link will be sent',
+      // Remove this in production:
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reset password with token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    // Find user with valid reset token
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gte: new Date()
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and clear reset token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change password (authenticated)
+app.post('/api/auth/change-password', verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Logout (authenticated) - for audit trail
+app.post('/api/auth/logout', verifyToken, async (req, res) => {
+  try {
+    // Update last activity
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { updatedAt: new Date() }
+    });
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user profile (authenticated)
+app.put('/api/auth/profile', verifyToken, async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+
+    // Validate input
+    if (!name && !email && !phone) {
+      return res.status(400).json({ error: 'At least one field (name, email, or phone) is required' });
+    }
+
+    // Check if email is already taken by another user
+    if (email && email !== req.user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email }
+      });
+
+      if (existingUser && existingUser.id !== req.user.id) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+    }
+
+    // Build update data object
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phone !== undefined) updateData.phoneNumber = phone; // Allow clearing phone
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      include: { company: true }
+    });
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = updatedUser;
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: userWithoutPassword
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ===================================
 // BRANDS (formerly Categories)
 // ===================================

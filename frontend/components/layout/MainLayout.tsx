@@ -35,6 +35,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
+import { hasRoutePermission } from '@/lib/permissions';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -49,7 +50,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { sidebarCollapsed, toggleSidebar, theme, toggleTheme } = useUIStore();
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
-  const menuItems = [
+  // Helper function to check if user can access a menu item
+  const canAccessMenuItem = (route: string) => {
+    if (!user?.role) return false;
+    return hasRoutePermission(user.role, route);
+  };
+
+  // Filter children based on permissions
+  const filterMenuChildren = (children: any[]) => {
+    return children.filter(child => {
+      // If child has a key that looks like a route, check permission
+      if (typeof child.key === 'string' && child.key.startsWith('/')) {
+        return canAccessMenuItem(child.key);
+      }
+      return true;
+    });
+  };
+
+  const allMenuItems = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
@@ -213,16 +231,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     },
   ];
 
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.map(item => {
+    // If item has children, filter them
+    if (item.children) {
+      const filteredChildren = filterMenuChildren(item.children);
+      // Only show parent if it has accessible children
+      return filteredChildren.length > 0 ? { ...item, children: filteredChildren } : null;
+    }
+
+    // Check if user has permission for this route
+    if (typeof item.key === 'string' && item.key.startsWith('/')) {
+      return canAccessMenuItem(item.key) ? item : null;
+    }
+
+    return item;
+  }).filter(Boolean); // Remove null items
+
   const userMenuItems = [
     {
       key: 'profile',
       icon: <UserOutlined />,
       label: 'Profile',
+      onClick: () => router.push('/profile'),
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
       label: 'Settings',
+      onClick: () => router.push('/settings'),
     },
     {
       type: 'divider' as const,
