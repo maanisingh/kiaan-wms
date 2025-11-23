@@ -2557,8 +2557,9 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WMS API Server running on port ${PORT}`);
+  console.log(`🌐 Binding to 0.0.0.0 (all interfaces)`);
   console.log(`📊 Database: PostgreSQL + Prisma`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n✅ API Endpoints:`);
