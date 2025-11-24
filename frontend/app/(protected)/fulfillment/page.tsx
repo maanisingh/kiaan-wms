@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Tag, Tabs, Card, Space } from 'antd';
 import { PlusOutlined, ShoppingCartOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import { formatDate } from '@/lib/utils';
@@ -57,8 +57,7 @@ export default function FulfillmentPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Fulfillment Center</h1>
@@ -74,6 +73,5 @@ export default function FulfillmentPage() {
         </div>
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" className="bg-white rounded-lg shadow-sm p-4" />
       </div>
-    </MainLayout>
-  );
+      );
 }

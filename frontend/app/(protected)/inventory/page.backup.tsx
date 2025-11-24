@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Tag, Tabs, Card, Input } from 'antd';
 import { PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined, SearchOutlined } from '@ant-design/icons';
 import { mockInventory } from '@/lib/mockData';
@@ -92,8 +92,7 @@ export default function InventoryPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
@@ -144,6 +143,5 @@ export default function InventoryPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

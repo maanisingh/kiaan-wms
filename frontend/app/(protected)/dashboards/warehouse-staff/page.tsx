@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { KPICard } from '@/components/ui/KPICard';
 import { Card, Table, Button, Tag, Row, Col } from 'antd';
 import {
@@ -57,8 +57,7 @@ export default function WarehouseStaffDashboardPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Warehouse Staff Dashboard</h1>
@@ -134,6 +133,5 @@ export default function WarehouseStaffDashboardPage() {
           </div>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

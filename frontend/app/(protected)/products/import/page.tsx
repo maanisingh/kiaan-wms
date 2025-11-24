@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Upload, message } from 'antd';
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 
@@ -11,8 +11,7 @@ export default function ProductImportPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Import Products</h1>
           <p className="text-gray-600 mt-1">Bulk import products from CSV or Excel</p>
@@ -31,6 +30,5 @@ export default function ProductImportPage() {
           </div>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

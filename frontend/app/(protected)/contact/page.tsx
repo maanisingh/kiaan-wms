@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Form, Input, Button, message } from 'antd';
 import { MailOutlined, PhoneOutlined, EnvironmentOutlined } from '@ant-design/icons';
 
@@ -15,8 +15,7 @@ export default function ContactPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-4xl font-bold">Contact Us</h1>
           <p className="text-gray-600 mt-2">Get in touch with our team</p>
@@ -68,6 +67,5 @@ export default function ContactPage() {
           </Form>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

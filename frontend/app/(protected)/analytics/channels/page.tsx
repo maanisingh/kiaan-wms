@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Card, Select, Tag, Statistic, Row, Col, Space, Progress, Tooltip, Button } from 'antd';
 import {
   DollarOutlined,
@@ -374,8 +374,7 @@ export default function ChannelPricingPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -558,6 +557,5 @@ export default function ChannelPricingPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

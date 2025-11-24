@@ -1,13 +1,12 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card } from 'antd';
 
 export default function PrivacyPage() {
   return (
-    <MainLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-4xl font-bold">Privacy Policy</h1>
           <p className="text-gray-600 mt-2">Last updated: November 2024</p>
@@ -54,6 +53,5 @@ export default function PrivacyPage() {
           </div>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

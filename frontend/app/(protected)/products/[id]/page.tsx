@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Spin } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -31,8 +31,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <MainLayout>
-        <div className="flex justify-center items-center py-12">
+      <div className="flex justify-center items-center py-12">
           <Spin size="large" />
         </div>
       </MainLayout>
@@ -41,16 +40,14 @@ export default function ProductDetailPage() {
 
   if (error || !product) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Product not found</h2>
           <p className="text-gray-600 mt-2">{error?.message || 'The product you are looking for does not exist.'}</p>
           <Button className="mt-4" onClick={() => router.push('/products')}>
             Back to Products
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   const inventoryColumns = [
@@ -414,6 +411,5 @@ export default function ProductDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

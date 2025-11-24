@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Timeline } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -63,15 +63,13 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Client not found</h2>
           <Button className="mt-4" onClick={() => router.push('/clients')}>
             Back to Clients
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   // Mock products purchased
@@ -143,8 +141,7 @@ export default function ClientDetailPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -441,6 +438,5 @@ export default function ClientDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

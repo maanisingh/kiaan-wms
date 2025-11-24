@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
 import {
   PlusOutlined,
@@ -265,8 +265,7 @@ export default function WarehouseLocationsPage() {
   const uniqueWarehouses = new Set(filteredLocations.map((l: any) => l.warehouseId)).size;
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -458,6 +457,5 @@ export default function WarehouseLocationsPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

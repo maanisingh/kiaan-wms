@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
 import { PlusOutlined, SearchOutlined, FilterOutlined, SaveOutlined, EyeOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, BellOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
@@ -125,8 +125,7 @@ export default function SystemSettingsAndConfigurationPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-gray-800 bg-clip-text text-transparent">
@@ -204,6 +203,5 @@ export default function SystemSettingsAndConfigurationPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

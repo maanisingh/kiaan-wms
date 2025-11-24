@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space, Modal, Form, Select, DatePicker, message, Drawer } from 'antd';
 import {
   PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined,
@@ -346,8 +346,7 @@ export default function InventoryPageReal() {
 
   if (loading && !data) {
     return (
-      <MainLayout>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
           <Spin size="large" tip="Loading inventory..." />
         </div>
       </MainLayout>
@@ -356,16 +355,14 @@ export default function InventoryPageReal() {
 
   if (error) {
     return (
-      <MainLayout>
-        <Alert
+      <Alert
           message="Error Loading Inventory"
           description={error.message}
           type="error"
           showIcon
           action={<Button onClick={() => refetch()}>Retry</Button>}
         />
-      </MainLayout>
-    );
+          );
   }
 
   // Calculate counts for tabs
@@ -607,6 +604,5 @@ export default function InventoryPageReal() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

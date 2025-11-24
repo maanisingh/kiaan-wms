@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Card, Tag, Button, Space, Statistic, Row, Col, Progress, Tooltip, Select, Alert } from 'antd';
 import {
   RiseOutlined,
@@ -312,8 +312,7 @@ export default function PriceOptimizerPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
@@ -481,6 +480,5 @@ export default function PriceOptimizerPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

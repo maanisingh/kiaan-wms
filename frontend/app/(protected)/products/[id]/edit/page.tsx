@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Form, Input, Select, InputNumber, message, Space, Tabs, Switch, Spin } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
@@ -87,8 +87,7 @@ export default function ProductEditPage() {
 
   if (queryLoading) {
     return (
-      <MainLayout>
-        <div className="flex justify-center items-center py-12">
+      <div className="flex justify-center items-center py-12">
           <Spin size="large" />
         </div>
       </MainLayout>
@@ -97,15 +96,13 @@ export default function ProductEditPage() {
 
   if (error || !product) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Product not found</h2>
           <Button className="mt-4" onClick={() => router.push('/products')}>
             Back to Products
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   return (
@@ -443,6 +440,5 @@ export default function ProductEditPage() {
           </Form>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Card, Modal, Form, message, Space, Tag } from 'antd';
 import {
   PlusOutlined,
@@ -206,8 +206,7 @@ export default function ProductBrandsPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -310,6 +309,5 @@ export default function ProductBrandsPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

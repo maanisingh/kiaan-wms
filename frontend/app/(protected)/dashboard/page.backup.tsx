@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { KPICard } from '@/components/ui/KPICard';
 import { Card, Table, Button, Tag, Row, Col } from 'antd';
 import {
@@ -166,8 +166,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -324,6 +323,5 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

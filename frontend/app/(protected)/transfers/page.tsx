@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
   Input, Select, message, InputNumber, Drawer, Tabs, Switch, DatePicker
@@ -384,8 +384,7 @@ export default function TransfersPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="p-6">
+    <div className="p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -691,6 +690,5 @@ export default function TransfersPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

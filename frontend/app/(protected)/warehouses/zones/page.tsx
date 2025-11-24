@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
   Input, Select, message, Drawer
@@ -258,8 +258,7 @@ export default function WarehouseZonesPage() {
   const quarantineZones = filteredZones.filter((z: any) => z.zoneType === 'QUARANTINE').length;
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -502,6 +501,5 @@ export default function WarehouseZonesPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

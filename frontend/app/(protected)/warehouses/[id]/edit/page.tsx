@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Form, Input, Select, InputNumber, message, Space } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
@@ -60,20 +60,17 @@ export default function WarehouseEditPage() {
 
   if (!warehouse) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Warehouse not found</h2>
           <Button className="mt-4" onClick={() => router.push('/warehouses')}>
             Back to Warehouses
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -277,6 +274,5 @@ export default function WarehouseEditPage() {
           </Form>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

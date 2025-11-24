@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Space, Modal, Tabs, Card, Spin, Alert, message } from 'antd';
 import {
   PlusOutlined,
@@ -245,8 +245,7 @@ export default function ProductsPageWithRealData() {
   // Show loading spinner
   if (loading && !data) {
     return (
-      <MainLayout>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
           <Spin size="large" tip="Loading products..." />
         </div>
       </MainLayout>
@@ -256,8 +255,7 @@ export default function ProductsPageWithRealData() {
   // Show error
   if (error) {
     return (
-      <MainLayout>
-        <Alert
+      <Alert
           message="Error Loading Products"
           description={error.message}
           type="error"
@@ -268,8 +266,7 @@ export default function ProductsPageWithRealData() {
             </Button>
           }
         />
-      </MainLayout>
-    );
+          );
   }
 
   // Calculate counts for tabs
@@ -386,6 +383,5 @@ export default function ProductsPageWithRealData() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

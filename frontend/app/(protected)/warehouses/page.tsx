@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
 import {
   PlusOutlined,
@@ -290,8 +290,7 @@ export default function WarehousesPage() {
   const activeWarehouses = filteredWarehouses.filter((w: any) => w.status === 'ACTIVE').length;
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -494,6 +493,5 @@ export default function WarehousesPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

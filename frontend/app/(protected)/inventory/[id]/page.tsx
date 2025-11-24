@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import {
   Card,
   Button,
@@ -150,8 +150,7 @@ export default function InventoryDetailPage() {
   const needsReplen = replenSettings.currentLevel < replenSettings.minLevel;
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -610,6 +609,5 @@ export default function InventoryDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Card, Progress, Statistic, Row, Col, Tag, Space, Tooltip, Select, Alert, Button } from 'antd';
 import {
   DollarOutlined,
@@ -300,8 +300,7 @@ export default function MarginAnalysisPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -490,6 +489,5 @@ export default function MarginAnalysisPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { gql } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Select, Button, Table, Tag, Alert, Spin, Space, message } from 'antd';
 import { ThunderboltOutlined, PrinterOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { generatePickList } from '@/lib/algorithms/picking';
@@ -234,8 +234,7 @@ export default function GeneratePickListPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="p-6">
+    <div className="p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Generate Pick List (FEFO/FIFO)</h1>
           <p className="text-gray-500">
@@ -353,6 +352,5 @@ export default function GeneratePickListPage() {
           </Card>
         )}
       </div>
-    </MainLayout>
-  );
+      );
 }

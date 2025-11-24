@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Descriptions, Tag, Button, Tabs, Timeline, Table } from 'antd';
 import { ArrowLeftOutlined, PrinterOutlined, TruckOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -130,8 +130,7 @@ export default function FBATransferDetailPage({ params }: { params: { id: string
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Link href="/fba-transfers">
@@ -179,6 +178,5 @@ export default function FBATransferDetailPage({ params }: { params: { id: string
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Form, Input, message, Alert } from 'antd';
 import Link from 'next/link';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
@@ -16,8 +16,7 @@ export default function DemoPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-4xl font-bold">Request a Demo</h1>
           <p className="text-gray-600 mt-2">See Kiaan WMS in action</p>
@@ -81,6 +80,5 @@ export default function DemoPage() {
           </Form>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
 import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
@@ -119,8 +119,7 @@ export default function ShipmentManagementPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">
@@ -191,6 +190,5 @@ export default function ShipmentManagementPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, message } from 'antd';
 import {
   PlusOutlined,
@@ -206,8 +206,7 @@ export default function SalesOrdersPageReal() {
 
   if (loading && !data) {
     return (
-      <MainLayout>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
           <Spin size="large" tip="Loading sales orders..." />
         </div>
       </MainLayout>
@@ -216,16 +215,14 @@ export default function SalesOrdersPageReal() {
 
   if (error) {
     return (
-      <MainLayout>
-        <Alert
+      <Alert
           message="Error Loading Sales Orders"
           description={error.message}
           type="error"
           showIcon
           action={<Button onClick={() => refetch()}>Retry</Button>}
         />
-      </MainLayout>
-    );
+          );
   }
 
   // Calculate counts for tabs
@@ -307,6 +304,5 @@ export default function SalesOrdersPageReal() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

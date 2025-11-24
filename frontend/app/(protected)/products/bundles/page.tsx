@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
   Input, Select, message, InputNumber, Drawer
@@ -276,8 +276,7 @@ export default function BundlesPage() {
     : 0;
 
   return (
-    <MainLayout>
-      <div className="p-6">
+    <div className="p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -516,6 +515,5 @@ export default function BundlesPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

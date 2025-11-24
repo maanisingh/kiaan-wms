@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Tag, Descriptions, Table, Space, Timeline, Divider, Row, Col } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -33,12 +33,10 @@ export default function SalesOrderDetailPage() {
 
   if (!order) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Order not found</h2>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   const itemColumns = [
@@ -101,8 +99,7 @@ export default function SalesOrderDetailPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -275,6 +272,5 @@ export default function SalesOrderDetailPage() {
           </Col>
         </Row>
       </div>
-    </MainLayout>
-  );
+      );
 }

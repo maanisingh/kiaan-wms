@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Tag, Tabs, Card, Space } from 'antd';
 import {
   PlusOutlined,
@@ -125,8 +125,7 @@ export default function OutboundPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Outbound Operations</h1>
@@ -172,6 +171,5 @@ export default function OutboundPage() {
           className="bg-white rounded-lg shadow-sm p-4"
         />
       </div>
-    </MainLayout>
-  );
+      );
 }

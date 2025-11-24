@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Card, Tag, Button, Select, Space, Statistic, Row, Col, message } from 'antd';
 import { CheckOutlined, ClockCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
@@ -151,8 +151,7 @@ export default function ReplenishmentTasksPage() {
   const completedCount = tasks.filter((t: any) => t.status === 'COMPLETED').length;
 
   return (
-    <MainLayout>
-      <div className="p-6">
+    <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold">Replenishment Tasks</h1>
@@ -224,6 +223,5 @@ export default function ReplenishmentTasksPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

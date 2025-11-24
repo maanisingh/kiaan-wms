@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message } from 'antd';
 import { PlusOutlined, SearchOutlined, InboxOutlined } from '@ant-design/icons';
 import { formatDate } from '@/lib/utils';
@@ -37,8 +37,7 @@ export default function GoodsReceivingPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">Goods Receiving</h1>
@@ -86,6 +85,5 @@ export default function GoodsReceivingPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

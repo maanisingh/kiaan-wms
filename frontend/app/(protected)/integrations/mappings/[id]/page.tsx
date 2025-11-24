@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Descriptions, Tag, Button, Tabs, Table, Timeline } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, ExperimentOutlined, HistoryOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -115,8 +115,7 @@ export default function MappingDetailPage({ params }: { params: { id: string } }
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Link href="/integrations/mappings">
@@ -168,6 +167,5 @@ export default function MappingDetailPage({ params }: { params: { id: string } }
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

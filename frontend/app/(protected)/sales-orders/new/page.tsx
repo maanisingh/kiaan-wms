@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Form, Input, Select, Button, Row, Col, message, DatePicker, Table, InputNumber, Divider } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -180,8 +180,7 @@ export default function NewSalesOrderPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button
             icon={<ArrowLeftOutlined />}
@@ -347,6 +346,5 @@ export default function NewSalesOrderPage() {
           </Form>
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

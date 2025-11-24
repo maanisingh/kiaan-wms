@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import {
   Card,
   Button,
@@ -57,15 +57,13 @@ export default function BundleDetailPage() {
 
   if (!bundle && !loading) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Bundle not found</h2>
           <Button className="mt-4" onClick={() => router.push('/products/bundles')}>
             Back to Bundles
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   // Bundle components columns
@@ -143,8 +141,7 @@ export default function BundleDetailPage() {
     ((bundleStats.sellingPrice - bundleStats.totalCost) / bundleStats.sellingPrice) * 100;
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -539,6 +536,5 @@ export default function BundleDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

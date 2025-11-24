@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Progress } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -35,15 +35,13 @@ export default function WarehouseDetailPage() {
 
   if (!warehouse) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Warehouse not found</h2>
           <Button className="mt-4" onClick={() => router.push('/warehouses')}>
             Back to Warehouses
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   const utilizationPercent = calculatePercentage(warehouse.capacity.used, warehouse.capacity.total);
@@ -92,8 +90,7 @@ export default function WarehouseDetailPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -279,6 +276,5 @@ export default function WarehouseDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Button, Input, Select, Tag, Space, Card, Modal, Form, DatePicker, InputNumber, message, Tabs } from 'antd';
 import {
   PlusOutlined,
@@ -183,8 +183,7 @@ export default function PurchaseOrdersPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -304,6 +303,5 @@ export default function PurchaseOrdersPage() {
           </Form>
         </Modal>
       </div>
-    </MainLayout>
-  );
+      );
 }

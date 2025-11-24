@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Timeline, Avatar } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -58,15 +58,13 @@ export default function SupplierDetailPage() {
 
   if (!supplier) {
     return (
-      <MainLayout>
-        <div className="text-center py-12">
+      <div className="text-center py-12">
           <h2 className="text-2xl">Supplier not found</h2>
           <Button className="mt-4" onClick={() => router.push('/suppliers')}>
             Back to Suppliers
           </Button>
         </div>
-      </MainLayout>
-    );
+          );
   }
 
   // Mock products supplied
@@ -135,8 +133,7 @@ export default function SupplierDetailPage() {
   ];
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
@@ -368,6 +365,5 @@ export default function SupplierDetailPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }

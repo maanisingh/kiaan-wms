@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Table, Card, Tag, Statistic, Row, Col } from 'antd';
 import { SettingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
@@ -102,8 +102,7 @@ export default function ReplenishmentSettingsPage() {
   const autoTasksCount = configs.filter((c: any) => c.autoCreateTasks).length;
 
   return (
-    <MainLayout>
-      <div className="p-6">
+    <div className="p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Replenishment Settings</h1>
           <p className="text-gray-500">Configure proactive replenishment limits and reorder points</p>
@@ -164,6 +163,5 @@ export default function ReplenishmentSettingsPage() {
           />
         </Card>
       </div>
-    </MainLayout>
-  );
+      );
 }
