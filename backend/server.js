@@ -20,6 +20,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'https://wms.alexandratechlab.com',
+    'https://frontend-production-c9100.up.railway.app',
     'http://localhost:3000',
     'http://localhost:3011'
   ],
@@ -66,8 +67,12 @@ const generateToken = (user) => {
 // ROUTES
 // ===================================
 
-// Health check
+// Health check endpoints
 app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'WMS API is running', database: 'PostgreSQL + Prisma' });
+});
+
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'WMS API is running', database: 'PostgreSQL + Prisma' });
 });
 
