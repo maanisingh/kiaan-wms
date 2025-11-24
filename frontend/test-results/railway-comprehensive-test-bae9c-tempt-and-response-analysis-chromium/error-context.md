@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img "box-plot" [ref=e9]:
+        - img [ref=e10]
+      - heading "Kiaan WMS" [level=2] [ref=e12]
+      - paragraph [ref=e13]: Sign in to your account to continue
+    - generic [ref=e14]:
+      - generic [ref=e16]:
+        - generic "Email" [ref=e18]: "* Email"
+        - generic [ref=e22]:
+          - img "user" [ref=e24]:
+            - img [ref=e25]
+          - textbox "* Email" [ref=e27]:
+            - /placeholder: admin@example.com
+      - generic [ref=e29]:
+        - generic "Password" [ref=e31]: "* Password"
+        - generic [ref=e35]:
+          - img "lock" [ref=e37]:
+            - img [ref=e38]
+          - textbox "* Password" [ref=e40]:
+            - /placeholder: Enter your password
+          - img "eye-invisible" [ref=e42] [cursor=pointer]:
+            - img [ref=e43]
+      - generic [ref=e46]:
+        - generic [ref=e47] [cursor=pointer]:
+          - checkbox "Remember me" [checked] [ref=e49]
+          - generic [ref=e51]: Remember me
+        - link "Forgot password?" [ref=e52] [cursor=pointer]:
+          - /url: /auth/forgot-password
+      - button "Sign In" [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]: Sign In
+      - generic [ref=e60]:
+        - text: Don't have an account?
+        - link "Register here" [ref=e61] [cursor=pointer]:
+          - /url: /auth/register
+    - separator [ref=e62]:
+      - generic [ref=e63]: Quick Login (Demo)
+    - generic [ref=e64]:
+      - paragraph [ref=e65]: "Click any role to auto-login:"
+      - button "crown Super Administrator SUPER ADMIN" [ref=e66] [cursor=pointer]:
+        - img "crown" [ref=e68]:
+          - img [ref=e69]
+        - generic [ref=e71]: Super Administrator
+        - generic [ref=e72]: SUPER ADMIN
+      - button "crown Company Admin COMPANY ADMIN" [ref=e73] [cursor=pointer]:
+        - img "crown" [ref=e75]:
+          - img [ref=e76]
+        - generic [ref=e78]: Company Admin
+        - generic [ref=e79]: COMPANY ADMIN
+      - button "team Warehouse Manager WAREHOUSE MANAGER" [ref=e80] [cursor=pointer]:
+        - img "team" [ref=e82]:
+          - img [ref=e83]
+        - generic [ref=e85]: Warehouse Manager
+        - generic [ref=e86]: WAREHOUSE MANAGER
+      - button "box-plot Inventory Manager INVENTORY MANAGER" [ref=e87] [cursor=pointer]:
+        - img "box-plot" [ref=e89]:
+          - img [ref=e90]
+        - generic [ref=e92]: Inventory Manager
+        - generic [ref=e93]: INVENTORY MANAGER
+      - button "inbox Picker PICKER" [ref=e94] [cursor=pointer]:
+        - img "inbox" [ref=e96]:
+          - img [ref=e97]
+        - generic [ref=e99]: Picker
+        - generic [ref=e100]: PICKER
+      - button "user Viewer (Read-Only) VIEWER" [ref=e101] [cursor=pointer]:
+        - img "user" [ref=e103]:
+          - img [ref=e104]
+        - generic [ref=e106]: Viewer (Read-Only)
+        - generic [ref=e107]: VIEWER
+    - paragraph [ref=e109]:
+      - text: "🔐 All demo users • Password:"
+      - strong [ref=e110]: Admin@123
+  - alert [ref=e111]
+```

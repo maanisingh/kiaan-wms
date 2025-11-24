@@ -332,7 +332,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </Badge>
 
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded">
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
+                data-testid="user-menu-dropdown"
+              >
                 <Avatar icon={<UserOutlined />} src={user?.avatar} />
                 <div className="hidden md:block">
                   <div className="text-sm font-medium">{user?.name || 'User'}</div>
