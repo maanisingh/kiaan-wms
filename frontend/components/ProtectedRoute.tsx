@@ -13,10 +13,15 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
-    // If not authenticated, redirect to login
+    // Wait for store to hydrate from localStorage before checking auth
+    if (!_hasHydrated) {
+      return;
+    }
+
+    // If not authenticated after hydration, redirect to login
     if (!isAuthenticated || !user) {
       router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
       return;
@@ -29,10 +34,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         return;
       }
     }
-  }, [isAuthenticated, user, allowedRoles, router, pathname]);
+  }, [_hasHydrated, isAuthenticated, user, allowedRoles, router, pathname]);
 
-  // Show loading while checking auth
-  if (!isAuthenticated || !user) {
+  // Show loading while hydrating or checking auth
+  if (!_hasHydrated || !isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spin size="large" tip="Loading..." />
