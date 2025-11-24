@@ -289,7 +289,6 @@ export default function ProductsPageWithRealData() {
   ];
 
   return (
-    <MainLayout>
       <div className="p-6">
         {/* Page Header */}
         <div className="flex justify-between items-center mb-6">

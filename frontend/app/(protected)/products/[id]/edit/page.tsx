@@ -105,7 +105,6 @@ export default function ProductEditPage() {
   }
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">

@@ -434,7 +434,6 @@ export default function InventoryPageReal() {
   ];
 
   return (
-    <MainLayout>
       <div className="p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
