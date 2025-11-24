@@ -84,6 +84,8 @@ export default function LoginPage() {
             <Input
               prefix={<UserOutlined className="text-gray-400" />}
               placeholder="admin@example.com"
+              data-testid="email-input"
+              type="email"
             />
           </Form.Item>
 
@@ -95,6 +97,7 @@ export default function LoginPage() {
             <Input.Password
               prefix={<LockOutlined className="text-gray-400" />}
               placeholder="Enter your password"
+              data-testid="password-input"
             />
           </Form.Item>
 
@@ -109,7 +112,14 @@ export default function LoginPage() {
           </div>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading} className="h-12 text-base font-medium">
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              loading={loading}
+              className="h-12 text-base font-medium"
+              data-testid="login-submit-button"
+            >
               Sign In
             </Button>
           </Form.Item>
@@ -135,6 +145,7 @@ export default function LoginPage() {
               loading={quickLoginLoading === user.email}
               onClick={() => handleQuickLogin(user)}
               className="flex items-center justify-between"
+              data-testid={`quick-login-${user.role.toLowerCase()}`}
             >
               <span>{user.name}</span>
               <Tag color={user.color}>{user.role.replace('_', ' ').toUpperCase()}</Tag>
