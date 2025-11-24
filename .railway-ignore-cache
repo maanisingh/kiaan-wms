@@ -1,0 +1,3 @@
+# Force Railway to ignore build cache
+# Created: 2025-11-24
+# Reason: Clear cache after layout restructure
