@@ -90,7 +90,6 @@ export default function ProductEditPage() {
       <div className="flex justify-center items-center py-12">
           <Spin size="large" />
         </div>
-      </MainLayout>
     );
   }
 

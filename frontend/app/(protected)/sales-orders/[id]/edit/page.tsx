@@ -64,7 +64,6 @@ export default function SalesOrderEditPage() {
       <div className="flex justify-center items-center py-12">
           <Spin size="large" />
         </div>
-      </MainLayout>
     );
   }
 

@@ -209,7 +209,6 @@ export default function SalesOrdersPageReal() {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
           <Spin size="large" tip="Loading sales orders..." />
         </div>
-      </MainLayout>
     );
   }
 

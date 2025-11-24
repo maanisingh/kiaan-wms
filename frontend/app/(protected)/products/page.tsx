@@ -248,7 +248,6 @@ export default function ProductsPageWithRealData() {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
           <Spin size="large" tip="Loading products..." />
         </div>
-      </MainLayout>
     );
   }
 
