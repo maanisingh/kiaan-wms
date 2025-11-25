@@ -475,16 +475,12 @@ export default function BundlesPage() {
                         <Select
                           placeholder="Select product"
                           showSearch
-                          filterOption={(input, option: any) =>
-                            option.children.toLowerCase().includes(input.toLowerCase())
-                          }
-                        >
-                          {products.map((p) => (
-                            <Option key={p.id} value={p.id}>
-                              {p.name} ({p.sku})
-                            </Option>
-                          ))}
-                        </Select>
+                          optionFilterProp="label"
+                          options={products.map((p) => ({
+                            value: p.id,
+                            label: `${p.name} (${p.sku})`,
+                          }))}
+                        />
                       </Form.Item>
                       <Form.Item
                         {...restField}

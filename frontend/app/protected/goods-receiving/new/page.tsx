@@ -147,16 +147,12 @@ export default function NewGoodsReceivingPage() {
           value={record.productId || undefined}
           onChange={(value) => handleLineChange(record.key, 'productId', value)}
           showSearch
-          filterOption={(input, option) =>
-            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-          }
-        >
-          {products.map(p => (
-            <Option key={p.id} value={p.id}>
-              {p.name} ({p.sku})
-            </Option>
-          ))}
-        </Select>
+          optionFilterProp="label"
+          options={products.map(p => ({
+            value: p.id,
+            label: `${p.name} (${p.sku})`,
+          }))}
+        />
       ),
     },
     {

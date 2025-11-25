@@ -570,16 +570,12 @@ export default function PickListsPage() {
                 placeholder="Select sales order"
                 showSearch
                 allowClear
-                filterOption={(input, option: any) =>
-                  option.children.toLowerCase().includes(input.toLowerCase())
-                }
-              >
-                {salesOrders.map((order: any) => (
-                  <Option key={order.id} value={order.id}>
-                    {order.orderNumber} - {order.customer?.name}
-                  </Option>
-                ))}
-              </Select>
+                optionFilterProp="label"
+                options={salesOrders.map((order: any) => ({
+                  value: order.id,
+                  label: `${order.orderNumber} - ${order.customer?.name || 'Unknown'}`,
+                }))}
+              />
             </Form.Item>
 
             {selectedPickList && (
@@ -614,16 +610,12 @@ export default function PickListsPage() {
                             <Select
                               placeholder="Select product"
                               showSearch
-                              filterOption={(input, option: any) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                              }
-                            >
-                              {products.map((p: any) => (
-                                <Option key={p.id} value={p.id}>
-                                  {p.name} ({p.sku})
-                                </Option>
-                              ))}
-                            </Select>
+                              optionFilterProp="label"
+                              options={products.map((p: any) => ({
+                                value: p.id,
+                                label: `${p.name} (${p.sku})`,
+                              }))}
+                            />
                           </Form.Item>
                           <Form.Item
                             {...restField}
@@ -634,16 +626,12 @@ export default function PickListsPage() {
                               placeholder="Location (optional)"
                               showSearch
                               allowClear
-                              filterOption={(input, option: any) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                              }
-                            >
-                              {locations.map((loc: any) => (
-                                <Option key={loc.id} value={loc.id}>
-                                  {loc.code} - {loc.name}
-                                </Option>
-                              ))}
-                            </Select>
+                              optionFilterProp="label"
+                              options={locations.map((loc: any) => ({
+                                value: loc.id,
+                                label: `${loc.code} - ${loc.name}`,
+                              }))}
+                            />
                           </Form.Item>
                           <Form.Item
                             {...restField}

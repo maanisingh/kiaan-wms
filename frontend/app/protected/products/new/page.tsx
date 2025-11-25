@@ -178,16 +178,12 @@ export default function NewProductPage() {
                   allowClear
                   loading={loadingBrands}
                   showSearch
-                  filterOption={(input, option) =>
-                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                  }
-                >
-                  {brands.map((brand) => (
-                    <Option key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </Option>
-                  ))}
-                </Select>
+                  optionFilterProp="label"
+                  options={brands.map((brand) => ({
+                    value: brand.id,
+                    label: brand.name,
+                  }))}
+                />
               </Form.Item>
             </Col>
           </Row>

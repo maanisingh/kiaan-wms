@@ -254,16 +254,12 @@ export default function GeneratePickListPage() {
                 onChange={setSelectedOrderId}
                 value={selectedOrderId}
                 showSearch
-                filterOption={(input, option) =>
-                  (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
-                }
-              >
-                {ordersData?.SalesOrder?.map((order: any) => (
-                  <Option key={order.id} value={order.id}>
-                    {order.orderNumber} - {order.Customer.name} ({order.orderType})
-                  </Option>
-                ))}
-              </Select>
+                optionFilterProp="label"
+                options={ordersData?.SalesOrder?.map((order: any) => ({
+                  value: order.id,
+                  label: `${order.orderNumber} - ${order.Customer.name} (${order.orderType})`,
+                })) || []}
+              />
             </div>
             <Button
               type="primary"

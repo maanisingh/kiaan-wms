@@ -584,17 +584,12 @@ export default function BarcodePage() {
             <Select
               showSearch
               placeholder="Select product"
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children as string).toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {products.map((product) => (
-                <Option key={product.id} value={product.id}>
-                  {product.name} - {product.sku || 'No SKU'}
-                </Option>
-              ))}
-            </Select>
+              optionFilterProp="label"
+              options={products.map((product) => ({
+                value: product.id,
+                label: `${product.name} - ${product.sku || 'No SKU'}`,
+              }))}
+            />
           </Form.Item>
 
           <Form.Item name="format" label="Barcode Format" initialValue="CODE128">
@@ -653,17 +648,12 @@ export default function BarcodePage() {
               mode="multiple"
               showSearch
               placeholder="Select multiple products"
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children as string).toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {products.map((product) => (
-                <Option key={product.id} value={product.id}>
-                  {product.name} - {product.sku || 'No SKU'}
-                </Option>
-              ))}
-            </Select>
+              optionFilterProp="label"
+              options={products.map((product) => ({
+                value: product.id,
+                label: `${product.name} - ${product.sku || 'No SKU'}`,
+              }))}
+            />
           </Form.Item>
 
           <Form.Item name="format" label="Barcode Format" initialValue="CODE128">
@@ -708,17 +698,12 @@ export default function BarcodePage() {
             <Select
               showSearch
               placeholder="Select location"
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children as string).toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {locations.map((location) => (
-                <Option key={location.id} value={location.id}>
-                  {location.aisle}-{location.rack}-{location.bin} ({location.warehouse?.name || 'N/A'})
-                </Option>
-              ))}
-            </Select>
+              optionFilterProp="label"
+              options={locations.map((location) => ({
+                value: location.id,
+                label: `${location.aisle}-${location.rack}-${location.bin} (${location.warehouse?.name || 'N/A'})`,
+              }))}
+            />
           </Form.Item>
 
           <Form.Item name="type" label="QR Code Type" initialValue="location">
