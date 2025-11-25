@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space, Modal, Form, Select, DatePicker, Drawer, App } from 'antd';
+import { Table, Button, Tag, Tabs, Card, Input, InputNumber, Spin, Alert, Space, Modal, Form, Select, DatePicker, Drawer, App } from 'antd';
 import {
   PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined,
   SearchOutlined, ExportOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined
@@ -11,7 +11,6 @@ import apiService from '@/services/api';
 import dayjs from 'dayjs';
 
 const { Search } = Input;
-const { Option } = Select;
 
 interface InventoryItem {
   id: string;
@@ -161,6 +160,7 @@ export default function InventoryPage() {
   const handleSubmit = async (values: any) => {
     try {
       setSaving(true);
+      const qty = values.quantity || 0;
       const payload = {
         productId: values.productId,
         warehouseId: values.warehouseId,
@@ -169,9 +169,9 @@ export default function InventoryPage() {
         batchNumber: values.batchNumber || null,
         serialNumber: values.serialNumber || null,
         bestBeforeDate: values.bestBeforeDate ? values.bestBeforeDate.toISOString() : null,
-        quantity: parseInt(values.quantity),
-        availableQuantity: parseInt(values.availableQuantity || values.quantity),
-        reservedQuantity: parseInt(values.reservedQuantity || 0),
+        quantity: qty,
+        availableQuantity: values.availableQuantity ?? qty,
+        reservedQuantity: values.reservedQuantity ?? 0,
         status: values.status,
       };
 
@@ -521,16 +521,12 @@ export default function InventoryPage() {
             <Select
               placeholder="Select product"
               showSearch
-              filterOption={(input, option: any) =>
-                option.children?.toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {products.map((p) => (
-                <Option key={p.id} value={p.id}>
-                  {p.name} ({p.sku})
-                </Option>
-              ))}
-            </Select>
+              optionFilterProp="label"
+              options={products.map((p) => ({
+                value: p.id,
+                label: `${p.name} (${p.sku})`,
+              }))}
+            />
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">
@@ -539,23 +535,28 @@ export default function InventoryPage() {
               name="warehouseId"
               rules={[{ required: true, message: 'Please select warehouse' }]}
             >
-              <Select placeholder="Select warehouse">
-                {warehouses.map((w) => (
-                  <Option key={w.id} value={w.id}>
-                    {w.name}
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder="Select warehouse"
+                showSearch
+                optionFilterProp="label"
+                options={warehouses.map((w) => ({
+                  value: w.id,
+                  label: w.name,
+                }))}
+              />
             </Form.Item>
 
             <Form.Item label="Location" name="locationId">
-              <Select placeholder="Select location (optional)" allowClear>
-                {locations.map((l) => (
-                  <Option key={l.id} value={l.id}>
-                    {l.name} ({l.code})
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder="Select location (optional)"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                options={locations.map((l) => ({
+                  value: l.id,
+                  label: `${l.name} (${l.code})`,
+                }))}
+              />
             </Form.Item>
           </div>
 
@@ -565,15 +566,15 @@ export default function InventoryPage() {
               name="quantity"
               rules={[{ required: true, message: 'Required' }]}
             >
-              <Input type="number" placeholder="0" />
+              <InputNumber min={0} placeholder="0" style={{ width: '100%' }} />
             </Form.Item>
 
             <Form.Item label="Available" name="availableQuantity">
-              <Input type="number" placeholder="Auto-set to Quantity" />
+              <InputNumber min={0} placeholder="Auto-set" style={{ width: '100%' }} />
             </Form.Item>
 
             <Form.Item label="Reserved" name="reservedQuantity">
-              <Input type="number" placeholder="0" />
+              <InputNumber min={0} placeholder="0" style={{ width: '100%' }} />
             </Form.Item>
           </div>
 
@@ -582,13 +583,16 @@ export default function InventoryPage() {
             name="status"
             rules={[{ required: true, message: 'Please select status' }]}
           >
-            <Select placeholder="Select status">
-              <Option value="AVAILABLE">Available</Option>
-              <Option value="RESERVED">Reserved</Option>
-              <Option value="QUARANTINE">Quarantine</Option>
-              <Option value="DAMAGED">Damaged</Option>
-              <Option value="EXPIRED">Expired</Option>
-            </Select>
+            <Select
+              placeholder="Select status"
+              options={[
+                { value: 'AVAILABLE', label: 'Available' },
+                { value: 'RESERVED', label: 'Reserved' },
+                { value: 'QUARANTINE', label: 'Quarantine' },
+                { value: 'DAMAGED', label: 'Damaged' },
+                { value: 'EXPIRED', label: 'Expired' },
+              ]}
+            />
           </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">

@@ -57,7 +57,7 @@ const verifyToken = (req, res, next) => {
 // Helper function to generate JWT
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role, companyId: user.companyId },
     JWT_SECRET,
     { expiresIn: '24h' }
   );
@@ -1703,12 +1703,37 @@ app.get('/api/products/:id', verifyToken, async (req, res) => {
 
 app.post('/api/products', verifyToken, async (req, res) => {
   try {
-    const { bundleItems, ...productData } = req.body;
+    const { bundleItems, reorderPoint, maxStockLevel, reorderQuantity, unitOfMeasure, ...rawProductData } = req.body;
+
+    // Only include valid Product model fields
+    const productData = {
+      sku: rawProductData.sku,
+      name: rawProductData.name,
+      description: rawProductData.description || null,
+      barcode: rawProductData.barcode || null,
+      brandId: rawProductData.brandId || null,
+      type: rawProductData.type || 'SIMPLE',
+      status: rawProductData.status || 'ACTIVE',
+      length: rawProductData.length || null,
+      width: rawProductData.width || null,
+      height: rawProductData.height || null,
+      weight: rawProductData.weight || null,
+      dimensionUnit: rawProductData.dimensionUnit || 'cm',
+      weightUnit: rawProductData.weightUnit || 'kg',
+      costPrice: rawProductData.costPrice || null,
+      sellingPrice: rawProductData.sellingPrice || null,
+      currency: rawProductData.currency || 'GBP',
+      isPerishable: rawProductData.isPerishable || false,
+      requiresBatch: rawProductData.requiresBatch || false,
+      requiresSerial: rawProductData.requiresSerial || false,
+      shelfLifeDays: rawProductData.shelfLifeDays || null,
+      images: rawProductData.images || [],
+      companyId: rawProductData.companyId || req.user.companyId,
+    };
 
     const product = await prisma.product.create({
       data: {
         ...productData,
-        companyId: productData.companyId || req.user.companyId,
         bundleItems: bundleItems ? {
           create: bundleItems.map(item => ({
             childId: item.productId,
@@ -1735,7 +1760,31 @@ app.post('/api/products', verifyToken, async (req, res) => {
 
 app.put('/api/products/:id', verifyToken, async (req, res) => {
   try {
-    const { bundleItems, ...productData } = req.body;
+    const { bundleItems, reorderPoint, maxStockLevel, reorderQuantity, unitOfMeasure, companyId, ...rawProductData } = req.body;
+
+    // Only include valid Product model fields that are provided
+    const productData = {};
+    if (rawProductData.sku !== undefined) productData.sku = rawProductData.sku;
+    if (rawProductData.name !== undefined) productData.name = rawProductData.name;
+    if (rawProductData.description !== undefined) productData.description = rawProductData.description;
+    if (rawProductData.barcode !== undefined) productData.barcode = rawProductData.barcode;
+    if (rawProductData.brandId !== undefined) productData.brandId = rawProductData.brandId;
+    if (rawProductData.type !== undefined) productData.type = rawProductData.type;
+    if (rawProductData.status !== undefined) productData.status = rawProductData.status;
+    if (rawProductData.length !== undefined) productData.length = rawProductData.length;
+    if (rawProductData.width !== undefined) productData.width = rawProductData.width;
+    if (rawProductData.height !== undefined) productData.height = rawProductData.height;
+    if (rawProductData.weight !== undefined) productData.weight = rawProductData.weight;
+    if (rawProductData.dimensionUnit !== undefined) productData.dimensionUnit = rawProductData.dimensionUnit;
+    if (rawProductData.weightUnit !== undefined) productData.weightUnit = rawProductData.weightUnit;
+    if (rawProductData.costPrice !== undefined) productData.costPrice = rawProductData.costPrice;
+    if (rawProductData.sellingPrice !== undefined) productData.sellingPrice = rawProductData.sellingPrice;
+    if (rawProductData.currency !== undefined) productData.currency = rawProductData.currency;
+    if (rawProductData.isPerishable !== undefined) productData.isPerishable = rawProductData.isPerishable;
+    if (rawProductData.requiresBatch !== undefined) productData.requiresBatch = rawProductData.requiresBatch;
+    if (rawProductData.requiresSerial !== undefined) productData.requiresSerial = rawProductData.requiresSerial;
+    if (rawProductData.shelfLifeDays !== undefined) productData.shelfLifeDays = rawProductData.shelfLifeDays;
+    if (rawProductData.images !== undefined) productData.images = rawProductData.images;
 
     // If updating bundle items, delete old ones first
     if (bundleItems !== undefined) {
@@ -2003,6 +2052,216 @@ app.get('/api/warehouses', verifyToken, async (req, res) => {
     res.json(warehouses);
   } catch (error) {
     console.error('Get warehouses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// LOCATIONS (Warehouse storage locations)
+// ===================================
+
+// Get all locations
+app.get('/api/locations', verifyToken, async (req, res) => {
+  try {
+    const { warehouseId, zoneId } = req.query;
+
+    const where = {};
+    if (warehouseId) where.warehouseId = warehouseId;
+    if (zoneId) where.zoneId = zoneId;
+
+    const locations = await prisma.location.findMany({
+      where,
+      include: {
+        warehouse: {
+          select: { id: true, name: true, code: true }
+        },
+        zone: {
+          select: { id: true, name: true, code: true }
+        },
+        _count: {
+          select: { inventory: true }
+        }
+      },
+      orderBy: [
+        { warehouse: { name: 'asc' } },
+        { code: 'asc' }
+      ]
+    });
+
+    res.json(locations);
+  } catch (error) {
+    console.error('Get locations error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get single location
+app.get('/api/locations/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const location = await prisma.location.findUnique({
+      where: { id },
+      include: {
+        warehouse: true,
+        zone: true,
+        inventory: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    if (!location) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    res.json(location);
+  } catch (error) {
+    console.error('Get location error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create location
+app.post('/api/locations', verifyToken, async (req, res) => {
+  try {
+    const { name, code, warehouseId, zoneId, aisle, rack, shelf, bin } = req.body;
+
+    if (!name || !code || !warehouseId) {
+      return res.status(400).json({ error: 'Name, code, and warehouseId are required' });
+    }
+
+    // Check if warehouse exists
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: warehouseId }
+    });
+
+    if (!warehouse) {
+      return res.status(404).json({ error: 'Warehouse not found' });
+    }
+
+    // Check for duplicate code in same warehouse
+    const existing = await prisma.location.findFirst({
+      where: { warehouseId, code }
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Location code already exists in this warehouse' });
+    }
+
+    const location = await prisma.location.create({
+      data: {
+        name,
+        code,
+        warehouseId,
+        zoneId: zoneId || null,
+        aisle: aisle || null,
+        rack: rack || null,
+        shelf: shelf || null,
+        bin: bin || null
+      },
+      include: {
+        warehouse: true,
+        zone: true
+      }
+    });
+
+    res.status(201).json(location);
+  } catch (error) {
+    console.error('Create location error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update location
+app.put('/api/locations/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, code, warehouseId, zoneId, aisle, rack, shelf, bin } = req.body;
+
+    const existing = await prisma.location.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    // Check for duplicate code if changing
+    if (code && code !== existing.code) {
+      const duplicate = await prisma.location.findFirst({
+        where: {
+          warehouseId: warehouseId || existing.warehouseId,
+          code,
+          NOT: { id }
+        }
+      });
+
+      if (duplicate) {
+        return res.status(400).json({ error: 'Location code already exists in this warehouse' });
+      }
+    }
+
+    const location = await prisma.location.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? name : existing.name,
+        code: code !== undefined ? code : existing.code,
+        warehouseId: warehouseId !== undefined ? warehouseId : existing.warehouseId,
+        zoneId: zoneId !== undefined ? (zoneId || null) : existing.zoneId,
+        aisle: aisle !== undefined ? (aisle || null) : existing.aisle,
+        rack: rack !== undefined ? (rack || null) : existing.rack,
+        shelf: shelf !== undefined ? (shelf || null) : existing.shelf,
+        bin: bin !== undefined ? (bin || null) : existing.bin
+      },
+      include: {
+        warehouse: true,
+        zone: true
+      }
+    });
+
+    res.json(location);
+  } catch (error) {
+    console.error('Update location error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete location
+app.delete('/api/locations/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.location.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { inventory: true }
+        }
+      }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    // Check if location has inventory
+    if (existing._count.inventory > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete location with existing inventory',
+        inventoryCount: existing._count.inventory
+      });
+    }
+
+    await prisma.location.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Location deleted successfully' });
+  } catch (error) {
+    console.error('Delete location error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
