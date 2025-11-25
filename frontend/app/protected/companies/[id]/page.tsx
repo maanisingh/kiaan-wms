@@ -75,7 +75,7 @@ export default function CompanyDetailPage() {
     return (
       <div className="text-center py-20">
         <h2 className="text-xl text-gray-500">Company not found</h2>
-        <Button type="primary" className="mt-4" onClick={() => router.push('/companies')}>
+        <Button type="primary" className="mt-4" onClick={() => router.push('/protected/companies')}>
           Back to Companies
         </Button>
       </div>
@@ -155,7 +155,7 @@ export default function CompanyDetailPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/companies')}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/protected/companies')}>
             Back
           </Button>
           <div>
@@ -163,7 +163,7 @@ export default function CompanyDetailPage() {
             <p className="text-gray-500">Company Code: {company.code}</p>
           </div>
         </div>
-        <Link href={`/companies/${company.id}/edit`}>
+        <Link href={`/protected/companies/${company.id}/edit`}>
           <Button type="primary" icon={<EditOutlined />}>Edit Company</Button>
         </Link>
       </div>
