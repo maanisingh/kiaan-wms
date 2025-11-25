@@ -1,15 +1,54 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Simple middleware to handle redirects for auth pages
-// Most route protection is handled client-side via ProtectedRoute component
+// Routes that exist under /protected/ and need redirecting
+const PROTECTED_ROUTES = [
+  'analytics',
+  'barcode',
+  'clients',
+  'companies',
+  'contact',
+  'customers',
+  'dashboard',
+  'dashboards',
+  'demo',
+  'documents',
+  'fba-transfers',
+  'fulfillment',
+  'goods-receiving',
+  'inbound',
+  'integrations',
+  'inventory',
+  'labels',
+  'notifications',
+  'outbound',
+  'packing',
+  'picking',
+  'privacy',
+  'products',
+  'purchase-orders',
+  'replenishment',
+  'reports',
+  'returns',
+  'sales-orders',
+  'settings',
+  'shipments',
+  'suppliers',
+  'transfers',
+  'users',
+  'warehouses',
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Redirect /dashboard to /protected/dashboard
-  if (pathname === '/dashboard') {
-    return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+  // Get the first segment of the path (e.g., /warehouses/123 -> warehouses)
+  const firstSegment = pathname.split('/')[1];
+
+  // Redirect protected routes from /route to /protected/route
+  if (firstSegment && PROTECTED_ROUTES.includes(firstSegment)) {
+    const newPath = pathname.replace(`/${firstSegment}`, `/protected/${firstSegment}`);
+    return NextResponse.redirect(new URL(newPath, request.url));
   }
 
   // Allow all routes (protection is handled client-side)
