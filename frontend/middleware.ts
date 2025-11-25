@@ -7,6 +7,11 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Redirect /dashboard to /protected/dashboard
+  if (pathname === '/dashboard') {
+    return NextResponse.redirect(new URL('/protected/dashboard', request.url));
+  }
+
   // Allow all routes (protection is handled client-side)
   return NextResponse.next();
 }
