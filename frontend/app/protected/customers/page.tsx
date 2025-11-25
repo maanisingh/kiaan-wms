@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, Modal, Tabs, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
-  FilterOutlined,
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
@@ -15,76 +13,60 @@ import {
   PhoneOutlined,
   InboxOutlined,
   CheckCircleOutlined,
-  StopOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import { useModal } from '@/hooks/useModal';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_CUSTOMERS } from '@/lib/graphql/queries';
-import { CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER } from '@/lib/graphql/mutations';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
+interface Customer {
+  id: string;
+  code: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  customerType?: 'B2C' | 'B2B';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function CustomersPage() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+  const { modal, message } = App.useApp();
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
-  const addModal = useModal();
-  const editModal = useModal();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
-  // GraphQL query for customers
-  const { data, loading, error, refetch } = useQuery(GET_CUSTOMERS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch customers from API
+  const fetchCustomers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.get('/customers');
+      setCustomers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch customers:', err);
+      message.error(err.message || 'Failed to load customers');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
-  // GraphQL mutations
-  const [createCustomer, { loading: creating }] = useMutation(CREATE_CUSTOMER, {
-    onCompleted: () => {
-      message.success('Customer created successfully!');
-      form.resetFields();
-      addModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to create customer: ${err.message}`);
-    },
-  });
-
-  const [updateCustomer, { loading: updating }] = useMutation(UPDATE_CUSTOMER, {
-    onCompleted: () => {
-      message.success('Customer updated successfully!');
-      form.resetFields();
-      editModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to update customer: ${err.message}`);
-    },
-  });
-
-  const [deleteCustomer] = useMutation(DELETE_CUSTOMER, {
-    onCompleted: () => {
-      message.success('Customer deleted successfully!');
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to delete customer: ${err.message}`);
-    },
-  });
-
-  // Get customers from GraphQL data
-  const customers = data?.Customer || [];
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
 
   // Filter customers by search text and status
-  const filteredCustomers = customers.filter((c: any) => {
+  const filteredCustomers = customers.filter((c: Customer) => {
     const matchesSearch = !searchText ||
       c.name?.toLowerCase().includes(searchText.toLowerCase()) ||
       c.email?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -93,54 +75,37 @@ export default function CustomersPage() {
   });
 
   const allCustomers = filteredCustomers;
-  const b2cCustomers = filteredCustomers.filter((c: any) => c.customerType === 'B2C');
-  const b2bCustomers = filteredCustomers.filter((c: any) => c.customerType === 'B2B');
+  const b2cCustomers = filteredCustomers.filter((c: Customer) => c.customerType === 'B2C');
+  const b2bCustomers = filteredCustomers.filter((c: Customer) => c.customerType === 'B2B');
 
   const handleSubmit = async (values: any) => {
     try {
-      if (selectedCustomer) {
+      setSaving(true);
+
+      if (editMode && selectedCustomer) {
         // UPDATE existing customer
-        await updateCustomer({
-          variables: {
-            id: selectedCustomer.id,
-            set: {
-              name: values.name,
-              email: values.email || null,
-              phone: values.phone || null,
-              address: values.address || null,
-              customerType: values.customerType,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.put(`/customers/${selectedCustomer.id}`, values);
+        message.success('Customer updated successfully!');
       } else {
         // CREATE new customer
-        const uuid = crypto.randomUUID();
-        const customerCode = `CUST-${Date.now().toString().slice(-6)}`;
-
-        await createCustomer({
-          variables: {
-            object: {
-              id: uuid,
-              code: customerCode,
-              name: values.name,
-              email: values.email || null,
-              phone: values.phone || null,
-              address: values.address || null,
-              customerType: values.customerType,
-              companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.post('/customers', values);
+        message.success('Customer created successfully!');
       }
+
+      form.resetFields();
+      setModalOpen(false);
+      setEditMode(false);
+      setSelectedCustomer(null);
+      fetchCustomers();
     } catch (error: any) {
       console.error('Error saving customer:', error);
-      message.error(error?.message || 'Failed to save customer');
+      message.error(error.response?.data?.message || error.message || 'Failed to save customer');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: Customer) => {
     setSelectedCustomer(record);
     form.setFieldsValue({
       name: record.name,
@@ -149,25 +114,33 @@ export default function CustomersPage() {
       address: record.address,
       customerType: record.customerType,
     });
-    editModal.open();
+    setEditMode(true);
+    setModalOpen(true);
   };
 
-  const handleDelete = (record: any) => {
+  const handleDelete = (record: Customer) => {
     modal.confirm({
       title: 'Delete Customer',
       content: `Are you sure you want to delete customer "${record.name}"? This action cannot be undone.`,
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deleteCustomer({ variables: { id: record.id } });
+        try {
+          await apiService.delete(`/customers/${record.id}`);
+          message.success('Customer deleted successfully!');
+          fetchCustomers();
+        } catch (error: any) {
+          message.error(error.response?.data?.message || error.message || 'Failed to delete customer');
+        }
       },
     });
   };
 
   const handleAddCustomer = () => {
     setSelectedCustomer(null);
+    setEditMode(false);
     form.resetFields();
-    addModal.open();
+    setModalOpen(true);
   };
 
   const columns = [
@@ -230,7 +203,7 @@ export default function CustomersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: any) => (
+      render: (_: any, record: Customer) => (
         <Space>
           <Button
             type="link"
@@ -253,7 +226,7 @@ export default function CustomersPage() {
     },
   ];
 
-  const renderTable = (dataSource: any[]) => (
+  const renderTable = (dataSource: Customer[]) => (
     <>
       <div className="flex gap-4 flex-wrap mb-4">
         <Search
@@ -264,6 +237,7 @@ export default function CustomersPage() {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
+        <Button icon={<ReloadOutlined />} onClick={fetchCustomers}>Refresh</Button>
       </div>
       <Table
         columns={columns}
@@ -300,135 +274,106 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Customer Management
-            </h1>
-            <p className="text-gray-600 mt-1">Manage your customer database and relationships</p>
-          </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddCustomer}>
-            Add Customer
-          </Button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Customer Management
+          </h1>
+          <p className="text-gray-600 mt-1">Manage your customer database and relationships</p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Customers</p>
-              <p className="text-3xl font-bold text-blue-600">{allCustomers.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">B2C Customers</p>
-              <p className="text-3xl font-bold text-green-600">{b2cCustomers.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">B2B Customers</p>
-              <p className="text-3xl font-bold text-purple-600">{b2bCustomers.length}</p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Tabs with Tables */}
-        <Card className="shadow-sm">
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={tabItems}
-            size="large"
-          />
-        </Card>
-
-        {/* Details Drawer */}
-        <Drawer
-          title="Customer Details"
-          placement="right"
-          width={600}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          {selectedCustomer && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{selectedCustomer.name}</h3>
-                <p className="text-gray-600">{selectedCustomer.email || 'No email provided'}</p>
-              </div>
-              <div className="border-t pt-4">
-                <p><strong>Customer Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedCustomer.code}</span></p>
-                <p><strong>Type:</strong> <Tag color={selectedCustomer.customerType === 'B2B' ? 'blue' : 'green'}>{selectedCustomer.customerType}</Tag></p>
-                <p><strong>Phone:</strong> {selectedCustomer.phone || 'Not provided'}</p>
-                <p><strong>Address:</strong> {selectedCustomer.address || 'Not provided'}</p>
-                <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          )}
-        </Drawer>
-
-        <Modal
-          title="Add Customer"
-          open={addModal.isOpen}
-          onCancel={addModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={creating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
-              <Input placeholder="Enter customer name" />
-            </Form.Item>
-            <Form.Item label="Customer Type" name="customerType" rules={[{ required: true, message: 'Please select customer type' }]}>
-              <Select placeholder="Select customer type">
-                <Option value="B2C">B2C (Business to Consumer)</Option>
-                <Option value="B2B">B2B (Business to Business)</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
-              <Input placeholder="Enter email (optional)" />
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        <Modal
-          title="Edit Customer"
-          open={editModal.isOpen}
-          onCancel={editModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={updating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
-              <Input placeholder="Enter customer name" />
-            </Form.Item>
-            <Form.Item label="Customer Type" name="customerType" rules={[{ required: true, message: 'Please select customer type' }]}>
-              <Select placeholder="Select customer type">
-                <Option value="B2C">B2C (Business to Consumer)</Option>
-                <Option value="B2B">B2B (Business to Business)</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
-              <Input placeholder="Enter email (optional)" />
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-          </Form>
-        </Modal>
+        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddCustomer}>
+          Add Customer
+        </Button>
       </div>
-      );
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Total Customers</p>
+            <p className="text-3xl font-bold text-blue-600">{allCustomers.length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">B2C Customers</p>
+            <p className="text-3xl font-bold text-green-600">{b2cCustomers.length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">B2B Customers</p>
+            <p className="text-3xl font-bold text-purple-600">{b2bCustomers.length}</p>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="shadow-sm">
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          size="large"
+        />
+      </Card>
+
+      <Drawer
+        title="Customer Details"
+        placement="right"
+        width={600}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        {selectedCustomer && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg">{selectedCustomer.name}</h3>
+              <p className="text-gray-600">{selectedCustomer.email || 'No email provided'}</p>
+            </div>
+            <div className="border-t pt-4">
+              <p><strong>Customer Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedCustomer.code}</span></p>
+              <p><strong>Type:</strong> <Tag color={selectedCustomer.customerType === 'B2B' ? 'blue' : 'green'}>{selectedCustomer.customerType}</Tag></p>
+              <p><strong>Phone:</strong> {selectedCustomer.phone || 'Not provided'}</p>
+              <p><strong>Address:</strong> {selectedCustomer.address || 'Not provided'}</p>
+              <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <Modal
+        title={editMode ? 'Edit Customer' : 'Add Customer'}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditMode(false);
+          setSelectedCustomer(null);
+          form.resetFields();
+        }}
+        onOk={() => form.submit()}
+        width={600}
+        confirmLoading={saving}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
+            <Input placeholder="Enter customer name" />
+          </Form.Item>
+          <Form.Item label="Customer Type" name="customerType" rules={[{ required: true, message: 'Please select customer type' }]}>
+            <Select placeholder="Select customer type">
+              <Option value="B2C">B2C (Business to Consumer)</Option>
+              <Option value="B2B">B2B (Business to Business)</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
+            <Input placeholder="Enter email (optional)" />
+          </Form.Item>
+          <Form.Item label="Phone" name="phone">
+            <Input placeholder="Enter phone number (optional)" />
+          </Form.Item>
+          <Form.Item label="Address" name="address">
+            <Input.TextArea placeholder="Enter address (optional)" rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
 }

@@ -41,6 +41,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import apiService from '@/services/api';
 
 dayjs.extend(relativeTime);
 
@@ -83,25 +84,13 @@ export default function BatchesPage() {
   const fetchBatches = async (status?: string) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = status ? `/api/inventory/batches?status=${status}` : '/api/inventory/batches';
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${url}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setBatches(data);
-        setFilteredBatches(data);
-      } else {
-        message.error('Failed to fetch batches');
-      }
-    } catch (error) {
+      const url = status ? `/inventory/batches?status=${status}` : '/inventory/batches';
+      const data = await apiService.get(url);
+      setBatches(Array.isArray(data) ? data : []);
+      setFilteredBatches(Array.isArray(data) ? data : []);
+    } catch (error: any) {
       console.error('Fetch batches error:', error);
-      message.error('Error loading batches');
+      message.error(error.message || 'Error loading batches');
     } finally {
       setLoading(false);
     }
@@ -110,26 +99,12 @@ export default function BatchesPage() {
   // Fetch batch details with movements
   const fetchBatchDetails = async (batchId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/api/inventory/batches/${batchId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedBatch(data);
-        setDetailsDrawerVisible(true);
-      } else {
-        message.error('Failed to fetch batch details');
-      }
-    } catch (error) {
+      const data = await apiService.get(`/inventory/batches/${batchId}`);
+      setSelectedBatch(data);
+      setDetailsDrawerVisible(true);
+    } catch (error: any) {
       console.error('Fetch batch details error:', error);
-      message.error('Error loading batch details');
+      message.error(error.message || 'Error loading batch details');
     }
   };
 
@@ -151,119 +126,76 @@ export default function BatchesPage() {
   // Create new batch
   const handleCreateBatch = async (values: any) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/api/inventory/batches`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...values,
-          receivedDate: values.receivedDate?.toISOString(),
-          expiryDate: values.expiryDate?.toISOString(),
-          manufacturingDate: values.manufacturingDate?.toISOString(),
-        }),
-      });
+      const payload = {
+        ...values,
+        receivedDate: values.receivedDate?.toISOString(),
+        expiryDate: values.expiryDate?.toISOString(),
+        manufacturingDate: values.manufacturingDate?.toISOString(),
+      };
 
-      if (response.ok) {
-        message.success('Batch created successfully');
-        form.resetFields();
-        setCreateModalVisible(false);
-        fetchBatches();
-      } else {
-        const error = await response.json();
-        message.error(error.error || 'Failed to create batch');
-      }
-    } catch (error) {
+      await apiService.post('/inventory/batches', payload);
+      message.success('Batch created successfully');
+      form.resetFields();
+      setCreateModalVisible(false);
+      fetchBatches();
+    } catch (error: any) {
       console.error('Create batch error:', error);
-      message.error('Error creating batch');
+      message.error(error.response?.data?.error || error.message || 'Failed to create batch');
     }
   };
 
   // Allocate inventory
   const handleAllocate = async (values: any) => {
     try {
-      const token = localStorage.getItem('token');
       const endpoint = allocationMethod === 'FIFO'
-        ? '/api/inventory/batches/allocate-fifo'
+        ? '/inventory/batches/allocate-fifo'
         : allocationMethod === 'LIFO'
-        ? '/api/inventory/batches/allocate-lifo'
-        : '/api/inventory/batches/allocate-fefo';
+        ? '/inventory/batches/allocate-lifo'
+        : '/inventory/batches/allocate-fefo';
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
+      const result = await apiService.post(endpoint, values);
+      message.success(`Allocated ${result.totalAllocated} units using ${result.method}`);
+      allocationForm.resetFields();
+      setAllocationModalVisible(false);
+      fetchBatches();
 
-      if (response.ok) {
-        const result = await response.json();
-        message.success(`Allocated ${result.totalAllocated} units using ${result.method}`);
-        allocationForm.resetFields();
-        setAllocationModalVisible(false);
-        fetchBatches();
-
-        // Show allocation details
-        Modal.info({
-          title: `${result.method} Allocation Result`,
-          content: (
-            <div>
-              <p><strong>Total Allocated:</strong> {result.totalAllocated} units</p>
-              <p><strong>Number of Batches:</strong> {result.allocations.length}</p>
-              <div className="mt-4">
-                <strong>Allocation Details:</strong>
-                <ul className="mt-2">
-                  {result.allocations.map((alloc: any, index: number) => (
-                    <li key={index}>
-                      Batch {alloc.batchNumber}: {alloc.quantity} units
-                      {alloc.expiryDate && ` (Expires: ${dayjs(alloc.expiryDate).format('MMM DD, YYYY')})`}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+      // Show allocation details
+      Modal.info({
+        title: `${result.method} Allocation Result`,
+        content: (
+          <div>
+            <p><strong>Total Allocated:</strong> {result.totalAllocated} units</p>
+            <p><strong>Number of Batches:</strong> {result.allocations.length}</p>
+            <div className="mt-4">
+              <strong>Allocation Details:</strong>
+              <ul className="mt-2">
+                {result.allocations.map((alloc: any, index: number) => (
+                  <li key={index}>
+                    Batch {alloc.batchNumber}: {alloc.quantity} units
+                    {alloc.expiryDate && ` (Expires: ${dayjs(alloc.expiryDate).format('MMM DD, YYYY')})`}
+                  </li>
+                ))}
+              </ul>
             </div>
-          ),
-          width: 600,
-        });
-      } else {
-        const error = await response.json();
-        message.error(error.error || 'Failed to allocate inventory');
-      }
-    } catch (error) {
+          </div>
+        ),
+        width: 600,
+      });
+    } catch (error: any) {
       console.error('Allocate error:', error);
-      message.error('Error allocating inventory');
+      message.error(error.response?.data?.error || error.message || 'Failed to allocate inventory');
     }
   };
 
   // Update batch status
   const handleUpdateStatus = async (batchId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/api/inventory/batches/${batchId}/status`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
-
-      if (response.ok) {
-        message.success('Batch status updated successfully');
-        fetchBatches();
-      } else {
-        message.error('Failed to update batch status');
-      }
-    } catch (error) {
+      await apiService.patch(`/inventory/batches/${batchId}/status`, { status: newStatus });
+      message.success('Batch status updated successfully');
+      fetchBatches();
+    } catch (error: any) {
       console.error('Update status error:', error);
-      message.error('Error updating batch status');
+      message.error(error.message || 'Error updating batch status');
     }
   };
 

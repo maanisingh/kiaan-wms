@@ -35,6 +35,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import apiService from '@/services/api';
 
 dayjs.extend(relativeTime);
 
@@ -77,8 +78,7 @@ export default function InventoryMovementsPage() {
   const fetchMovements = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      let url = '/api/inventory/movements?limit=100';
+      let url = '/inventory/movements?limit=100';
 
       if (dateRange[0] && dateRange[1]) {
         url += `&startDate=${dateRange[0].toISOString()}&endDate=${dateRange[1].toISOString()}`;
@@ -88,22 +88,12 @@ export default function InventoryMovementsPage() {
         url += `&type=${typeFilter}`;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${url}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMovements(data);
-        setFilteredMovements(data);
-      } else {
-        message.error('Failed to fetch movements');
-      }
-    } catch (error) {
+      const data = await apiService.get(url);
+      setMovements(Array.isArray(data) ? data : []);
+      setFilteredMovements(Array.isArray(data) ? data : []);
+    } catch (error: any) {
       console.error('Fetch movements error:', error);
-      message.error('Error loading movements');
+      message.error(error.message || 'Error loading movements');
     } finally {
       setLoading(false);
     }
@@ -112,26 +102,12 @@ export default function InventoryMovementsPage() {
   // Fetch product movement history
   const fetchProductHistory = async (productId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/api/inventory/movements/product/${productId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedProductMovements(data);
-        setProductHistoryVisible(true);
-      } else {
-        message.error('Failed to fetch product history');
-      }
-    } catch (error) {
+      const data = await apiService.get(`/inventory/movements/product/${productId}`);
+      setSelectedProductMovements(Array.isArray(data) ? data : []);
+      setProductHistoryVisible(true);
+    } catch (error: any) {
       console.error('Fetch product history error:', error);
-      message.error('Error loading product history');
+      message.error(error.message || 'Error loading product history');
     }
   };
 
@@ -153,28 +129,14 @@ export default function InventoryMovementsPage() {
   // Create new movement
   const handleCreateMovement = async (values: any) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/api/inventory/movements`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (response.ok) {
-        message.success('Movement created successfully');
-        form.resetFields();
-        setCreateModalVisible(false);
-        fetchMovements();
-      } else {
-        const error = await response.json();
-        message.error(error.error || 'Failed to create movement');
-      }
-    } catch (error) {
+      await apiService.post('/inventory/movements', values);
+      message.success('Movement created successfully');
+      form.resetFields();
+      setCreateModalVisible(false);
+      fetchMovements();
+    } catch (error: any) {
       console.error('Create movement error:', error);
-      message.error('Error creating movement');
+      message.error(error.response?.data?.error || error.message || 'Failed to create movement');
     }
   };
 

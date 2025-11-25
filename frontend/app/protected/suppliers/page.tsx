@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, Modal, Tabs, App } from 'antd';
 import {
   PlusOutlined,
@@ -12,76 +11,58 @@ import {
   ContactsOutlined,
   MailOutlined,
   PhoneOutlined,
-  InboxOutlined,
-  CheckCircleOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import { useModal } from '@/hooks/useModal';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_SUPPLIERS } from '@/lib/graphql/queries';
-import { CREATE_SUPPLIER, UPDATE_SUPPLIER, DELETE_SUPPLIER } from '@/lib/graphql/mutations';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
+interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function SuppliersPage() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+  const { modal, message } = App.useApp();
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [searchText, setSearchText] = useState('');
-  const addModal = useModal();
-  const editModal = useModal();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
-  // GraphQL query for suppliers
-  const { data, loading, error, refetch } = useQuery(GET_SUPPLIERS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch suppliers from API
+  const fetchSuppliers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.get('/suppliers');
+      setSuppliers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch suppliers:', err);
+      message.error(err.message || 'Failed to load suppliers');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
-  // GraphQL mutations
-  const [createSupplier, { loading: creating }] = useMutation(CREATE_SUPPLIER, {
-    onCompleted: () => {
-      message.success('Supplier created successfully!');
-      form.resetFields();
-      addModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to create supplier: ${err.message}`);
-    },
-  });
-
-  const [updateSupplier, { loading: updating }] = useMutation(UPDATE_SUPPLIER, {
-    onCompleted: () => {
-      message.success('Supplier updated successfully!');
-      form.resetFields();
-      editModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to update supplier: ${err.message}`);
-    },
-  });
-
-  const [deleteSupplier] = useMutation(DELETE_SUPPLIER, {
-    onCompleted: () => {
-      message.success('Supplier deleted successfully!');
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to delete supplier: ${err.message}`);
-    },
-  });
-
-  // Get suppliers from GraphQL data
-  const suppliers = data?.Supplier || [];
+  useEffect(() => {
+    fetchSuppliers();
+  }, [fetchSuppliers]);
 
   // Filter suppliers by search text
-  const filteredSuppliers = suppliers.filter((s: any) => {
+  const filteredSuppliers = suppliers.filter((s: Supplier) => {
     const matchesSearch = !searchText ||
       s.name?.toLowerCase().includes(searchText.toLowerCase()) ||
       s.email?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -91,47 +72,32 @@ export default function SuppliersPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      if (selectedSupplier) {
+      setSaving(true);
+
+      if (editMode && selectedSupplier) {
         // UPDATE existing supplier
-        await updateSupplier({
-          variables: {
-            id: selectedSupplier.id,
-            set: {
-              name: values.name,
-              email: values.email || null,
-              phone: values.phone || null,
-              address: values.address || null,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.put(`/suppliers/${selectedSupplier.id}`, values);
+        message.success('Supplier updated successfully!');
       } else {
         // CREATE new supplier
-        const uuid = crypto.randomUUID();
-        const supplierCode = `SUPP-${Date.now().toString().slice(-6)}`;
-
-        await createSupplier({
-          variables: {
-            object: {
-              id: uuid,
-              code: supplierCode,
-              name: values.name,
-              email: values.email || null,
-              phone: values.phone || null,
-              address: values.address || null,
-              companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.post('/suppliers', values);
+        message.success('Supplier created successfully!');
       }
+
+      form.resetFields();
+      setModalOpen(false);
+      setEditMode(false);
+      setSelectedSupplier(null);
+      fetchSuppliers();
     } catch (error: any) {
       console.error('Error saving supplier:', error);
-      message.error(error?.message || 'Failed to save supplier');
+      message.error(error.response?.data?.message || error.message || 'Failed to save supplier');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: Supplier) => {
     setSelectedSupplier(record);
     form.setFieldsValue({
       name: record.name,
@@ -139,25 +105,33 @@ export default function SuppliersPage() {
       phone: record.phone,
       address: record.address,
     });
-    editModal.open();
+    setEditMode(true);
+    setModalOpen(true);
   };
 
-  const handleDelete = (record: any) => {
+  const handleDelete = (record: Supplier) => {
     modal.confirm({
       title: 'Delete Supplier',
       content: `Are you sure you want to delete supplier "${record.name}"? This action cannot be undone.`,
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deleteSupplier({ variables: { id: record.id } });
+        try {
+          await apiService.delete(`/suppliers/${record.id}`);
+          message.success('Supplier deleted successfully!');
+          fetchSuppliers();
+        } catch (error: any) {
+          message.error(error.response?.data?.message || error.message || 'Failed to delete supplier');
+        }
       },
     });
   };
 
   const handleAddSupplier = () => {
     setSelectedSupplier(null);
+    setEditMode(false);
     form.resetFields();
-    addModal.open();
+    setModalOpen(true);
   };
 
   const columns = [
@@ -210,7 +184,7 @@ export default function SuppliersPage() {
       title: 'Actions',
       key: 'actions',
       width: 200,
-      render: (_: any, record: any) => (
+      render: (_: any, record: Supplier) => (
         <Space>
           <Button
             type="link"
@@ -235,134 +209,110 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Supplier Management
-            </h1>
-            <p className="text-gray-600 mt-1">Manage your supplier database and relationships</p>
-          </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddSupplier}>
-            Add Supplier
-          </Button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Supplier Management
+          </h1>
+          <p className="text-gray-600 mt-1">Manage your supplier database and relationships</p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Suppliers</p>
-              <p className="text-3xl font-bold text-blue-600">{filteredSuppliers.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Active Suppliers</p>
-              <p className="text-3xl font-bold text-green-600">{filteredSuppliers.length}</p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Table */}
-        <Card className="shadow-sm">
-          <div className="flex gap-4 flex-wrap mb-4">
-            <Search
-              placeholder="Search by name, email, or code..."
-              allowClear
-              style={{ width: 350 }}
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-          <Table
-            columns={columns}
-            dataSource={filteredSuppliers}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              total: filteredSuppliers.length,
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total) => `Total ${total} suppliers`,
-            }}
-          />
-        </Card>
-
-        {/* Details Drawer */}
-        <Drawer
-          title="Supplier Details"
-          placement="right"
-          width={600}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          {selectedSupplier && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{selectedSupplier.name}</h3>
-                <p className="text-gray-600">{selectedSupplier.email || 'No email provided'}</p>
-              </div>
-              <div className="border-t pt-4">
-                <p><strong>Supplier Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedSupplier.code}</span></p>
-                <p><strong>Phone:</strong> {selectedSupplier.phone || 'Not provided'}</p>
-                <p><strong>Address:</strong> {selectedSupplier.address || 'Not provided'}</p>
-                <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedSupplier.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          )}
-        </Drawer>
-
-        {/* Add Modal */}
-        <Modal
-          title="Add Supplier"
-          open={addModal.isOpen}
-          onCancel={addModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={creating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Supplier Name" name="name" rules={[{ required: true, message: 'Please enter supplier name' }]}>
-              <Input placeholder="Enter supplier name" />
-            </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
-              <Input placeholder="Enter email (optional)" />
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        {/* Edit Modal */}
-        <Modal
-          title="Edit Supplier"
-          open={editModal.isOpen}
-          onCancel={editModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={updating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Supplier Name" name="name" rules={[{ required: true, message: 'Please enter supplier name' }]}>
-              <Input placeholder="Enter supplier name" />
-            </Form.Item>
-            <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
-              <Input placeholder="Enter email (optional)" />
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-          </Form>
-        </Modal>
+        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddSupplier}>
+          Add Supplier
+        </Button>
       </div>
-      );
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Total Suppliers</p>
+            <p className="text-3xl font-bold text-blue-600">{filteredSuppliers.length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Active Suppliers</p>
+            <p className="text-3xl font-bold text-green-600">{filteredSuppliers.length}</p>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="shadow-sm">
+        <div className="flex gap-4 flex-wrap mb-4">
+          <Search
+            placeholder="Search by name, email, or code..."
+            allowClear
+            style={{ width: 350 }}
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Button icon={<ReloadOutlined />} onClick={fetchSuppliers}>Refresh</Button>
+        </div>
+        <Table
+          columns={columns}
+          dataSource={filteredSuppliers}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            total: filteredSuppliers.length,
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} suppliers`,
+          }}
+        />
+      </Card>
+
+      <Drawer
+        title="Supplier Details"
+        placement="right"
+        width={600}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        {selectedSupplier && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg">{selectedSupplier.name}</h3>
+              <p className="text-gray-600">{selectedSupplier.email || 'No email provided'}</p>
+            </div>
+            <div className="border-t pt-4">
+              <p><strong>Supplier Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedSupplier.code}</span></p>
+              <p><strong>Phone:</strong> {selectedSupplier.phone || 'Not provided'}</p>
+              <p><strong>Address:</strong> {selectedSupplier.address || 'Not provided'}</p>
+              <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedSupplier.createdAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <Modal
+        title={editMode ? 'Edit Supplier' : 'Add Supplier'}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditMode(false);
+          setSelectedSupplier(null);
+          form.resetFields();
+        }}
+        onOk={() => form.submit()}
+        width={600}
+        confirmLoading={saving}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item label="Supplier Name" name="name" rules={[{ required: true, message: 'Please enter supplier name' }]}>
+            <Input placeholder="Enter supplier name" />
+          </Form.Item>
+          <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Please enter a valid email' }]}>
+            <Input placeholder="Enter email (optional)" />
+          </Form.Item>
+          <Form.Item label="Phone" name="phone">
+            <Input placeholder="Enter phone number (optional)" />
+          </Form.Item>
+          <Form.Item label="Address" name="address">
+            <Input.TextArea placeholder="Enter address (optional)" rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
 }
