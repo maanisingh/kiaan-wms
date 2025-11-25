@@ -626,10 +626,26 @@ app.get('/api/inventory/adjustments', verifyToken, async (req, res) => {
 // Create inventory adjustment
 app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
   try {
-    const { type, reason, notes, items } = req.body;
+    const { type, reason, notes, items, warehouseId } = req.body;
 
     if (!type || !reason || !items || items.length === 0) {
       return res.status(400).json({ error: 'Type, reason, and items are required' });
+    }
+
+    // Get warehouse ID - use provided one or get user's company default warehouse
+    let targetWarehouseId = warehouseId;
+    if (!targetWarehouseId) {
+      const defaultWarehouse = await prisma.warehouse.findFirst({
+        where: {
+          companyId: req.user.companyId,
+          status: 'ACTIVE'
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+      if (!defaultWarehouse) {
+        return res.status(400).json({ error: 'No warehouse found. Please create a warehouse first.' });
+      }
+      targetWarehouseId = defaultWarehouse.id;
     }
 
     const adjustment = await prisma.stockAdjustment.create({
@@ -637,7 +653,7 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
         id: require('crypto').randomUUID(),
         type,
         status: 'PENDING',
-        warehouseId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df', // Default warehouse
+        warehouseId: targetWarehouseId,
         reason,
         notes,
         requestedBy: req.user.id,
@@ -645,8 +661,8 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
         items: {
           create: items.map((item) => ({
             productId: item.productId,
-            locationId: item.locationId,
-            batchNumber: item.batchNumber,
+            locationId: item.locationId || null,
+            batchNumber: item.batchNumber || null,
             quantity: item.quantity,
             unitCost: item.unitCost || 0
           }))
@@ -657,6 +673,10 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
           include: {
             product: true
           }
+        },
+        warehouse: true,
+        user: {
+          select: { id: true, name: true, email: true }
         }
       }
     });
@@ -664,7 +684,7 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
     res.status(201).json(adjustment);
   } catch (error) {
     console.error('Create adjustment error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
@@ -1935,6 +1955,136 @@ app.get('/api/inventory', verifyToken, async (req, res) => {
     res.json(inventory);
   } catch (error) {
     console.error('Get inventory error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create inventory record
+app.post('/api/inventory', verifyToken, async (req, res) => {
+  try {
+    const {
+      productId,
+      warehouseId,
+      locationId,
+      lotNumber,
+      batchNumber,
+      serialNumber,
+      bestBeforeDate,
+      quantity,
+      availableQuantity,
+      reservedQuantity,
+      status
+    } = req.body;
+
+    // Validate required fields
+    if (!productId || !warehouseId) {
+      return res.status(400).json({ error: 'productId and warehouseId are required' });
+    }
+
+    const inventory = await prisma.inventory.create({
+      data: {
+        productId,
+        warehouseId,
+        locationId: locationId || null,
+        lotNumber: lotNumber || null,
+        batchNumber: batchNumber || null,
+        serialNumber: serialNumber || null,
+        bestBeforeDate: bestBeforeDate ? new Date(bestBeforeDate) : null,
+        quantity: parseInt(quantity) || 0,
+        availableQuantity: availableQuantity !== undefined ? parseInt(availableQuantity) : (parseInt(quantity) || 0),
+        reservedQuantity: parseInt(reservedQuantity) || 0,
+        status: status || 'AVAILABLE'
+      },
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        },
+        warehouse: true,
+        location: true
+      }
+    });
+
+    res.status(201).json(inventory);
+  } catch (error) {
+    console.error('Create inventory error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Inventory record already exists for this product/warehouse/location/lot combination' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update inventory record
+app.put('/api/inventory/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      productId,
+      warehouseId,
+      locationId,
+      lotNumber,
+      batchNumber,
+      serialNumber,
+      bestBeforeDate,
+      quantity,
+      availableQuantity,
+      reservedQuantity,
+      status
+    } = req.body;
+
+    const inventory = await prisma.inventory.update({
+      where: { id },
+      data: {
+        productId,
+        warehouseId,
+        locationId: locationId || null,
+        lotNumber: lotNumber || null,
+        batchNumber: batchNumber || null,
+        serialNumber: serialNumber || null,
+        bestBeforeDate: bestBeforeDate ? new Date(bestBeforeDate) : null,
+        quantity: parseInt(quantity) || 0,
+        availableQuantity: availableQuantity !== undefined ? parseInt(availableQuantity) : (parseInt(quantity) || 0),
+        reservedQuantity: parseInt(reservedQuantity) || 0,
+        status: status || 'AVAILABLE'
+      },
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        },
+        warehouse: true,
+        location: true
+      }
+    });
+
+    res.json(inventory);
+  } catch (error) {
+    console.error('Update inventory error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Inventory record not found' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete inventory record
+app.delete('/api/inventory/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.inventory.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Inventory record deleted successfully' });
+  } catch (error) {
+    console.error('Delete inventory error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Inventory record not found' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
