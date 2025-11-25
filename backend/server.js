@@ -1772,6 +1772,87 @@ app.put('/api/products/:id', verifyToken, async (req, res) => {
   }
 });
 
+// Delete product
+app.delete('/api/products/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // First delete related bundle items
+    await prisma.bundleItem.deleteMany({
+      where: {
+        OR: [
+          { parentId: id },
+          { childId: id }
+        ]
+      }
+    });
+
+    // Delete the product
+    await prisma.product.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// BRANDS - UPDATE and DELETE
+// ===================================
+
+// Update brand
+app.put('/api/brands/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, code, description } = req.body;
+
+    const brand = await prisma.brand.update({
+      where: { id },
+      data: {
+        name,
+        code,
+        description,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json(brand);
+  } catch (error) {
+    console.error('Update brand error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete brand
+app.delete('/api/brands/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if any products use this brand
+    const productsUsingBrand = await prisma.product.count({
+      where: { brandId: id }
+    });
+
+    if (productsUsingBrand > 0) {
+      return res.status(400).json({
+        error: `Cannot delete brand: ${productsUsingBrand} products are using this brand`
+      });
+    }
+
+    await prisma.brand.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Brand deleted successfully' });
+  } catch (error) {
+    console.error('Delete brand error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ===================================
 // INVENTORY (with BB Dates)
 // ===================================
