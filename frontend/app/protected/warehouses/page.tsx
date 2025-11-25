@@ -349,6 +349,7 @@ export default function WarehousesPage() {
             dataSource={filteredWarehouses}
             rowKey="id"
             loading={loading}
+            scroll={{ x: 1200 }}
             pagination={{
               total: filteredWarehouses.length,
               pageSize: 10,
