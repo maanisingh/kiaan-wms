@@ -44,41 +44,8 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-
         try {
-          // Try demo user authentication first (for Railway deployment without backend)
-          const demoUser = DEMO_USERS.find(u => u.email === email && u.password === password);
-
-          if (demoUser) {
-            // Client-side demo authentication successful
-            const user: User = {
-              id: demoUser.id,
-              email: demoUser.email,
-              name: demoUser.name,
-              role: demoUser.role,
-              companyId: demoUser.companyId,
-              status: 'active',
-              permissions: [],
-              createdAt: new Date().toISOString(),
-            };
-
-            const token = `demo_token_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-            set({
-              user,
-              token,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-            });
-
-            console.log('✅ Demo authentication successful:', user.email);
-            return;
-          }
-
-          // If demo user not found, try backend API (if available)
+          // Try backend API FIRST (production mode)
           try {
             const response = await fetch(`${API_URL}/api/auth/login`, {
               method: 'POST',
@@ -115,10 +82,44 @@ export const useAuthStore = create<AuthState>()(
             });
 
             console.log('✅ Backend authentication successful:', user.email);
+            return;
           } catch (backendError: any) {
-            // Backend not available, credentials don't match demo users
-            throw new Error('Invalid email or password');
+            // Backend not available or failed, try demo users as fallback
+            console.log('Backend auth failed, trying demo mode...');
           }
+
+          // Fallback: Try demo user authentication (when backend is not available)
+          const demoUser = DEMO_USERS.find(u => u.email === email && u.password === password);
+
+          if (demoUser) {
+            // Client-side demo authentication successful
+            const user: User = {
+              id: demoUser.id,
+              email: demoUser.email,
+              name: demoUser.name,
+              role: demoUser.role,
+              companyId: demoUser.companyId,
+              status: 'active',
+              permissions: [],
+              createdAt: new Date().toISOString(),
+            };
+
+            const token = `demo_token_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+
+            console.log('✅ Demo authentication successful:', user.email);
+            return;
+          }
+
+          // Neither backend nor demo worked
+          throw new Error('Invalid email or password');
         } catch (error: any) {
           set({
             isLoading: false,
