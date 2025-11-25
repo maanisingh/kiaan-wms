@@ -346,7 +346,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
         </Header>
 
-        <Content className="m-6 p-6 bg-gray-50 rounded-lg min-h-[calc(100vh-180px)]">
+        <Content className="m-6 p-6 bg-gray-50 rounded-lg min-h-[calc(100vh-180px)] overflow-x-auto">
           {children}
         </Content>
 
