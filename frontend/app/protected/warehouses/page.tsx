@@ -69,7 +69,11 @@ export default function WarehousesPage() {
       refetch();
     },
     onError: (err) => {
-      message.error(`Failed to delete warehouse: ${err.message}`);
+      if (err.message.includes('foreign key') || err.message.includes('constraint')) {
+        message.error('Cannot delete warehouse: Please delete all zones and locations in this warehouse first.');
+      } else {
+        message.error(`Failed to delete warehouse: ${err.message}`);
+      }
     },
   });
 

@@ -76,7 +76,11 @@ export default function WarehouseLocationsPage() {
       refetch();
     },
     onError: (err) => {
-      message.error(`Failed to delete location: ${err.message}`);
+      if (err.message.includes('foreign key') || err.message.includes('constraint')) {
+        message.error('Cannot delete location: Please remove all inventory from this location first.');
+      } else {
+        message.error(`Failed to delete location: ${err.message}`);
+      }
     },
   });
 
