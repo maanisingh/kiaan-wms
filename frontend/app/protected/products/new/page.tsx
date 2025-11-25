@@ -1,332 +1,371 @@
 'use client';
 
-import React from 'react';
-
-import { Card, Form, Input, Select, Button, Row, Col, message, InputNumber, Upload } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import {
+  Card, Form, Input, Select, Button, Row, Col, message, InputNumber,
+  Upload, Space, Spin
+} from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, UploadOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@apollo/client';
-import { CREATE_PRODUCT } from '@/lib/graphql/mutations';
+import apiService from '@/services/api';
 import { PRODUCT_TYPES, UNITS_OF_MEASURE, DIMENSION_UNITS, WEIGHT_UNITS } from '@/lib/constants';
+import type { UploadFile, UploadProps } from 'antd';
 
 const { Option } = Select;
 const { TextArea } = Input;
 
+interface Brand {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const [createProduct, { loading }] = useMutation(CREATE_PRODUCT);
+  const [loading, setLoading] = useState(false);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loadingBrands, setLoadingBrands] = useState(true);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+
+  // Fetch brands on load
+  useEffect(() => {
+    const fetchBrands = async () => {
+      try {
+        const data = await apiService.get('/brands');
+        setBrands(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Failed to fetch brands:', err);
+      } finally {
+        setLoadingBrands(false);
+      }
+    };
+    fetchBrands();
+  }, []);
 
   const handleSubmit = async (values: any) => {
     try {
-      // Generate UUID for the product
-      const uuid = crypto.randomUUID();
+      setLoading(true);
 
-      // Prepare the data for the mutation
+      // Prepare the data for REST API
       const productData = {
-        id: uuid,
         name: values.name,
         sku: values.sku,
         barcode: values.barcode || null,
         description: values.description || null,
-        type: values.type || 'SIMPLE',
-        status: values.status || 'ACTIVE',
-        sellingPrice: values.sellingPrice || null,
-        costPrice: values.costPrice || null,
-        weight: values.weight || null,
-        length: values.dimensions?.length || null,
-        width: values.dimensions?.width || null,
-        height: values.dimensions?.height || null,
+        type: (values.type || 'SIMPLE').toUpperCase(),
+        status: (values.status || 'ACTIVE').toUpperCase(),
+        sellingPrice: parseFloat(values.sellingPrice) || 0,
+        costPrice: parseFloat(values.costPrice) || 0,
+        weight: values.weight ? parseFloat(values.weight) : null,
+        length: values.dimensions?.length ? parseFloat(values.dimensions.length) : null,
+        width: values.dimensions?.width ? parseFloat(values.dimensions.width) : null,
+        height: values.dimensions?.height ? parseFloat(values.dimensions.height) : null,
         dimensionUnit: values.dimensionUnit || 'cm',
         weightUnit: values.weightUnit || 'kg',
-        companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df', // Default company ID
-        updatedAt: new Date().toISOString(),
+        reorderPoint: values.reorderPoint ? parseInt(values.reorderPoint) : null,
+        maxStockLevel: values.maxStockLevel ? parseInt(values.maxStockLevel) : null,
+        brandId: values.brandId || null,
       };
 
-      const { data } = await createProduct({
-        variables: { object: productData },
-      });
-
-      if (data?.insert_Product_one) {
-        message.success('Product created successfully!');
-        router.push('/products');
-      }
+      await apiService.post('/products', productData);
+      message.success('Product created successfully!');
+      router.push('/protected/products');
     } catch (error: any) {
       console.error('Error creating product:', error);
       message.error(error?.message || 'Failed to create product. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const uploadProps: UploadProps = {
+    listType: 'picture-card',
+    fileList,
+    onChange: ({ fileList: newFileList }) => {
+      setFileList(newFileList);
+    },
+    beforeUpload: (file) => {
+      const isImage = file.type.startsWith('image/');
+      if (!isImage) {
+        message.error('You can only upload image files!');
+        return Upload.LIST_IGNORE;
+      }
+      const isLt5M = file.size / 1024 / 1024 < 5;
+      if (!isLt5M) {
+        message.error('Image must be smaller than 5MB!');
+        return Upload.LIST_IGNORE;
+      }
+      // For now, just preview locally - will implement upload later
+      return false;
+    },
+    accept: 'image/*',
+    maxCount: 5,
+  };
+
   return (
-    <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.back()}
-          >
-            Back
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Add New Product</h1>
-            <p className="text-gray-600 mt-1">Create a new product in your inventory</p>
-          </div>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
+          Back
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Add New Product
+          </h1>
+          <p className="text-gray-600 mt-1">Create a new product in your inventory</p>
         </div>
+      </div>
 
-        <Card>
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            initialValues={{
-              type: 'simple',
-              status: 'active',
-              trackInventory: true,
-              unitOfMeasure: 'ea',
-              dimensionUnit: 'cm',
-              weightUnit: 'kg',
-            }}
-          >
-            <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+      <Card>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            type: 'SIMPLE',
+            status: 'ACTIVE',
+            unitOfMeasure: 'ea',
+            dimensionUnit: 'cm',
+            weightUnit: 'kg',
+          }}
+        >
+          <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
 
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Product Name"
-                  name="name"
-                  rules={[{ required: true, message: 'Please enter product name' }]}
-                >
-                  <Input placeholder="e.g., Laptop Stand" size="large" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="SKU"
-                  name="sku"
-                  rules={[{ required: true, message: 'Please enter SKU' }]}
-                >
-                  <Input placeholder="e.g., PRD-001" size="large" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Product Type"
-                  name="type"
-                  rules={[{ required: true }]}
-                >
-                  <Select size="large">
-                    {PRODUCT_TYPES.map(type => (
-                      <Option key={type.value} value={type.value}>
-                        {type.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Status"
-                  name="status"
-                  rules={[{ required: true }]}
-                >
-                  <Select size="large">
-                    <Option value="active">Active</Option>
-                    <Option value="inactive">Inactive</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Unit of Measure"
-                  name="unitOfMeasure"
-                  rules={[{ required: true }]}
-                >
-                  <Select size="large">
-                    {UNITS_OF_MEASURE.map(unit => (
-                      <Option key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item label="Category" name="category">
-                  <Select size="large" placeholder="Select category" allowClear>
-                    <Option value="electronics">Electronics</Option>
-                    <Option value="furniture">Furniture</Option>
-                    <Option value="clothing">Clothing</Option>
-                    <Option value="food">Food & Beverage</Option>
-                    <Option value="other">Other</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item label="Barcode" name="barcode">
-                  <Input placeholder="Enter barcode" size="large" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item label="Description" name="description">
-              <TextArea rows={4} placeholder="Enter product description..." />
-            </Form.Item>
-
-            <h3 className="text-lg font-semibold mb-4 mt-6">Pricing</h3>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Cost Price"
-                  name="costPrice"
-                  rules={[{ required: true, message: 'Please enter cost price' }]}
-                >
-                  <InputNumber
-                    placeholder="0.00"
-                    size="large"
-                    style={{ width: '100%' }}
-                    prefix="$"
-                    min={0}
-                    step={0.01}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Selling Price"
-                  name="sellingPrice"
-                  rules={[{ required: true, message: 'Please enter selling price' }]}
-                >
-                  <InputNumber
-                    placeholder="0.00"
-                    size="large"
-                    style={{ width: '100%' }}
-                    prefix="$"
-                    min={0}
-                    step={0.01}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item label="MSRP" name="msrp">
-                  <InputNumber
-                    placeholder="0.00"
-                    size="large"
-                    style={{ width: '100%' }}
-                    prefix="$"
-                    min={0}
-                    step={0.01}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <h3 className="text-lg font-semibold mb-4 mt-6">Dimensions & Weight</h3>
-
-            <Row gutter={16}>
-              <Col xs={24} md={6}>
-                <Form.Item label="Length" name={['dimensions', 'length']}>
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={6}>
-                <Form.Item label="Width" name={['dimensions', 'width']}>
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={6}>
-                <Form.Item label="Height" name={['dimensions', 'height']}>
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={6}>
-                <Form.Item label="Unit" name="dimensionUnit">
-                  <Select size="large">
-                    {DIMENSION_UNITS.map(unit => (
-                      <Option key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item label="Weight" name="weight">
-                  <InputNumber placeholder="0.00" size="large" style={{ width: '100%' }} min={0} step={0.01} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item label="Weight Unit" name="weightUnit">
-                  <Select size="large">
-                    {WEIGHT_UNITS.map(unit => (
-                      <Option key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <h3 className="text-lg font-semibold mb-4 mt-6">Inventory Settings</h3>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item label="Reorder Point" name="reorderPoint">
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item label="Reorder Quantity" name="reorderQuantity">
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item label="Max Stock Level" name="maxStockLevel">
-                  <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <h3 className="text-lg font-semibold mb-4 mt-6">Product Images</h3>
-
-            <Form.Item label="Upload Images" name="images">
-              <Upload
-                listType="picture-card"
-                accept="image/*"
-                maxCount={5}
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Product Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter product name' }]}
               >
+                <Input placeholder="e.g., Organic Granola Bar" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="SKU"
+                name="sku"
+                rules={[{ required: true, message: 'Please enter SKU' }]}
+              >
+                <Input placeholder="e.g., PRD-001" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item label="Product Type" name="type" rules={[{ required: true }]}>
+                <Select size="large">
+                  <Option value="SIMPLE">Simple Product</Option>
+                  <Option value="BUNDLE">Bundle</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Status" name="status" rules={[{ required: true }]}>
+                <Select size="large">
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="INACTIVE">Inactive</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Brand" name="brandId">
+                <Select
+                  size="large"
+                  placeholder="Select brand"
+                  allowClear
+                  loading={loadingBrands}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {brands.map((brand) => (
+                    <Option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Barcode" name="barcode">
+                <Input placeholder="Enter barcode (EAN/UPC)" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="Unit of Measure" name="unitOfMeasure">
+                <Select size="large">
+                  {UNITS_OF_MEASURE.map((unit) => (
+                    <Option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item label="Description" name="description">
+            <TextArea rows={3} placeholder="Enter product description..." />
+          </Form.Item>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Pricing</h3>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Cost Price"
+                name="costPrice"
+                rules={[{ required: true, message: 'Please enter cost price' }]}
+              >
+                <InputNumber
+                  placeholder="0.00"
+                  size="large"
+                  style={{ width: '100%' }}
+                  prefix="£"
+                  min={0}
+                  step={0.01}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Selling Price"
+                name="sellingPrice"
+                rules={[{ required: true, message: 'Please enter selling price' }]}
+              >
+                <InputNumber
+                  placeholder="0.00"
+                  size="large"
+                  style={{ width: '100%' }}
+                  prefix="£"
+                  min={0}
+                  step={0.01}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Margin" dependencies={['costPrice', 'sellingPrice']}>
+                {({ getFieldValue }) => {
+                  const cost = getFieldValue('costPrice') || 0;
+                  const price = getFieldValue('sellingPrice') || 0;
+                  const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+                  return (
+                    <div className="h-10 flex items-center">
+                      <span
+                        className={`text-lg font-semibold ${margin >= 20 ? 'text-green-600' : margin >= 10 ? 'text-orange-600' : 'text-red-600'}`}
+                      >
+                        {margin.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                }}
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Dimensions & Weight</h3>
+
+          <Row gutter={16}>
+            <Col xs={24} md={6}>
+              <Form.Item label="Length" name={['dimensions', 'length']}>
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={6}>
+              <Form.Item label="Width" name={['dimensions', 'width']}>
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={6}>
+              <Form.Item label="Height" name={['dimensions', 'height']}>
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={6}>
+              <Form.Item label="Unit" name="dimensionUnit">
+                <Select size="large">
+                  {DIMENSION_UNITS.map((unit) => (
+                    <Option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Weight" name="weight">
+                <InputNumber placeholder="0.00" size="large" style={{ width: '100%' }} min={0} step={0.01} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="Weight Unit" name="weightUnit">
+                <Select size="large">
+                  {WEIGHT_UNITS.map((unit) => (
+                    <Option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Inventory Settings</h3>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item label="Reorder Point" name="reorderPoint">
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Reorder Quantity" name="reorderQuantity">
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Max Stock Level" name="maxStockLevel">
+                <InputNumber placeholder="0" size="large" style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Product Images</h3>
+
+          <Form.Item
+            label="Upload Images"
+            extra="Supports JPG, PNG, GIF, WebP. Max 5 images, 5MB each."
+          >
+            <Upload {...uploadProps}>
+              {fileList.length >= 5 ? null : (
                 <div>
-                  <UploadOutlined />
+                  <PlusOutlined />
                   <div style={{ marginTop: 8 }}>Upload</div>
                 </div>
-              </Upload>
-            </Form.Item>
+              )}
+            </Upload>
+          </Form.Item>
 
-            <div className="flex gap-4 mt-6">
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SaveOutlined />}
-                size="large"
-                loading={loading}
-              >
-                Create Product
-              </Button>
-              <Button size="large" onClick={() => router.back()}>
-                Cancel
-              </Button>
-            </div>
-          </Form>
-        </Card>
-      </div>
-      );
+          <div className="flex gap-4 mt-6">
+            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} size="large" loading={loading}>
+              Create Product
+            </Button>
+            <Button size="large" onClick={() => router.back()}>
+              Cancel
+            </Button>
+          </div>
+        </Form>
+      </Card>
+    </div>
+  );
 }
