@@ -1,24 +1,52 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message } from 'antd';
-import { PlusOutlined, SearchOutlined, InboxOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, InboxOutlined, ReloadOutlined } from '@ant-design/icons';
 import { formatDate } from '@/lib/utils';
 import { useModal } from '@/hooks/useModal';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function GoodsReceivingPage() {
   const [loading, setLoading] = useState(false);
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const receiveModal = useModal();
   const [form] = Form.useForm();
 
-  const mockReceipts = [
-    { id: '1', receiptNumber: 'GRN-2024-001', poNumber: 'PO-2024-001', supplier: 'Global Suppliers', receivedDate: '2024-11-13', items: 5, status: 'completed' },
-    { id: '2', receiptNumber: 'GRN-2024-002', poNumber: 'PO-2024-002', supplier: 'TechParts Ltd', receivedDate: '2024-11-12', items: 8, status: 'partial' },
-  ];
+  // Fetch goods receipts
+  const fetchReceipts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/goods-receiving');
+      setReceipts(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch receipts');
+      message.error(err.message || 'Failed to fetch receipts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReceipts();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/goods-receiving', values);
+      message.success('Goods receipt created successfully!');
+      form.resetFields();
+      receiveModal.close();
+      fetchReceipts();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create goods receipt');
+    }
+  };
 
   const columns = [
     { title: 'GRN Number', dataIndex: 'receiptNumber', key: 'receiptNumber', render: (text: string) => <span className="font-medium text-blue-600">{text}</span> },
@@ -28,13 +56,6 @@ export default function GoodsReceivingPage() {
     { title: 'Items', dataIndex: 'items', key: 'items' },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag color={status === 'completed' ? 'green' : 'orange'}>{status}</Tag> },
   ];
-
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('Goods receipt created successfully!');
-    form.resetFields();
-    receiveModal.close();
-  };
 
   return (
     <div className="space-y-6">
@@ -46,10 +67,10 @@ export default function GoodsReceivingPage() {
           <Button type="primary" icon={<InboxOutlined />} size="large" onClick={receiveModal.open}>Receive Goods</Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><div className="text-center"><p className="text-gray-500 text-sm">Today's Receipts</p><p className="text-3xl font-bold text-green-600">8</p></div></Card>
-          <Card><div className="text-center"><p className="text-gray-500 text-sm">Pending</p><p className="text-3xl font-bold text-orange-600">3</p></div></Card>
-          <Card><div className="text-center"><p className="text-gray-500 text-sm">This Week</p><p className="text-3xl font-bold text-blue-600">45</p></div></Card>
-          <Card><div className="text-center"><p className="text-gray-500 text-sm">Total Items</p><p className="text-3xl font-bold text-purple-600">1,234</p></div></Card>
+          <Card><div className="text-center"><p className="text-gray-500 text-sm">Today's Receipts</p><p className="text-3xl font-bold text-green-600">{receipts.filter(r => new Date(r.receivedDate).toDateString() === new Date().toDateString()).length}</p></div></Card>
+          <Card><div className="text-center"><p className="text-gray-500 text-sm">Pending</p><p className="text-3xl font-bold text-orange-600">{receipts.filter(r => r.status === 'partial').length}</p></div></Card>
+          <Card><div className="text-center"><p className="text-gray-500 text-sm">This Week</p><p className="text-3xl font-bold text-blue-600">{receipts.length}</p></div></Card>
+          <Card><div className="text-center"><p className="text-gray-500 text-sm">Total Items</p><p className="text-3xl font-bold text-purple-600">{receipts.reduce((sum, r) => sum + (r.items || 0), 0)}</p></div></Card>
         </div>
         <Card>
           <div className="flex gap-4 mb-4">
@@ -58,8 +79,11 @@ export default function GoodsReceivingPage() {
               <Option value="completed">Completed</Option>
               <Option value="partial">Partial</Option>
             </Select>
+            <Button icon={<ReloadOutlined />} onClick={fetchReceipts}>
+              Refresh
+            </Button>
           </div>
-          <Table columns={columns} dataSource={mockReceipts} rowKey="id" loading={loading} />
+          <Table columns={columns} dataSource={receipts} rowKey="id" loading={loading} />
         </Card>
 
         <Modal

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, Tag, Space, Card, Modal, Form, DatePicker, InputNumber, message, Tabs } from 'antd';
 import {
   PlusOutlined,
@@ -16,50 +15,57 @@ import {
   ClockCircleOutlined,
   CheckOutlined,
   InboxOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function PurchaseOrdersPage() {
   const [loading, setLoading] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [form] = Form.useForm();
 
-  const mockPurchaseOrders: any[] = [
-    {
-      id: '1',
-      poNumber: 'PO-2024-001',
-      supplier: 'Global Suppliers Inc',
-      status: 'pending',
-      totalAmount: 25000,
-      orderDate: '2024-11-01',
-      expectedDelivery: '2024-11-20',
-      items: 5,
-    },
-    {
-      id: '2',
-      poNumber: 'PO-2024-002',
-      supplier: 'TechParts Ltd',
-      status: 'approved',
-      totalAmount: 45000,
-      orderDate: '2024-11-05',
-      expectedDelivery: '2024-11-22',
-      items: 8,
-    },
-    {
-      id: '3',
-      poNumber: 'PO-2024-003',
-      supplier: 'Manufacturing Co',
-      status: 'received',
-      totalAmount: 67000,
-      orderDate: '2024-10-28',
-      expectedDelivery: '2024-11-15',
-      items: 12,
-    },
-  ];
+  // Fetch purchase orders
+  const fetchPurchaseOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/purchase-orders');
+      setPurchaseOrders(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch purchase orders');
+      message.error(err.message || 'Failed to fetch purchase orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPurchaseOrders();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/purchase-orders', values);
+      message.success('Purchase order created successfully!');
+      setModalOpen(false);
+      form.resetFields();
+      fetchPurchaseOrders();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create purchase order');
+    }
+  };
+
+  const allOrders = purchaseOrders;
+  const pendingOrders = purchaseOrders.filter(po => po.status === 'pending');
+  const approvedOrders = purchaseOrders.filter(po => po.status === 'approved');
+  const receivedOrders = purchaseOrders.filter(po => po.status === 'received');
 
   const columns = [
     {
@@ -119,11 +125,6 @@ export default function PurchaseOrdersPage() {
     },
   ];
 
-  const allOrders = mockPurchaseOrders;
-  const pendingOrders = mockPurchaseOrders.filter(po => po.status === 'pending');
-  const approvedOrders = mockPurchaseOrders.filter(po => po.status === 'approved');
-  const receivedOrders = mockPurchaseOrders.filter(po => po.status === 'received');
-
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
       <div className="flex gap-4 mb-4">
@@ -134,6 +135,9 @@ export default function PurchaseOrdersPage() {
           <Option value="mfg">Manufacturing Co</Option>
         </Select>
         <Button icon={<FilterOutlined />}>More Filters</Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchPurchaseOrders}>
+          Refresh
+        </Button>
       </div>
       <Table columns={columns} dataSource={dataSource} rowKey="id" loading={loading} />
     </>
@@ -200,25 +204,25 @@ export default function PurchaseOrdersPage() {
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Total POs</p>
-              <p className="text-3xl font-bold text-blue-600">48</p>
+              <p className="text-3xl font-bold text-blue-600">{allOrders.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Pending</p>
-              <p className="text-3xl font-bold text-orange-600">12</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingOrders.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Approved</p>
-              <p className="text-3xl font-bold text-green-600">28</p>
+              <p className="text-3xl font-bold text-green-600">{approvedOrders.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Value</p>
-              <p className="text-3xl font-bold text-purple-600">$2.4M</p>
+              <p className="text-gray-500 text-sm">Received</p>
+              <p className="text-3xl font-bold text-purple-600">{receivedOrders.length}</p>
             </div>
           </Card>
         </div>
@@ -247,12 +251,7 @@ export default function PurchaseOrdersPage() {
           <Form
             form={form}
             layout="vertical"
-            onFinish={(values) => {
-              console.log('Creating PO:', values);
-              message.success('Purchase order created successfully!');
-              setModalOpen(false);
-              form.resetFields();
-            }}
+            onFinish={handleSubmit}
           >
             <Form.Item
               label="Supplier"

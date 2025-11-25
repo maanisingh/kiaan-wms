@@ -1,31 +1,62 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs, Space } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, FileTextOutlined, ClockCircleOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, FilterOutlined, FileTextOutlined, ClockCircleOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function ReturnsAndRMAManagementPage() {
   const [loading, setLoading] = useState(false);
+  const [returns, setReturns] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const addModal = useModal();
   const [form] = Form.useForm();
   const router = useRouter();
 
-  const mockData = [
-    { id: '1', rmaNumber: 'RMA-001', orderNumber: 'SO-2024-034', customer: 'Acme Corp', reason: 'Damaged', status: 'pending', value: 245, requestedDate: '2024-11-10', type: 'Return' },
-    { id: '2', rmaNumber: 'RMA-002', orderNumber: 'SO-2024-028', customer: 'Tech Start', reason: 'Wrong Item', status: 'processing', value: 580, requestedDate: '2024-11-12', type: 'Exchange' },
-    { id: '3', rmaNumber: 'RMA-003', orderNumber: 'SO-2024-045', customer: 'Global Trade', reason: 'Defective', status: 'approved', value: 1200, requestedDate: '2024-11-14', type: 'Return' },
-    { id: '4', rmaNumber: 'RMA-004', orderNumber: 'SO-2024-032', customer: 'Tech Solutions', reason: 'Not as Described', status: 'completed', value: 340, requestedDate: '2024-11-08', type: 'Refund' },
-    { id: '5', rmaNumber: 'RMA-005', orderNumber: 'SO-2024-051', customer: 'Acme Corp', reason: 'Changed Mind', status: 'rejected', value: 89, requestedDate: '2024-11-15', type: 'Return' },
-  ];
+  // Fetch returns
+  const fetchReturns = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/returns');
+      setReturns(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch returns');
+      message.error(err.message || 'Failed to fetch returns');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReturns();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/returns', values);
+      message.success('RMA created successfully!');
+      form.resetFields();
+      addModal.close();
+      fetchReturns();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create RMA');
+    }
+  };
+
+  const allReturns = returns;
+  const pendingReturns = returns.filter(r => r.status === 'pending');
+  const processingReturns = returns.filter(r => r.status === 'processing');
+  const approvedReturns = returns.filter(r => r.status === 'approved');
+  const completedReturns = returns.filter(r => r.status === 'completed');
 
   const columns = [
     {
@@ -76,19 +107,6 @@ export default function ReturnsAndRMAManagementPage() {
     },
   ];
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('RMA created successfully!');
-    form.resetFields();
-    addModal.close();
-  };
-
-  const allReturns = mockData;
-  const pendingReturns = mockData.filter(r => r.status === 'pending');
-  const processingReturns = mockData.filter(r => r.status === 'processing');
-  const approvedReturns = mockData.filter(r => r.status === 'approved');
-  const completedReturns = mockData.filter(r => r.status === 'completed');
-
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
       <div className="flex gap-4 mb-4">
@@ -104,6 +122,9 @@ export default function ReturnsAndRMAManagementPage() {
           <Option value="defective">Defective</Option>
         </Select>
         <Button icon={<FilterOutlined />}>More Filters</Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchReturns}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}
@@ -165,25 +186,25 @@ export default function ReturnsAndRMAManagementPage() {
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Pending Returns</p>
-              <p className="text-3xl font-bold text-orange-600">15</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingReturns.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Processing</p>
-              <p className="text-3xl font-bold text-blue-600">7</p>
+              <p className="text-3xl font-bold text-blue-600">{processingReturns.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Completed Today</p>
-              <p className="text-3xl font-bold text-green-600">23</p>
+              <p className="text-gray-500 text-sm">Completed</p>
+              <p className="text-3xl font-bold text-green-600">{completedReturns.length}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Return Rate</p>
-              <p className="text-3xl font-bold text-red-600">2.8%</p>
+              <p className="text-gray-500 text-sm">Total</p>
+              <p className="text-3xl font-bold text-purple-600">{allReturns.length}</p>
             </div>
           </Card>
         </div>

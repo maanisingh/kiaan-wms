@@ -1,30 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, InboxOutlined, SyncOutlined, CheckCircleOutlined, RocketOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, InboxOutlined, SyncOutlined, CheckCircleOutlined, RocketOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function PackingAndShippingPreparationPage() {
   const [loading, setLoading] = useState(false);
+  const [packingTasks, setPackingTasks] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const addModal = useModal();
   const [form] = Form.useForm();
   const router = useRouter();
 
-  const mockData = [
-    { id: '1', packingSlip: 'PACK-001', orderNumber: 'SO-2024-045', packer: 'Mike Johnson', status: 'packing', items: 12, weight: '15.5 kg', priority: 'high' },
-    { id: '2', packingSlip: 'PACK-002', orderNumber: 'SO-2024-046', packer: 'Sarah Lee', status: 'ready_to_pack', items: 8, weight: '8.2 kg', priority: 'medium' },
-    { id: '3', packingSlip: 'PACK-003', orderNumber: 'SO-2024-047', packer: 'Tom Davis', status: 'packed', items: 15, weight: '22.1 kg', priority: 'low' },
-    { id: '4', packingSlip: 'PACK-004', orderNumber: 'SO-2024-048', packer: 'Lisa Wong', status: 'ready_to_ship', items: 6, weight: '5.8 kg', priority: 'high' },
-    { id: '5', packingSlip: 'PACK-005', orderNumber: 'SO-2024-049', packer: 'Mike Johnson', status: 'packing', items: 20, weight: '18.3 kg', priority: 'medium' },
-  ];
+  // Fetch packing tasks
+  const fetchPackingTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/packing');
+      setPackingTasks(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch packing tasks');
+      message.error(err.message || 'Failed to fetch packing tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPackingTasks();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/packing', values);
+      message.success('Packing slip created successfully!');
+      form.resetFields();
+      addModal.close();
+      fetchPackingTasks();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create packing slip');
+    }
+  };
+
+  const allPacks = packingTasks;
+  const readyToPack = packingTasks.filter(p => p.status === 'ready_to_pack');
+  const packing = packingTasks.filter(p => p.status === 'packing');
+  const packed = packingTasks.filter(p => p.status === 'packed');
+  const readyToShip = packingTasks.filter(p => p.status === 'ready_to_ship');
 
   const columns = [
     {
@@ -56,19 +87,6 @@ export default function PackingAndShippingPreparationPage() {
     },
   ];
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('Packing slip created successfully!');
-    form.resetFields();
-    addModal.close();
-  };
-
-  const allPacks = mockData;
-  const readyToPack = mockData.filter(p => p.status === 'ready_to_pack');
-  const packing = mockData.filter(p => p.status === 'packing');
-  const packed = mockData.filter(p => p.status === 'packed');
-  const readyToShip = mockData.filter(p => p.status === 'ready_to_ship');
-
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
       <div className="flex gap-4 mb-4">
@@ -83,6 +101,9 @@ export default function PackingAndShippingPreparationPage() {
           <Option value="medium">Medium</Option>
           <Option value="low">Low</Option>
         </Select>
+        <Button icon={<ReloadOutlined />} onClick={fetchPackingTasks}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}

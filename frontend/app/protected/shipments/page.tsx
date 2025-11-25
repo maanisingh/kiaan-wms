@@ -1,31 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function ShipmentManagementPage() {
   const [loading, setLoading] = useState(false);
+  const [shipments, setShipments] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const addModal = useModal();
   const [form] = Form.useForm();
   const router = useRouter();
 
-  const mockData = [
-    { id: '1', shipmentNumber: 'SHIP-001', carrier: 'FedEx', tracking: 'FDX123456789', status: 'in_transit', orders: 3, destination: 'New York, NY', shipDate: '2024-11-15' },
-    { id: '2', shipmentNumber: 'SHIP-002', carrier: 'UPS', tracking: 'UPS987654321', status: 'delivered', orders: 2, destination: 'Los Angeles, CA', shipDate: '2024-11-10' },
-    { id: '3', shipmentNumber: 'SHIP-003', carrier: 'DHL', tracking: 'DHL555555555', status: 'pending', orders: 5, destination: 'San Francisco, CA', shipDate: null },
-    { id: '4', shipmentNumber: 'SHIP-004', carrier: 'USPS', tracking: 'USPS111222333', status: 'in_transit', orders: 1, destination: 'Chicago, IL', shipDate: '2024-11-16' },
-    { id: '5', shipmentNumber: 'SHIP-005', carrier: 'FedEx', tracking: 'FDX987654321', status: 'delivered', orders: 4, destination: 'Miami, FL', shipDate: '2024-11-12' },
-  ];
+  // Fetch shipments
+  const fetchShipments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/shipments');
+      setShipments(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch shipments');
+      message.error(err.message || 'Failed to fetch shipments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchShipments();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/shipments', values);
+      message.success('Shipment created successfully!');
+      form.resetFields();
+      addModal.close();
+      fetchShipments();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create shipment');
+    }
+  };
+
+  const allShipments = shipments;
+  const pendingShipments = shipments.filter(s => s.status === 'pending');
+  const inTransitShipments = shipments.filter(s => s.status === 'in_transit');
+  const deliveredShipments = shipments.filter(s => s.status === 'delivered');
 
   const columns = [
     {
@@ -57,18 +87,6 @@ export default function ShipmentManagementPage() {
     },
   ];
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('Shipment created successfully!');
-    form.resetFields();
-    addModal.close();
-  };
-
-  const allShipments = mockData;
-  const pendingShipments = mockData.filter(s => s.status === 'pending');
-  const inTransitShipments = mockData.filter(s => s.status === 'in_transit');
-  const deliveredShipments = mockData.filter(s => s.status === 'delivered');
-
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
       <div className="flex gap-4 mb-4">
@@ -80,6 +98,9 @@ export default function ShipmentManagementPage() {
           <Option value="USPS">USPS</Option>
         </Select>
         <Button icon={<FilterOutlined />}>More Filters</Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchShipments}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}
@@ -136,22 +157,25 @@ export default function ShipmentManagementPage() {
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">In Transit</p>
-              <p className="text-3xl font-bold text-blue-600">45</p>
+              <p className="text-3xl font-bold text-blue-600">{inTransitShipments.length}</p>
             </div>
-          </Card> <Card>
+          </Card>
+          <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Delivered Today</p>
-              <p className="text-3xl font-bold text-green-600">89</p>
+              <p className="text-3xl font-bold text-green-600">{deliveredShipments.length}</p>
             </div>
-          </Card> <Card>
+          </Card>
+          <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Pending Pickup</p>
-              <p className="text-3xl font-bold text-orange-600">12</p>
+              <p className="text-3xl font-bold text-orange-600">{pendingShipments.length}</p>
             </div>
-          </Card> <Card>
+          </Card>
+          <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Total This Week</p>
-              <p className="text-3xl font-bold text-purple-600">456</p>
+              <p className="text-gray-500 text-sm">Total</p>
+              <p className="text-3xl font-bold text-purple-600">{allShipments.length}</p>
             </div>
           </Card>
         </div>

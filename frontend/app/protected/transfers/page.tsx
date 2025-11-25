@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-
+import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
   Input, Select, InputNumber, Drawer, Tabs, Switch, DatePicker, App
@@ -10,138 +8,112 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, FileTextOutlined,
-  MinusCircleOutlined, SearchOutlined, SwapOutlined, InboxOutlined
+  MinusCircleOutlined, SearchOutlined, SwapOutlined, InboxOutlined, ReloadOutlined
 } from '@ant-design/icons';
-import { GET_TRANSFERS, GET_WAREHOUSES, GET_PRODUCTS } from '@/lib/graphql/queries';
-import {
-  CREATE_TRANSFER, UPDATE_TRANSFER, DELETE_TRANSFER,
-  CREATE_TRANSFER_ITEM
-} from '@/lib/graphql/mutations';
 import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
 import dayjs from 'dayjs';
+import apiService from '@/services/api';
 
 const { Option } = Select;
 const { Search } = Input;
 const { TextArea } = Input;
 
 export default function TransfersPage() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+  const { modal, message } = App.useApp();
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [transfers, setTransfers] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const addModal = useModal();
   const editModal = useModal();
   const [form] = Form.useForm();
 
-  // Query transfers
-  const { data, loading, refetch } = useQuery(GET_TRANSFERS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch transfers
+  const fetchTransfers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/transfers');
+      setTransfers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch transfers');
+      message.error(err.message || 'Failed to fetch transfers');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Query warehouses for dropdowns
-  const { data: warehousesData } = useQuery(GET_WAREHOUSES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch warehouses
+  const fetchWarehouses = async () => {
+    try {
+      const data = await apiService.get('/api/warehouses?limit=100');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching warehouses:', err);
+    }
+  };
 
-  // Query products for transfer items
-  const { data: productsData } = useQuery(GET_PRODUCTS, {
-    variables: {
-      limit: 1000,
-      offset: 0,
-      where: { type: { _eq: 'SIMPLE' } },
-    },
-  });
+  // Fetch products
+  const fetchProducts = async () => {
+    try {
+      const data = await apiService.get('/api/products?type=SIMPLE&limit=1000');
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching products:', err);
+    }
+  };
 
-  const transfers = data?.Transfer || [];
-  const warehouses = warehousesData?.Warehouse || [];
-  const products = productsData?.Product || [];
-
-  // GraphQL mutations
-  const [createTransfer, { loading: creating }] = useMutation(CREATE_TRANSFER);
-  const [updateTransfer, { loading: updating }] = useMutation(UPDATE_TRANSFER);
-  const [deleteTransfer] = useMutation(DELETE_TRANSFER);
-  const [createTransferItem] = useMutation(CREATE_TRANSFER_ITEM);
+  useEffect(() => {
+    fetchTransfers();
+    fetchWarehouses();
+    fetchProducts();
+  }, []);
 
   const handleSubmit = async (values: any) => {
     try {
       if (selectedTransfer) {
         // UPDATE existing transfer
-        await updateTransfer({
-          variables: {
-            id: selectedTransfer.id,
-            set: {
-              type: values.type,
-              fromWarehouseId: values.fromWarehouseId,
-              toWarehouseId: values.toWarehouseId,
-              status: values.status,
-              fbaShipmentId: values.fbaShipmentId || null,
-              fbaDestination: values.fbaDestination || null,
-              shipmentBuilt: values.shipmentBuilt || false,
-              notes: values.notes || null,
-              shippedAt: values.shippedAt ? values.shippedAt.toISOString() : null,
-              receivedAt: values.receivedAt ? values.receivedAt.toISOString() : null,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+        await apiService.patch(`/api/transfers/${selectedTransfer.id}`, {
+          type: values.type,
+          fromWarehouseId: values.fromWarehouseId,
+          toWarehouseId: values.toWarehouseId,
+          status: values.status,
+          fbaShipmentId: values.fbaShipmentId || null,
+          fbaDestination: values.fbaDestination || null,
+          shipmentBuilt: values.shipmentBuilt || false,
+          notes: values.notes || null,
+          shippedAt: values.shippedAt ? values.shippedAt.toISOString() : null,
+          receivedAt: values.receivedAt ? values.receivedAt.toISOString() : null,
         });
 
         message.success('Transfer updated successfully!');
         editModal.close();
       } else {
         // CREATE new transfer
-        const transferId = crypto.randomUUID();
-        const transferNumber = `TRN-${Date.now().toString().slice(-8)}`;
+        const payload = {
+          type: values.type,
+          fromWarehouseId: values.fromWarehouseId,
+          toWarehouseId: values.toWarehouseId,
+          fbaShipmentId: values.fbaShipmentId || null,
+          fbaDestination: values.fbaDestination || null,
+          shipmentBuilt: values.shipmentBuilt || false,
+          notes: values.notes || null,
+          transferItems: values.transferItems || [],
+        };
 
-        // 1. Create transfer
-        await createTransfer({
-          variables: {
-            object: {
-              id: transferId,
-              transferNumber: transferNumber,
-              type: values.type,
-              fromWarehouseId: values.fromWarehouseId,
-              toWarehouseId: values.toWarehouseId,
-              status: 'PENDING',
-              fbaShipmentId: values.fbaShipmentId || null,
-              fbaDestination: values.fbaDestination || null,
-              shipmentBuilt: values.shipmentBuilt || false,
-              notes: values.notes || null,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
-
-        // 2. Create transfer items
-        for (const item of values.transferItems || []) {
-          await createTransferItem({
-            variables: {
-              object: {
-                id: crypto.randomUUID(),
-                transferId: transferId,
-                productId: item.productId,
-                quantity: parseInt(item.quantity),
-                receivedQuantity: 0,
-                isFBABundle: item.isFBABundle || false,
-                fbaSku: item.fbaSku || null,
-              },
-            },
-          });
-        }
-
+        await apiService.post('/api/transfers', payload);
         message.success('Transfer created successfully!');
         addModal.close();
       }
 
       form.resetFields();
-      refetch();
+      fetchTransfers();
     } catch (error: any) {
       console.error('Error saving transfer:', error);
       message.error(error?.message || 'Failed to save transfer');
@@ -172,9 +144,13 @@ export default function TransfersPage() {
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deleteTransfer({ variables: { id: record.id } });
-        message.success('Transfer deleted successfully!');
-        refetch();
+        try {
+          await apiService.delete(`/api/transfers/${record.id}`);
+          message.success('Transfer deleted successfully!');
+          fetchTransfers();
+        } catch (err: any) {
+          message.error(err.message || 'Failed to delete transfer');
+        }
       },
     });
   };
@@ -332,6 +308,9 @@ export default function TransfersPage() {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
+        <Button icon={<ReloadOutlined />} onClick={fetchTransfers}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}
@@ -509,7 +488,6 @@ export default function TransfersPage() {
           }}
           onOk={() => form.submit()}
           width={1000}
-          confirmLoading={creating || updating}
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">

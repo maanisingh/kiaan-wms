@@ -1,29 +1,60 @@
 'use client';
 
-import React, { useState } from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Card, Modal, Form, message, Tag, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, SyncOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 
 export default function FBATransfersPage() {
   const [loading, setLoading] = useState(false);
+  const [fbaTransfers, setFbaTransfers] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const addModal = useModal();
   const [form] = Form.useForm();
   const router = useRouter();
 
-  const mockData = [
-    { id: '1', shipmentId: 'FBA-001', destination: 'FBA-NYC', items: 45, status: 'in_transit', date: '2024-11-13', carrier: 'UPS', tracking: 'UPS123456' },
-    { id: '2', shipmentId: 'FBA-002', destination: 'FBA-LA', items: 32, status: 'preparing', date: '2024-11-14', carrier: 'FedEx', tracking: 'FDX789012' },
-    { id: '3', shipmentId: 'FBA-003', destination: 'FBA-CHI', items: 67, status: 'delivered', date: '2024-11-10', carrier: 'UPS', tracking: 'UPS345678' },
-    { id: '4', shipmentId: 'FBA-004', destination: 'FBA-NYC', items: 28, status: 'preparing', date: '2024-11-15', carrier: 'FedEx', tracking: 'FDX901234' },
-  ];
+  // Fetch FBA transfers
+  const fetchFBATransfers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/fba-transfers');
+      setFbaTransfers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch FBA transfers');
+      message.error(err.message || 'Failed to fetch FBA transfers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFBATransfers();
+  }, []);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await apiService.post('/api/fba-transfers', values);
+      message.success('FBA transfer created successfully!');
+      form.resetFields();
+      addModal.close();
+      fetchFBATransfers();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create FBA transfer');
+    }
+  };
+
+  const allTransfers = fbaTransfers;
+  const preparingTransfers = fbaTransfers.filter(t => t.status === 'preparing');
+  const inTransitTransfers = fbaTransfers.filter(t => t.status === 'in_transit');
+  const deliveredTransfers = fbaTransfers.filter(t => t.status === 'delivered');
 
   const columns = [
     {
@@ -65,22 +96,13 @@ export default function FBATransfersPage() {
     },
   ];
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('FBA transfer created successfully!');
-    form.resetFields();
-    addModal.close();
-  };
-
-  const allTransfers = mockData;
-  const preparingTransfers = mockData.filter(t => t.status === 'preparing');
-  const inTransitTransfers = mockData.filter(t => t.status === 'in_transit');
-  const deliveredTransfers = mockData.filter(t => t.status === 'delivered');
-
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
       <div className="flex gap-4 mb-4">
         <Search placeholder="Search FBA transfers..." style={{ width: 300 }} prefix={<SearchOutlined />} />
+        <Button icon={<ReloadOutlined />} onClick={fetchFBATransfers}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}
@@ -154,8 +176,8 @@ export default function FBATransfersPage() {
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Value</p>
-              <p className="text-3xl font-bold text-purple-600">$24.5K</p>
+              <p className="text-gray-500 text-sm">Total</p>
+              <p className="text-3xl font-bold text-purple-600">{allTransfers.length}</p>
             </div>
           </Card>
         </div>

@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-
+import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
   Input, Select, InputNumber, Drawer, Tabs, Switch, App
@@ -10,144 +8,114 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   ClockCircleOutlined, SyncOutlined, CheckCircleOutlined, InboxOutlined,
-  MinusCircleOutlined, SearchOutlined
+  MinusCircleOutlined, SearchOutlined, ReloadOutlined
 } from '@ant-design/icons';
-import { GET_PICK_LISTS, GET_SALES_ORDERS, GET_PRODUCTS, GET_LOCATIONS } from '@/lib/graphql/queries';
-import {
-  CREATE_PICK_LIST, UPDATE_PICK_LIST, DELETE_PICK_LIST,
-  CREATE_PICK_ITEM, COMPLETE_PICK_LIST
-} from '@/lib/graphql/mutations';
 import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
+import apiService from '@/services/api';
 
 const { Option } = Select;
 const { Search } = Input;
 
 export default function PickListsPage() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+  const { modal, message } = App.useApp();
   const [selectedPickList, setSelectedPickList] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [pickLists, setPickLists] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [salesOrders, setSalesOrders] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const addModal = useModal();
   const editModal = useModal();
   const [form] = Form.useForm();
 
-  // Query pick lists
-  const { data, loading, refetch } = useQuery(GET_PICK_LISTS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch pick lists
+  const fetchPickLists = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/api/picking');
+      setPickLists(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch pick lists');
+      message.error(err.message || 'Failed to fetch pick lists');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Query sales orders for dropdown
-  const { data: ordersData } = useQuery(GET_SALES_ORDERS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-      where: { status: { _eq: 'PENDING' } },
-    },
-  });
+  // Fetch sales orders
+  const fetchSalesOrders = async () => {
+    try {
+      const data = await apiService.get('/api/sales-orders?status=PENDING&limit=100');
+      setSalesOrders(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching sales orders:', err);
+    }
+  };
 
-  // Query products for pick items
-  const { data: productsData } = useQuery(GET_PRODUCTS, {
-    variables: {
-      limit: 1000,
-      offset: 0,
-      where: { type: { _eq: 'SIMPLE' } },
-    },
-  });
+  // Fetch products
+  const fetchProducts = async () => {
+    try {
+      const data = await apiService.get('/api/products?type=SIMPLE&limit=1000');
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching products:', err);
+    }
+  };
 
-  // Query locations for pick items
-  const { data: locationsData } = useQuery(GET_LOCATIONS, {
-    variables: {
-      limit: 1000,
-      offset: 0,
-    },
-  });
+  // Fetch locations
+  const fetchLocations = async () => {
+    try {
+      const data = await apiService.get('/api/locations?limit=1000');
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching locations:', err);
+    }
+  };
 
-  const pickLists = data?.PickList || [];
-  const salesOrders = ordersData?.SalesOrder || [];
-  const products = productsData?.Product || [];
-  const locations = locationsData?.Location || [];
-
-  // GraphQL mutations
-  const [createPickList, { loading: creating }] = useMutation(CREATE_PICK_LIST);
-  const [updatePickList, { loading: updating }] = useMutation(UPDATE_PICK_LIST);
-  const [deletePickList] = useMutation(DELETE_PICK_LIST);
-  const [createPickItem] = useMutation(CREATE_PICK_ITEM);
-  const [completePickList] = useMutation(COMPLETE_PICK_LIST);
+  useEffect(() => {
+    fetchPickLists();
+    fetchSalesOrders();
+    fetchProducts();
+    fetchLocations();
+  }, []);
 
   const handleSubmit = async (values: any) => {
     try {
       if (selectedPickList) {
         // UPDATE existing pick list
-        await updatePickList({
-          variables: {
-            id: selectedPickList.id,
-            set: {
-              type: values.type,
-              orderId: values.orderId || null,
-              status: values.status,
-              priority: values.priority,
-              enforceSingleBBDate: values.enforceSingleBBDate || false,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+        await apiService.patch(`/api/picking/${selectedPickList.id}`, {
+          type: values.type,
+          orderId: values.orderId || null,
+          status: values.status,
+          priority: values.priority,
+          enforceSingleBBDate: values.enforceSingleBBDate || false,
         });
 
         message.success('Pick list updated successfully!');
         editModal.close();
       } else {
         // CREATE new pick list
-        const pickListId = crypto.randomUUID();
-        const pickListNumber = `PICK-${Date.now().toString().slice(-8)}`;
+        const payload = {
+          type: values.type,
+          orderId: values.orderId || null,
+          priority: values.priority,
+          enforceSingleBBDate: values.enforceSingleBBDate || false,
+          pickItems: values.pickItems || [],
+        };
 
-        // 1. Create pick list
-        await createPickList({
-          variables: {
-            object: {
-              id: pickListId,
-              pickListNumber: pickListNumber,
-              type: values.type,
-              orderId: values.orderId || null,
-              assignedUserId: null, // TODO: Add user assignment
-              status: 'PENDING',
-              priority: values.priority,
-              enforceSingleBBDate: values.enforceSingleBBDate || false,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
-
-        // 2. Create pick items
-        for (let i = 0; i < (values.pickItems || []).length; i++) {
-          const item = values.pickItems[i];
-          await createPickItem({
-            variables: {
-              object: {
-                id: crypto.randomUUID(),
-                pickListId: pickListId,
-                productId: item.productId,
-                locationId: item.locationId || null,
-                lotNumber: item.lotNumber || null,
-                quantityRequired: parseInt(item.quantityRequired),
-                quantityPicked: 0,
-                status: 'PENDING',
-                sequenceNumber: i + 1,
-                updatedAt: new Date().toISOString(),
-              },
-            },
-          });
-        }
-
+        await apiService.post('/api/picking', payload);
         message.success('Pick list created successfully!');
         addModal.close();
       }
 
       form.resetFields();
-      refetch();
+      fetchPickLists();
     } catch (error: any) {
       console.error('Error saving pick list:', error);
       message.error(error?.message || 'Failed to save pick list');
@@ -173,9 +141,13 @@ export default function PickListsPage() {
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deletePickList({ variables: { id: record.id } });
-        message.success('Pick list deleted successfully!');
-        refetch();
+        try {
+          await apiService.delete(`/api/picking/${record.id}`);
+          message.success('Pick list deleted successfully!');
+          fetchPickLists();
+        } catch (err: any) {
+          message.error(err.message || 'Failed to delete pick list');
+        }
       },
     });
   };
@@ -187,14 +159,16 @@ export default function PickListsPage() {
       okText: 'Complete',
       okType: 'primary',
       onOk: async () => {
-        await completePickList({
-          variables: {
-            id: record.id,
+        try {
+          await apiService.patch(`/api/picking/${record.id}`, {
+            status: 'COMPLETED',
             completedAt: new Date().toISOString(),
-          },
-        });
-        message.success('Pick list completed!');
-        refetch();
+          });
+          message.success('Pick list completed!');
+          fetchPickLists();
+        } catch (err: any) {
+          message.error(err.message || 'Failed to complete pick list');
+        }
       },
     });
   };
@@ -365,6 +339,9 @@ export default function PickListsPage() {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
+        <Button icon={<ReloadOutlined />} onClick={fetchPickLists}>
+          Refresh
+        </Button>
       </div>
       <Table
         columns={columns}
@@ -535,7 +512,6 @@ export default function PickListsPage() {
           }}
           onOk={() => form.submit()}
           width={900}
-          confirmLoading={creating || updating}
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
