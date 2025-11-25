@@ -22,8 +22,10 @@ export default function WarehouseZonesPage() {
   const [selectedZone, setSelectedZone] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const addModal = useModal();
   const editModal = useModal();
+  const deleteModal = useModal();
   const [form] = Form.useForm();
 
   // Query zones
@@ -142,15 +144,16 @@ export default function WarehouseZonesPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
-      title: 'Delete Zone',
-      content: `Are you sure you want to delete zone "${record.name}"? This action cannot be undone.`,
-      okText: 'Delete',
-      okType: 'danger',
-      onOk: async () => {
-        await deleteZone({ variables: { id: record.id } });
-      },
-    });
+    setDeleteTarget(record);
+    deleteModal.open();
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTarget) {
+      await deleteZone({ variables: { id: deleteTarget.id } });
+      deleteModal.close();
+      setDeleteTarget(null);
+    }
   };
 
   const handleAddZone = () => {
@@ -498,6 +501,23 @@ export default function WarehouseZonesPage() {
               Note: Zone code cannot be changed after creation to maintain referential integrity.
             </p>
           </Form>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          title="Delete Zone"
+          open={deleteModal.isOpen}
+          onCancel={() => {
+            deleteModal.close();
+            setDeleteTarget(null);
+          }}
+          onOk={confirmDelete}
+          okText="Delete"
+          okType="danger"
+          okButtonProps={{ danger: true }}
+        >
+          <p>Are you sure you want to delete zone "{deleteTarget?.name}"?</p>
+          <p className="text-gray-500 text-sm">This action cannot be undone. All locations in this zone must be deleted first.</p>
         </Modal>
       </div>
       );

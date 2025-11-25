@@ -25,8 +25,10 @@ export default function WarehouseLocationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [searchText, setSearchText] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const addModal = useModal();
   const editModal = useModal();
+  const deleteModal = useModal();
   const [form] = Form.useForm();
 
   // GraphQL query for locations
@@ -156,15 +158,16 @@ export default function WarehouseLocationsPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
-      title: 'Delete Location',
-      content: `Are you sure you want to delete location "${record.name}"? This action cannot be undone.`,
-      okText: 'Delete',
-      okType: 'danger',
-      onOk: async () => {
-        await deleteLocation({ variables: { id: record.id } });
-      },
-    });
+    setDeleteTarget(record);
+    deleteModal.open();
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTarget) {
+      await deleteLocation({ variables: { id: deleteTarget.id } });
+      deleteModal.close();
+      setDeleteTarget(null);
+    }
   };
 
   const handleAddLocation = () => {
@@ -454,6 +457,23 @@ export default function WarehouseLocationsPage() {
               </Form.Item>
             </div>
           </Form>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          title="Delete Location"
+          open={deleteModal.isOpen}
+          onCancel={() => {
+            deleteModal.close();
+            setDeleteTarget(null);
+          }}
+          onOk={confirmDelete}
+          okText="Delete"
+          okType="danger"
+          okButtonProps={{ danger: true }}
+        >
+          <p>Are you sure you want to delete location "{deleteTarget?.name}"?</p>
+          <p className="text-gray-500 text-sm">This action cannot be undone.</p>
         </Modal>
       </div>
       );

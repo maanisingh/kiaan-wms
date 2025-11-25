@@ -26,8 +26,10 @@ export default function WarehousesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
   const [searchText, setSearchText] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const addModal = useModal();
   const editModal = useModal();
+  const deleteModal = useModal();
   const [form] = Form.useForm();
 
   // GraphQL query for warehouses
@@ -149,15 +151,16 @@ export default function WarehousesPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
-      title: 'Delete Warehouse',
-      content: `Are you sure you want to delete warehouse "${record.name}"? This action cannot be undone.`,
-      okText: 'Delete',
-      okType: 'danger',
-      onOk: async () => {
-        await deleteWarehouse({ variables: { id: record.id } });
-      },
-    });
+    setDeleteTarget(record);
+    deleteModal.open();
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTarget) {
+      await deleteWarehouse({ variables: { id: deleteTarget.id } });
+      deleteModal.close();
+      setDeleteTarget(null);
+    }
   };
 
   const handleAddWarehouse = () => {
@@ -492,6 +495,23 @@ export default function WarehousesPage() {
               <Input type="number" placeholder="Enter capacity (optional)" />
             </Form.Item>
           </Form>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          title="Delete Warehouse"
+          open={deleteModal.isOpen}
+          onCancel={() => {
+            deleteModal.close();
+            setDeleteTarget(null);
+          }}
+          onOk={confirmDelete}
+          okText="Delete"
+          okType="danger"
+          okButtonProps={{ danger: true }}
+        >
+          <p>Are you sure you want to delete warehouse "{deleteTarget?.name}"?</p>
+          <p className="text-gray-500 text-sm">This action cannot be undone. All zones and locations in this warehouse must be deleted first.</p>
         </Modal>
       </div>
       );
