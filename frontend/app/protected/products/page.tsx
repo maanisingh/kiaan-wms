@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Input, Select, Tag, Space, Modal, Card, Spin, Alert, message } from 'antd';
+import { Table, Button, Input, Select, Tag, Space, Modal, Card, Spin, Alert, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -41,6 +41,7 @@ interface Brand {
 }
 
 export default function ProductsPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +100,7 @@ export default function ProductsPage() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Product',
       content: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
       okText: 'Delete',
@@ -117,7 +118,7 @@ export default function ProductsPage() {
   };
 
   const handleBulkDelete = () => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Products',
       content: `Are you sure you want to delete ${selectedRows.length} products? This action cannot be undone.`,
       okText: 'Delete All',

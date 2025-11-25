@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
-  Input, Select, message, InputNumber, Drawer, Tabs, Switch
+  Input, Select, InputNumber, Drawer, Tabs, Switch, App
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
@@ -24,6 +24,7 @@ const { Option } = Select;
 const { Search } = Input;
 
 export default function PickListsPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [selectedPickList, setSelectedPickList] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -166,7 +167,7 @@ export default function PickListsPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Pick List',
       content: `Are you sure you want to delete pick list "${record.pickListNumber}"? This will also delete all pick items.`,
       okText: 'Delete',
@@ -180,7 +181,7 @@ export default function PickListsPage() {
   };
 
   const handleComplete = (record: any) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Complete Pick List',
       content: `Mark pick list "${record.pickListNumber}" as completed?`,
       okText: 'Complete',

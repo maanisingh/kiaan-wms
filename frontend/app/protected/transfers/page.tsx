@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@apollo/client';
 
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
-  Input, Select, message, InputNumber, Drawer, Tabs, Switch, DatePicker
+  Input, Select, InputNumber, Drawer, Tabs, Switch, DatePicker, App
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
@@ -26,6 +26,7 @@ const { Search } = Input;
 const { TextArea } = Input;
 
 export default function TransfersPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -165,7 +166,7 @@ export default function TransfersPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Transfer',
       content: `Are you sure you want to delete transfer "${record.transferNumber}"? This will also delete all transfer items.`,
       okText: 'Delete',

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 
-import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, message, Modal, Tabs } from 'antd';
+import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, Modal, Tabs, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -27,6 +27,7 @@ const { Search } = Input;
 const { Option } = Select;
 
 export default function CustomersPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -152,7 +153,7 @@ export default function CustomersPage() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Customer',
       content: `Are you sure you want to delete customer "${record.name}"? This action cannot be undone.`,
       okText: 'Delete',

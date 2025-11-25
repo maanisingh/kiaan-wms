@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Input, Card, Modal, Form, message, Space, Tag, Spin, Alert } from 'antd';
+import { Table, Button, Input, Card, Modal, Form, Space, Tag, Spin, Alert, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -23,6 +23,7 @@ interface Brand {
 }
 
 export default function ProductBrandsPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +107,7 @@ export default function ProductBrandsPage() {
   };
 
   const handleDelete = (record: Brand) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Brand',
       content: `Are you sure you want to delete brand "${record.name}"? This action cannot be undone.`,
       okText: 'Delete',

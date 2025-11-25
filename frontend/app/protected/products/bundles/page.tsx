@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
-  Input, Select, message, InputNumber, Drawer, Spin, Alert
+  Input, Select, InputNumber, Drawer, Spin, Alert, App
 } from 'antd';
 import {
   BoxPlotOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
@@ -46,6 +46,7 @@ interface Product {
 }
 
 export default function BundlesPage() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +145,7 @@ export default function BundlesPage() {
   };
 
   const handleDelete = (record: Bundle) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Bundle',
       content: `Are you sure you want to delete bundle "${record.name}"? This will also delete all bundle items.`,
       okText: 'Delete',

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 
-import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space, Modal, Form, Select, DatePicker, message, Drawer } from 'antd';
+import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space, Modal, Form, Select, DatePicker, Drawer, App } from 'antd';
 import {
   PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined,
   SearchOutlined, ExportOutlined, EditOutlined, DeleteOutlined, EyeOutlined
@@ -18,6 +18,7 @@ const { Search } = Input;
 const { Option } = Select;
 
 export default function InventoryPageReal() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [selectedInventory, setSelectedInventory] = useState<any>(null);
@@ -188,7 +189,7 @@ export default function InventoryPageReal() {
   };
 
   const handleDelete = (record: any) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Inventory',
       content: `Are you sure you want to delete this inventory record? This action cannot be undone.`,
       okText: 'Delete',

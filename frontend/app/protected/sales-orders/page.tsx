@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 
-import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, message } from 'antd';
+import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -24,6 +24,7 @@ import Link from 'next/link';
 const { Search } = Input;
 
 export default function SalesOrdersPageReal() {
+  const { modal, message } = App.useApp(); // Use App context for modal and message
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
 
@@ -72,7 +73,7 @@ export default function SalesOrdersPageReal() {
   });
 
   const handleDelete = (id: string, orderNumber: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: 'Delete Sales Order',
       content: `Are you sure you want to delete order ${orderNumber}? This action cannot be undone.`,
       okText: 'Delete',
