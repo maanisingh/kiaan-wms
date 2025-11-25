@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-
-import { Table, Button, Input, Select, Card, Modal, Form, message, Tag, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, EyeOutlined, ShoppingOutlined, ShopOutlined, GlobalOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { useModal } from '@/hooks/useModal';
-import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
+import { Table, Button, Input, Select, Card, Modal, Form, message, Tag, Tabs, Space } from 'antd';
+import { PlusOutlined, SearchOutlined, EyeOutlined, ShoppingOutlined, ShopOutlined, GlobalOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import apiService from '@/services/api';
 import { useRouter } from 'next/navigation';
 
 const { Search } = Input;
@@ -13,18 +11,85 @@ const { Option } = Select;
 
 export default function IntegrationChannelsPage() {
   const [loading, setLoading] = useState(false);
+  const [channels, setChannels] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
-  const addModal = useModal();
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<any>(null);
   const [form] = Form.useForm();
   const router = useRouter();
 
-  const mockData = [
-    { id: '1', name: 'Shopify Store', type: 'E-Commerce', status: 'active', orders: 1245, revenue: 45600, lastSync: '5 min ago' },
-    { id: '2', name: 'Amazon Seller Central', type: 'Marketplace', status: 'active', orders: 3456, revenue: 123400, lastSync: '2 min ago' },
-    { id: '3', name: 'eBay Store', type: 'Marketplace', status: 'active', orders: 567, revenue: 23100, lastSync: '10 min ago' },
-    { id: '4', name: 'WooCommerce', type: 'E-Commerce', status: 'inactive', orders: 0, revenue: 0, lastSync: '2 days ago' },
-    { id: '5', name: 'BigCommerce', type: 'E-Commerce', status: 'active', orders: 892, revenue: 34500, lastSync: '1 min ago' },
-  ];
+  useEffect(() => {
+    fetchChannels();
+  }, []);
+
+  const fetchChannels = async () => {
+    setLoading(true);
+    try {
+      const data = await apiService.get('/api/channels');
+      setChannels(data || []);
+    } catch (error) {
+      console.error('Error fetching channels:', error);
+      message.error('Failed to fetch channels');
+      setChannels([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddChannel = () => {
+    setIsEditMode(false);
+    setSelectedChannel(null);
+    form.resetFields();
+    setIsModalVisible(true);
+  };
+
+  const handleEditChannel = (record: any) => {
+    setIsEditMode(true);
+    setSelectedChannel(record);
+    form.setFieldsValue({
+      name: record.name,
+      type: record.type,
+      apiKey: record.apiKey,
+      status: record.status,
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleDeleteChannel = async (channelId: string, name: string) => {
+    Modal.confirm({
+      title: 'Delete Channel',
+      content: `Are you sure you want to delete channel "${name}"?`,
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await apiService.delete(`/api/channels/${channelId}`);
+          message.success('Channel deleted successfully');
+          fetchChannels();
+        } catch (error) {
+          message.error('Failed to delete channel');
+        }
+      },
+    });
+  };
+
+  const handleSubmit = async (values: any) => {
+    try {
+      if (isEditMode && selectedChannel) {
+        await apiService.put(`/api/channels/${selectedChannel.id}`, values);
+        message.success('Channel updated successfully');
+      } else {
+        await apiService.post('/api/channels', values);
+        message.success('Channel created successfully');
+      }
+      setIsModalVisible(false);
+      form.resetFields();
+      fetchChannels();
+    } catch (error) {
+      message.error(`Failed to ${isEditMode ? 'update' : 'create'} channel`);
+    }
+  };
 
   const columns = [
     {
@@ -32,13 +97,15 @@ export default function IntegrationChannelsPage() {
       dataIndex: 'name',
       key: 'name',
       width: 200,
-      render: (text: string, record: any) => (
-        <Link href={`/integrations/channels/${record.id}`}>
-          <span className="font-medium text-blue-600 cursor-pointer hover:underline">{text}</span>
-        </Link>
-      )
+      render: (text: string) => <span className="font-medium text-blue-600">{text}</span>
     },
-    { title: 'Type', dataIndex: 'type', key: 'type', width: 150, render: (type: string) => <Tag color="blue">{type}</Tag> },
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      key: 'type',
+      width: 150,
+      render: (type: string) => <Tag color="blue">{type}</Tag>
+    },
     {
       title: 'Status',
       dataIndex: 'status',
@@ -50,33 +117,66 @@ export default function IntegrationChannelsPage() {
         </Tag>
       )
     },
-    { title: 'Orders', dataIndex: 'orders', key: 'orders', width: 100, render: (val: number) => val.toLocaleString() },
-    { title: 'Revenue', dataIndex: 'revenue', key: 'revenue', width: 120, render: (val: number) => `$${val.toLocaleString()}` },
-    { title: 'Last Sync', dataIndex: 'lastSync', key: 'lastSync', width: 120 },
+    {
+      title: 'Orders',
+      dataIndex: 'orders',
+      key: 'orders',
+      width: 100,
+      render: (val: number) => val ? val.toLocaleString() : '0'
+    },
+    {
+      title: 'Revenue',
+      dataIndex: 'revenue',
+      key: 'revenue',
+      width: 120,
+      render: (val: number) => val ? `$${val.toLocaleString()}` : '$0'
+    },
+    {
+      title: 'Last Sync',
+      dataIndex: 'lastSync',
+      key: 'lastSync',
+      width: 120,
+      render: (date: string) => date || '-'
+    },
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 200,
       render: (_: any, record: any) => (
-        <Link href={`/integrations/channels/${record.id}`}>
-          <Button type="link" icon={<EyeOutlined />} size="small">View</Button>
-        </Link>
+        <Space size="small">
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            size="small"
+            onClick={() => router.push(`/protected/integrations/channels/${record.id}`)}
+          >
+            View
+          </Button>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            size="small"
+            onClick={() => handleEditChannel(record)}
+          >
+            Edit
+          </Button>
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            onClick={() => handleDeleteChannel(record.id, record.name)}
+          >
+            Delete
+          </Button>
+        </Space>
       ),
     },
   ];
 
-  const handleSubmit = (values: any) => {
-    console.log('Form values:', values);
-    message.success('Channel created successfully!');
-    form.resetFields();
-    addModal.close();
-  };
-
-  const allChannels = mockData;
-  const activeChannels = mockData.filter(c => c.status === 'active');
-  const inactiveChannels = mockData.filter(c => c.status === 'inactive');
-  const ecommerceChannels = mockData.filter(c => c.type === 'E-Commerce');
-  const marketplaceChannels = mockData.filter(c => c.type === 'Marketplace');
+  const allChannels = channels;
+  const activeChannels = channels.filter((c: any) => c.status === 'active');
+  const inactiveChannels = channels.filter((c: any) => c.status === 'inactive');
 
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
@@ -92,11 +192,8 @@ export default function IntegrationChannelsPage() {
         dataSource={dataSource}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1000 }}
-        onRow={(record) => ({
-          onClick: () => router.push(`/integrations/channels/${record.id}`),
-          style: { cursor: 'pointer' }
-        })}
+        scroll={{ x: 1200 }}
+        pagination={{ pageSize: 10 }}
       />
     </>
   );
@@ -117,16 +214,6 @@ export default function IntegrationChannelsPage() {
       label: <span className="flex items-center gap-2"><CloseCircleOutlined />Inactive ({inactiveChannels.length})</span>,
       children: renderFiltersAndTable(inactiveChannels),
     },
-    {
-      key: 'ecommerce',
-      label: <span className="flex items-center gap-2"><ShopOutlined />E-Commerce ({ecommerceChannels.length})</span>,
-      children: renderFiltersAndTable(ecommerceChannels),
-    },
-    {
-      key: 'marketplace',
-      label: <span className="flex items-center gap-2"><ShoppingOutlined />Marketplace ({marketplaceChannels.length})</span>,
-      children: renderFiltersAndTable(marketplaceChannels),
-    },
   ];
 
   return (
@@ -138,9 +225,14 @@ export default function IntegrationChannelsPage() {
             </h1>
             <p className="text-gray-600 mt-1">Manage sales and fulfillment channels</p>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={addModal.open}>
-            Add Channel
-          </Button>
+          <Space>
+            <Button onClick={fetchChannels} icon={<SyncOutlined />}>
+              Refresh
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddChannel}>
+              Add Channel
+            </Button>
+          </Space>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -152,41 +244,59 @@ export default function IntegrationChannelsPage() {
           </Card>
           <Card>
             <div className="text-center">
+              <p className="text-gray-500 text-sm">Total Channels</p>
+              <p className="text-3xl font-bold text-blue-600">{channels.length}</p>
+            </div>
+          </Card>
+          <Card>
+            <div className="text-center">
               <p className="text-gray-500 text-sm">Total Orders</p>
-              <p className="text-3xl font-bold text-blue-600">{mockData.reduce((sum, c) => sum + c.orders, 0).toLocaleString()}</p>
+              <p className="text-3xl font-bold text-purple-600">{channels.reduce((sum: any, c: any) => sum + (c.orders || 0), 0).toLocaleString()}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Total Revenue</p>
-              <p className="text-3xl font-bold text-purple-600">${mockData.reduce((sum, c) => sum + c.revenue, 0).toLocaleString()}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Sync Status</p>
-              <p className="text-3xl font-bold text-orange-600">99.5%</p>
+              <p className="text-3xl font-bold text-orange-600">${channels.reduce((sum: any, c: any) => sum + (c.revenue || 0), 0).toLocaleString()}</p>
             </div>
           </Card>
         </div>
 
         <Card className="shadow-sm">
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={tabItems}
-            size="large"
-          />
+          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
         </Card>
 
-        <Modal title="Add Channel" open={addModal.isOpen} onCancel={addModal.close} onOk={() => form.submit()} width={600}>
+        <Modal
+          title={isEditMode ? 'Edit Channel' : 'Add Channel'}
+          open={isModalVisible}
+          onCancel={() => {
+            setIsModalVisible(false);
+            form.resetFields();
+          }}
+          onOk={() => form.submit()}
+          width={600}
+        >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Channel Name" name="name" rules={[{ required: true }]}>
+            <Form.Item label="Channel Name" name="name" rules={[{ required: true, message: 'Please enter channel name' }]}>
               <Input placeholder="Enter channel name" />
             </Form.Item>
-            <Form.Item label="API Key" name="apiKey" rules={[{ required: true }]}>
+            <Form.Item label="Type" name="type" rules={[{ required: true, message: 'Please select type' }]}>
+              <Select placeholder="Select type">
+                <Option value="E-Commerce">E-Commerce</Option>
+                <Option value="Marketplace">Marketplace</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="API Key" name="apiKey" rules={[{ required: true, message: 'Please enter API key' }]}>
               <Input.Password placeholder="Enter API key" />
             </Form.Item>
+            {isEditMode && (
+              <Form.Item label="Status" name="status">
+                <Select placeholder="Select status">
+                  <Option value="active">Active</Option>
+                  <Option value="inactive">Inactive</Option>
+                </Select>
+              </Form.Item>
+            )}
           </Form>
         </Modal>
       </div>

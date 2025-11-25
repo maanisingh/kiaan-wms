@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 
-import { Table, Card, Tag, Button, Select, Space, Statistic, Row, Col, message } from 'antd';
-import { CheckOutlined, ClockCircleOutlined, SyncOutlined } from '@ant-design/icons';
+import { Table, Card, Tag, Button, Select, Space, Statistic, Row, Col, message, Modal, Form, Input, InputNumber } from 'antd';
+import { CheckOutlined, ClockCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 import { format } from 'date-fns';
 
@@ -11,6 +11,10 @@ export default function ReplenishmentTasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchTasks();
@@ -20,12 +24,13 @@ export default function ReplenishmentTasksPage() {
     setLoading(true);
     try {
       const url = statusFilter
-        ? `/replenishment/tasks?status=${statusFilter}`
-        : '/replenishment/tasks';
+        ? `/api/replenishment/tasks?status=${statusFilter}`
+        : '/api/replenishment/tasks';
       const data = await apiService.get(url);
       setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      message.error('Failed to fetch tasks');
       setTasks([]);
     } finally {
       setLoading(false);
@@ -34,7 +39,7 @@ export default function ReplenishmentTasksPage() {
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      await apiService.patch(`/replenishment/tasks/${taskId}`, {
+      await apiService.patch(`/api/replenishment/tasks/${taskId}`, {
         status: 'COMPLETED',
         completedAt: new Date().toISOString()
       });
@@ -42,6 +47,62 @@ export default function ReplenishmentTasksPage() {
       fetchTasks();
     } catch (error) {
       message.error('Failed to update task');
+    }
+  };
+
+  const handleAddTask = () => {
+    setIsEditMode(false);
+    setSelectedTask(null);
+    form.resetFields();
+    setIsModalVisible(true);
+  };
+
+  const handleEditTask = (record: any) => {
+    setIsEditMode(true);
+    setSelectedTask(record);
+    form.setFieldsValue({
+      productId: record.productId,
+      fromLocation: record.fromLocation,
+      toLocation: record.toLocation,
+      quantityNeeded: record.quantityNeeded,
+      priority: record.priority,
+      status: record.status,
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    Modal.confirm({
+      title: 'Delete Task',
+      content: 'Are you sure you want to delete this replenishment task?',
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await apiService.delete(`/api/replenishment/tasks/${taskId}`);
+          message.success('Task deleted successfully');
+          fetchTasks();
+        } catch (error) {
+          message.error('Failed to delete task');
+        }
+      },
+    });
+  };
+
+  const handleSubmit = async (values: any) => {
+    try {
+      if (isEditMode && selectedTask) {
+        await apiService.patch(`/api/replenishment/tasks/${selectedTask.id}`, values);
+        message.success('Task updated successfully');
+      } else {
+        await apiService.post('/api/replenishment/tasks', values);
+        message.success('Task created successfully');
+      }
+      setIsModalVisible(false);
+      form.resetFields();
+      fetchTasks();
+    } catch (error) {
+      message.error(`Failed to ${isEditMode ? 'update' : 'create'} task`);
     }
   };
 
@@ -129,19 +190,32 @@ export default function ReplenishmentTasksPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: any) => (
-        record.status !== 'COMPLETED' && (
+        <Space>
+          {record.status !== 'COMPLETED' && (
+            <Button
+              size="small"
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={() => handleCompleteTask(record.id)}
+            >
+              Complete
+            </Button>
+          )}
           <Button
             size="small"
-            type="primary"
-            icon={<CheckOutlined />}
-            onClick={() => handleCompleteTask(record.id)}
-          >
-            Complete
-          </Button>
-        )
+            icon={<EditOutlined />}
+            onClick={() => handleEditTask(record)}
+          />
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDeleteTask(record.id)}
+          />
+        </Space>
       ),
     },
   ];
@@ -157,9 +231,14 @@ export default function ReplenishmentTasksPage() {
             <h1 className="text-2xl font-bold">Replenishment Tasks</h1>
             <p className="text-gray-500">Manage stock replenishment from bulk to pick locations</p>
           </div>
-          <Button type="primary" onClick={fetchTasks} icon={<SyncOutlined />}>
-            Refresh
-          </Button>
+          <Space>
+            <Button onClick={fetchTasks} icon={<SyncOutlined />}>
+              Refresh
+            </Button>
+            <Button type="primary" onClick={handleAddTask} icon={<PlusOutlined />}>
+              Add Task
+            </Button>
+          </Space>
         </div>
 
         <Row gutter={16} className="mb-6">
@@ -219,9 +298,75 @@ export default function ReplenishmentTasksPage() {
             loading={loading}
             rowKey="id"
             pagination={{ pageSize: 20 }}
-            scroll={{ x: 1200 }}
+            scroll={{ x: 1400 }}
           />
         </Card>
+
+        <Modal
+          title={isEditMode ? 'Edit Replenishment Task' : 'Create Replenishment Task'}
+          open={isModalVisible}
+          onCancel={() => {
+            setIsModalVisible(false);
+            form.resetFields();
+          }}
+          onOk={() => form.submit()}
+          width={600}
+        >
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Form.Item
+              label="Product ID"
+              name="productId"
+              rules={[{ required: true, message: 'Please enter product ID' }]}
+            >
+              <Input placeholder="Enter product ID" />
+            </Form.Item>
+            <Form.Item
+              label="From Location"
+              name="fromLocation"
+              rules={[{ required: true, message: 'Please enter from location' }]}
+            >
+              <Input placeholder="e.g., BULK-A1" />
+            </Form.Item>
+            <Form.Item
+              label="To Location"
+              name="toLocation"
+              rules={[{ required: true, message: 'Please enter to location' }]}
+            >
+              <Input placeholder="e.g., PICK-B2" />
+            </Form.Item>
+            <Form.Item
+              label="Quantity Needed"
+              name="quantityNeeded"
+              rules={[{ required: true, message: 'Please enter quantity' }]}
+            >
+              <InputNumber min={1} style={{ width: '100%' }} placeholder="Enter quantity" />
+            </Form.Item>
+            <Form.Item
+              label="Priority"
+              name="priority"
+              rules={[{ required: true, message: 'Please select priority' }]}
+            >
+              <Select placeholder="Select priority">
+                <Select.Option value="LOW">Low</Select.Option>
+                <Select.Option value="MEDIUM">Medium</Select.Option>
+                <Select.Option value="HIGH">High</Select.Option>
+                <Select.Option value="URGENT">Urgent</Select.Option>
+              </Select>
+            </Form.Item>
+            {isEditMode && (
+              <Form.Item
+                label="Status"
+                name="status"
+              >
+                <Select placeholder="Select status">
+                  <Select.Option value="PENDING">Pending</Select.Option>
+                  <Select.Option value="IN_PROGRESS">In Progress</Select.Option>
+                  <Select.Option value="COMPLETED">Completed</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+          </Form>
+        </Modal>
       </div>
       );
 }
