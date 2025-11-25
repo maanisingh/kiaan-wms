@@ -95,7 +95,7 @@ export default function ReplenishmentTasksPage() {
         await apiService.patch(`/api/replenishment/tasks/${selectedTask.id}`, values);
         message.success('Task updated successfully');
       } else {
-        await apiService.post('/api/replenishment/tasks', values);
+        await apiService.post('/replenishment/tasks', values);
         message.success('Task created successfully');
       }
       setIsModalVisible(false);

@@ -25,7 +25,7 @@ export default function PackingAndShippingPreparationPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/packing');
+      const data = await apiService.get('/packing');
       setPackingTasks(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch packing tasks');
@@ -41,7 +41,7 @@ export default function PackingAndShippingPreparationPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/packing', values);
+      await apiService.post('/packing', values);
       message.success('Packing slip created successfully!');
       form.resetFields();
       addModal.close();

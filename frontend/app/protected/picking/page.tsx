@@ -38,7 +38,7 @@ export default function PickListsPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/picking');
+      const data = await apiService.get('/picking');
       setPickLists(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch pick lists');
@@ -51,7 +51,7 @@ export default function PickListsPage() {
   // Fetch sales orders
   const fetchSalesOrders = async () => {
     try {
-      const data = await apiService.get('/api/sales-orders?status=PENDING&limit=100');
+      const data = await apiService.get('/sales-orders?status=PENDING&limit=100');
       setSalesOrders(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching sales orders:', err);
@@ -61,7 +61,7 @@ export default function PickListsPage() {
   // Fetch products
   const fetchProducts = async () => {
     try {
-      const data = await apiService.get('/api/products?type=SIMPLE&limit=1000');
+      const data = await apiService.get('/products?type=SIMPLE&limit=1000');
       setProducts(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching products:', err);
@@ -71,7 +71,7 @@ export default function PickListsPage() {
   // Fetch locations
   const fetchLocations = async () => {
     try {
-      const data = await apiService.get('/api/locations?limit=1000');
+      const data = await apiService.get('/locations?limit=1000');
       setLocations(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching locations:', err);
@@ -109,7 +109,7 @@ export default function PickListsPage() {
           pickItems: values.pickItems || [],
         };
 
-        await apiService.post('/api/picking', payload);
+        await apiService.post('/picking', payload);
         message.success('Pick list created successfully!');
         addModal.close();
       }

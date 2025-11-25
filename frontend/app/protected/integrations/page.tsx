@@ -28,7 +28,7 @@ export default function SystemIntegrationsPage() {
   const fetchIntegrations = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/integrations');
+      const data = await apiService.get('/integrations');
       setIntegrations(data || []);
     } catch (error) {
       console.error('Error fetching integrations:', error);
@@ -84,7 +84,7 @@ export default function SystemIntegrationsPage() {
         await apiService.put(`/api/integrations/${selectedIntegration.id}`, values);
         message.success('Integration updated successfully');
       } else {
-        await apiService.post('/api/integrations', values);
+        await apiService.post('/integrations', values);
         message.success('Integration created successfully');
       }
       setIsModalVisible(false);

@@ -26,7 +26,7 @@ export default function IntegrationChannelsPage() {
   const fetchChannels = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/channels');
+      const data = await apiService.get('/channels');
       setChannels(data || []);
     } catch (error) {
       console.error('Error fetching channels:', error);
@@ -80,7 +80,7 @@ export default function IntegrationChannelsPage() {
         await apiService.put(`/api/channels/${selectedChannel.id}`, values);
         message.success('Channel updated successfully');
       } else {
-        await apiService.post('/api/channels', values);
+        await apiService.post('/channels', values);
         message.success('Channel created successfully');
       }
       setIsModalVisible(false);

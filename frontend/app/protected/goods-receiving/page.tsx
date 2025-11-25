@@ -22,7 +22,7 @@ export default function GoodsReceivingPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/goods-receiving');
+      const data = await apiService.get('/goods-receiving');
       setReceipts(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch receipts');
@@ -38,7 +38,7 @@ export default function GoodsReceivingPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/goods-receiving', values);
+      await apiService.post('/goods-receiving', values);
       message.success('Goods receipt created successfully!');
       form.resetFields();
       receiveModal.close();

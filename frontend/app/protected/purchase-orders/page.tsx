@@ -36,7 +36,7 @@ export default function PurchaseOrdersPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/purchase-orders');
+      const data = await apiService.get('/purchase-orders');
       setPurchaseOrders(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch purchase orders');
@@ -52,7 +52,7 @@ export default function PurchaseOrdersPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/purchase-orders', values);
+      await apiService.post('/purchase-orders', values);
       message.success('Purchase order created successfully!');
       setModalOpen(false);
       form.resetFields();

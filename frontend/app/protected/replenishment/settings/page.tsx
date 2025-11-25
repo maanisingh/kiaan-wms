@@ -21,7 +21,7 @@ export default function ReplenishmentSettingsPage() {
   const fetchConfigs = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/replenishment/settings');
+      const data = await apiService.get('/replenishment/settings');
       setConfigs(data || []);
     } catch (error) {
       console.error('Error fetching configs:', error);
@@ -84,7 +84,7 @@ export default function ReplenishmentSettingsPage() {
         await apiService.put(`/api/replenishment/settings/${selectedConfig.id}`, payload);
         message.success('Configuration updated successfully');
       } else {
-        await apiService.post('/api/replenishment/settings', payload);
+        await apiService.post('/replenishment/settings', payload);
         message.success('Configuration created successfully');
       }
       setIsModalVisible(false);

@@ -25,7 +25,7 @@ export default function FBATransfersPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/fba-transfers');
+      const data = await apiService.get('/fba-transfers');
       setFbaTransfers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch FBA transfers');
@@ -41,7 +41,7 @@ export default function FBATransfersPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/fba-transfers', values);
+      await apiService.post('/fba-transfers', values);
       message.success('FBA transfer created successfully!');
       form.resetFields();
       addModal.close();

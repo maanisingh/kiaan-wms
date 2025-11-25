@@ -26,7 +26,7 @@ export default function IntegrationMappingsPage() {
   const fetchMappings = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/sku-mappings');
+      const data = await apiService.get('/sku-mappings');
       setMappings(data || []);
     } catch (error) {
       console.error('Error fetching mappings:', error);
@@ -75,7 +75,7 @@ export default function IntegrationMappingsPage() {
         await apiService.put(`/api/sku-mappings/${selectedMapping.id}`, values);
         message.success('Mapping updated successfully');
       } else {
-        await apiService.post('/api/sku-mappings', values);
+        await apiService.post('/sku-mappings', values);
         message.success('Mapping created successfully');
       }
       setIsModalVisible(false);

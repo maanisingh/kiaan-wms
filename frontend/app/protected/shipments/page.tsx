@@ -26,7 +26,7 @@ export default function ShipmentManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/shipments');
+      const data = await apiService.get('/shipments');
       setShipments(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch shipments');
@@ -42,7 +42,7 @@ export default function ShipmentManagementPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/shipments', values);
+      await apiService.post('/shipments', values);
       message.success('Shipment created successfully!');
       form.resetFields();
       addModal.close();

@@ -39,7 +39,7 @@ export default function TransfersPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/transfers');
+      const data = await apiService.get('/transfers');
       setTransfers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch transfers');
@@ -52,7 +52,7 @@ export default function TransfersPage() {
   // Fetch warehouses
   const fetchWarehouses = async () => {
     try {
-      const data = await apiService.get('/api/warehouses?limit=100');
+      const data = await apiService.get('/warehouses?limit=100');
       setWarehouses(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching warehouses:', err);
@@ -62,7 +62,7 @@ export default function TransfersPage() {
   // Fetch products
   const fetchProducts = async () => {
     try {
-      const data = await apiService.get('/api/products?type=SIMPLE&limit=1000');
+      const data = await apiService.get('/products?type=SIMPLE&limit=1000');
       setProducts(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching products:', err);
@@ -107,7 +107,7 @@ export default function TransfersPage() {
           transferItems: values.transferItems || [],
         };
 
-        await apiService.post('/api/transfers', payload);
+        await apiService.post('/transfers', payload);
         message.success('Transfer created successfully!');
         addModal.close();
       }

@@ -26,7 +26,7 @@ export default function ReturnsAndRMAManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get('/api/returns');
+      const data = await apiService.get('/returns');
       setReturns(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch returns');
@@ -42,7 +42,7 @@ export default function ReturnsAndRMAManagementPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      await apiService.post('/api/returns', values);
+      await apiService.post('/returns', values);
       message.success('RMA created successfully!');
       form.resetFields();
       addModal.close();
