@@ -18,8 +18,23 @@ class ApiService {
       (config) => {
         // Only access localStorage in browser environment
         if (typeof window !== 'undefined') {
-          // Add auth token if available
-          const token = localStorage.getItem('wms_auth_token');
+          // Get token from Zustand persist storage (wms-auth-storage)
+          let token = null;
+          try {
+            const authStorage = localStorage.getItem('wms-auth-storage');
+            if (authStorage) {
+              const parsed = JSON.parse(authStorage);
+              token = parsed?.state?.token;
+            }
+          } catch (e) {
+            console.error('Failed to parse auth storage:', e);
+          }
+
+          // Fallback to legacy key if needed
+          if (!token) {
+            token = localStorage.getItem('wms_auth_token');
+          }
+
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
           }
@@ -50,9 +65,13 @@ class ApiService {
         // Handle errors globally (only in browser)
         if (typeof window !== 'undefined') {
           if (error.response?.status === 401) {
-            // Unauthorized - redirect to login
-            localStorage.removeItem('wms_auth_token');
-            window.location.href = '/auth/login';
+            // Unauthorized - clear auth storage and redirect to login
+            // Check if we're not already on the login page to avoid redirect loops
+            if (!window.location.pathname.includes('/auth/login')) {
+              localStorage.removeItem('wms-auth-storage');
+              localStorage.removeItem('wms_auth_token');
+              window.location.href = '/auth/login';
+            }
           }
 
           if (error.response?.status === 403) {
