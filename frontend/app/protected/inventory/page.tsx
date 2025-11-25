@@ -1,176 +1,201 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Tag, Tabs, Card, Input, Spin, Alert, Space, Modal, Form, Select, DatePicker, Drawer, App } from 'antd';
 import {
   PlusOutlined, InboxOutlined, CheckCircleOutlined, WarningOutlined, StopOutlined,
-  SearchOutlined, ExportOutlined, EditOutlined, DeleteOutlined, EyeOutlined
+  SearchOutlined, ExportOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined
 } from '@ant-design/icons';
-import { GET_INVENTORY, GET_PRODUCTS, GET_WAREHOUSES, GET_LOCATIONS } from '@/lib/graphql/queries';
-import { CREATE_INVENTORY, UPDATE_INVENTORY, DELETE_INVENTORY } from '@/lib/graphql/mutations';
-import { formatDate, getStatusColor } from '@/lib/utils';
-import { useModal } from '@/hooks/useModal';
+import { formatDate } from '@/lib/utils';
+import apiService from '@/services/api';
 import dayjs from 'dayjs';
 
 const { Search } = Input;
 const { Option } = Select;
 
-export default function InventoryPageReal() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+interface InventoryItem {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  locationId?: string;
+  lotNumber?: string;
+  batchNumber?: string;
+  serialNumber?: string;
+  bestBeforeDate?: string;
+  receivedDate: string;
+  quantity: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  status: string;
+  product?: { id: string; name: string; sku: string; barcode?: string };
+  warehouse?: { id: string; name: string; code: string };
+  location?: { id: string; code: string; name: string };
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+}
+
+interface Warehouse {
+  id: string;
+  name: string;
+  code: string;
+}
+
+interface Location {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export default function InventoryPage() {
+  const { modal, message } = App.useApp();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
-  const [selectedInventory, setSelectedInventory] = useState<any>(null);
+  const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const addModal = useModal();
-  const editModal = useModal();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
-  // Build where clause
-  const buildWhereClause = () => {
-    const where: any = {};
-
-    if (searchText) {
-      where._or = [
-        { product: { name: { _ilike: `%${searchText}%` } } },
-        { product: { sku: { _ilike: `%${searchText}%` } } },
-        { lotNumber: { _ilike: `%${searchText}%` } },
-      ];
+  // Fetch inventory from REST API
+  const fetchInventory = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/inventory');
+      setInventory(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch inventory:', err);
+      setError(err.message || 'Failed to load inventory');
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    // Filter by tab
+  // Fetch products for dropdown
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await apiService.get('/products');
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    }
+  }, []);
+
+  // Fetch warehouses for dropdown
+  const fetchWarehouses = useCallback(async () => {
+    try {
+      const data = await apiService.get('/warehouses');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch warehouses:', err);
+    }
+  }, []);
+
+  // Fetch locations for dropdown
+  const fetchLocations = useCallback(async () => {
+    try {
+      const data = await apiService.get('/locations');
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch locations:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+    fetchProducts();
+    fetchWarehouses();
+    fetchLocations();
+  }, [fetchInventory, fetchProducts, fetchWarehouses, fetchLocations]);
+
+  // Filter inventory based on search and tab
+  const filteredInventory = inventory.filter((item) => {
+    // Search filter
+    const matchesSearch = !searchText ||
+      item.product?.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.product?.sku?.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.lotNumber?.toLowerCase().includes(searchText.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // Tab filter
     if (activeTab === 'in_stock') {
-      where.quantity = { _gt: 50 };
+      return (item.quantity || 0) > 50;
     } else if (activeTab === 'low_stock') {
-      where.quantity = { _gt: 0, _lte: 50 };
+      return (item.quantity || 0) > 0 && (item.quantity || 0) <= 50;
     } else if (activeTab === 'out_of_stock') {
-      where.quantity = { _eq: 0 };
+      return (item.quantity || 0) === 0;
     } else if (activeTab === 'expiring') {
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-      where.bestBeforeDate = { _lte: thirtyDaysFromNow.toISOString().split('T')[0] };
-      where.quantity = { _gt: 0 };
+      if (!item.bestBeforeDate) return false;
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      return new Date(item.bestBeforeDate) < thirtyDaysFromNow && (item.quantity || 0) > 0;
     }
-
-    return Object.keys(where).length > 0 ? where : undefined;
-  };
-
-  // Fetch inventory from Hasura
-  const { data, loading, error, refetch } = useQuery(GET_INVENTORY, {
-    variables: {
-      limit: 100,
-      offset: 0,
-      where: buildWhereClause(),
-    },
-    fetchPolicy: 'cache-and-network',
+    return true;
   });
 
-  // Fetch dropdowns data
-  const { data: productsData } = useQuery(GET_PRODUCTS, { variables: { limit: 1000, offset: 0 } });
-  const { data: warehousesData } = useQuery(GET_WAREHOUSES, { variables: { limit: 100, offset: 0 } });
-  const { data: locationsData } = useQuery(GET_LOCATIONS, { variables: { limit: 1000, offset: 0 } });
+  // Calculate stats
+  const totalQty = inventory.reduce((sum, i) => sum + (i.quantity || 0), 0);
+  const availableQty = inventory.reduce((sum, i) => sum + (i.availableQuantity || 0), 0);
+  const reservedQty = inventory.reduce((sum, i) => sum + (i.reservedQuantity || 0), 0);
 
-  const products = productsData?.Product || [];
-  const warehouses = warehousesData?.Warehouse || [];
-  const locations = locationsData?.Location || [];
-
-  // GraphQL mutations
-  const [createInventory, { loading: creating }] = useMutation(CREATE_INVENTORY, {
-    onCompleted: () => {
-      message.success('Inventory created successfully!');
-      form.resetFields();
-      addModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to create inventory: ${err.message}`);
-    },
-  });
-
-  const [updateInventory, { loading: updating }] = useMutation(UPDATE_INVENTORY, {
-    onCompleted: () => {
-      message.success('Inventory updated successfully!');
-      form.resetFields();
-      editModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to update inventory: ${err.message}`);
-    },
-  });
-
-  const [deleteInventory] = useMutation(DELETE_INVENTORY, {
-    onCompleted: () => {
-      message.success('Inventory deleted successfully!');
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to delete inventory: ${err.message}`);
-    },
-  });
-
-  const inventory = data?.Inventory || [];
-  const totalCount = data?.Inventory_aggregate?.aggregate?.count || 0;
-  const totalQty = data?.Inventory_aggregate?.aggregate?.sum?.quantity || 0;
-  const availableQty = data?.Inventory_aggregate?.aggregate?.sum?.availableQuantity || 0;
-  const reservedQty = data?.Inventory_aggregate?.aggregate?.sum?.reservedQuantity || 0;
+  // Calculate counts for tabs
+  const inStockCount = inventory.filter((i) => (i.quantity || 0) > 50).length;
+  const lowStockCount = inventory.filter((i) => (i.quantity || 0) > 0 && (i.quantity || 0) <= 50).length;
+  const outOfStockCount = inventory.filter((i) => (i.quantity || 0) === 0).length;
+  const expiringCount = inventory.filter((i) => {
+    if (!i.bestBeforeDate) return false;
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return new Date(i.bestBeforeDate) < thirtyDaysFromNow && (i.quantity || 0) > 0;
+  }).length;
 
   const handleSubmit = async (values: any) => {
     try {
-      if (selectedInventory) {
-        // UPDATE existing inventory
-        await updateInventory({
-          variables: {
-            id: selectedInventory.id,
-            set: {
-              productId: values.productId,
-              warehouseId: values.warehouseId,
-              locationId: values.locationId || null,
-              lotNumber: values.lotNumber || null,
-              batchNumber: values.batchNumber || null,
-              serialNumber: values.serialNumber || null,
-              bestBeforeDate: values.bestBeforeDate ? values.bestBeforeDate.toISOString() : null,
-              quantity: parseInt(values.quantity),
-              availableQuantity: parseInt(values.availableQuantity || values.quantity),
-              reservedQuantity: parseInt(values.reservedQuantity || 0),
-              status: values.status,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
-      } else {
-        // CREATE new inventory
-        const uuid = crypto.randomUUID();
+      setSaving(true);
+      const payload = {
+        productId: values.productId,
+        warehouseId: values.warehouseId,
+        locationId: values.locationId || null,
+        lotNumber: values.lotNumber || null,
+        batchNumber: values.batchNumber || null,
+        serialNumber: values.serialNumber || null,
+        bestBeforeDate: values.bestBeforeDate ? values.bestBeforeDate.toISOString() : null,
+        quantity: parseInt(values.quantity),
+        availableQuantity: parseInt(values.availableQuantity || values.quantity),
+        reservedQuantity: parseInt(values.reservedQuantity || 0),
+        status: values.status,
+      };
 
-        await createInventory({
-          variables: {
-            object: {
-              id: uuid,
-              productId: values.productId,
-              warehouseId: values.warehouseId,
-              locationId: values.locationId || null,
-              lotNumber: values.lotNumber || null,
-              batchNumber: values.batchNumber || null,
-              serialNumber: values.serialNumber || null,
-              bestBeforeDate: values.bestBeforeDate ? values.bestBeforeDate.toISOString() : null,
-              receivedDate: new Date().toISOString(),
-              quantity: parseInt(values.quantity),
-              availableQuantity: parseInt(values.availableQuantity || values.quantity),
-              reservedQuantity: parseInt(values.reservedQuantity || 0),
-              status: values.status,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+      if (selectedInventory) {
+        await apiService.put(`/inventory/${selectedInventory.id}`, payload);
+        message.success('Inventory updated successfully!');
+      } else {
+        await apiService.post('/inventory', payload);
+        message.success('Inventory created successfully!');
       }
-    } catch (error: any) {
-      console.error('Error saving inventory:', error);
-      message.error(error?.message || 'Failed to save inventory');
+
+      setModalOpen(false);
+      form.resetFields();
+      setSelectedInventory(null);
+      fetchInventory();
+    } catch (err: any) {
+      console.error('Error saving inventory:', err);
+      message.error(err.message || 'Failed to save inventory');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: InventoryItem) => {
     setSelectedInventory(record);
     form.setFieldsValue({
       productId: record.productId,
@@ -185,17 +210,23 @@ export default function InventoryPageReal() {
       reservedQuantity: record.reservedQuantity,
       status: record.status,
     });
-    editModal.open();
+    setModalOpen(true);
   };
 
-  const handleDelete = (record: any) => {
+  const handleDelete = (record: InventoryItem) => {
     modal.confirm({
       title: 'Delete Inventory',
-      content: `Are you sure you want to delete this inventory record? This action cannot be undone.`,
+      content: 'Are you sure you want to delete this inventory record? This action cannot be undone.',
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deleteInventory({ variables: { id: record.id } });
+        try {
+          await apiService.delete(`/inventory/${record.id}`);
+          message.success('Inventory deleted successfully!');
+          fetchInventory();
+        } catch (err: any) {
+          message.error(err.message || 'Failed to delete inventory');
+        }
       },
     });
   };
@@ -204,7 +235,7 @@ export default function InventoryPageReal() {
     setSelectedInventory(null);
     form.resetFields();
     form.setFieldsValue({ status: 'AVAILABLE' });
-    addModal.open();
+    setModalOpen(true);
   };
 
   const inventoryColumns = [
@@ -266,7 +297,7 @@ export default function InventoryPageReal() {
       key: 'status',
       width: 120,
       render: (status: string) => {
-        const colors: any = {
+        const colors: Record<string, string> = {
           AVAILABLE: 'green',
           RESERVED: 'orange',
           QUARANTINE: 'red',
@@ -303,14 +334,13 @@ export default function InventoryPageReal() {
       key: 'actions',
       width: 180,
       fixed: 'right' as const,
-      render: (_: any, record: any) => (
+      render: (_: any, record: InventoryItem) => (
         <Space>
           <Button
             type="link"
             size="small"
             icon={<EyeOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               setSelectedInventory(record);
               setDrawerOpen(true);
             }}
@@ -321,10 +351,7 @@ export default function InventoryPageReal() {
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(record);
-            }}
+            onClick={() => handleEdit(record)}
           >
             Edit
           </Button>
@@ -333,10 +360,7 @@ export default function InventoryPageReal() {
             size="small"
             danger
             icon={<DeleteOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(record);
-            }}
+            onClick={() => handleDelete(record)}
           >
             Delete
           </Button>
@@ -345,263 +369,253 @@ export default function InventoryPageReal() {
     },
   ];
 
-  if (loading && !data) {
+  if (loading && inventory.length === 0) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-          <Spin size="large" tip="Loading inventory..." />
-        </div>
+      <div className="flex justify-center items-center h-96">
+        <Spin size="large" tip="Loading inventory..." />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Alert
+      <div className="p-6">
+        <Alert
           message="Error Loading Inventory"
-          description={error.message}
+          description={error}
           type="error"
           showIcon
-          action={<Button onClick={() => refetch()}>Retry</Button>}
-        />
-          );
-  }
-
-  // Calculate counts for tabs
-  const allCount = totalCount;
-  const inStockCount = inventory.filter((i: any) => (i.quantity || 0) > 50).length;
-  const lowStockCount = inventory.filter((i: any) => (i.quantity || 0) > 0 && (i.quantity || 0) <= 50).length;
-  const outOfStockCount = inventory.filter((i: any) => (i.quantity || 0) === 0).length;
-  const expiringCount = inventory.filter((i: any) => {
-    if (!i.bestBeforeDate) return false;
-    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    return new Date(i.bestBeforeDate) < thirtyDaysFromNow && (i.quantity || 0) > 0;
-  }).length;
-
-  const renderTable = (dataSource: any[]) => (
-    <>
-      <div className="flex gap-4 mb-4">
-        <Search
-          placeholder="Search by product name, SKU, or lot number..."
-          style={{ width: 400 }}
-          prefix={<SearchOutlined />}
-          onSearch={setSearchText}
-          onChange={(e) => e.target.value === '' && setSearchText('')}
+          action={
+            <Button onClick={fetchInventory} icon={<ReloadOutlined />}>
+              Retry
+            </Button>
+          }
         />
       </div>
-      <Table
-        dataSource={dataSource}
-        columns={inventoryColumns}
-        rowKey="id"
-        scroll={{ x: 1600 }}
-        loading={loading}
-        pagination={{
-          pageSize: 50,
-          showSizeChanger: true,
-          showTotal: (total) => `Total ${total} items`,
-        }}
-      />
-    </>
-  );
+    );
+  }
 
   const tabItems = [
     {
       key: 'all',
-      label: <span className="flex items-center gap-2"><InboxOutlined />All Items ({allCount})</span>,
-      children: renderTable(inventory),
+      label: <span className="flex items-center gap-2"><InboxOutlined />All Items ({inventory.length})</span>,
     },
     {
       key: 'in_stock',
       label: <span className="flex items-center gap-2"><CheckCircleOutlined />In Stock ({inStockCount})</span>,
-      children: renderTable(inventory.filter((i: any) => (i.quantity || 0) > 50)),
     },
     {
       key: 'low_stock',
       label: <span className="flex items-center gap-2"><WarningOutlined />Low Stock ({lowStockCount})</span>,
-      children: renderTable(inventory.filter((i: any) => (i.quantity || 0) > 0 && (i.quantity || 0) <= 50)),
     },
     {
       key: 'out_of_stock',
       label: <span className="flex items-center gap-2"><StopOutlined />Out of Stock ({outOfStockCount})</span>,
-      children: renderTable(inventory.filter((i: any) => (i.quantity || 0) === 0)),
     },
     {
       key: 'expiring',
       label: <span className="flex items-center gap-2"><WarningOutlined className="text-red-500" />Expiring Soon ({expiringCount})</span>,
-      children: renderTable(inventory.filter((i: any) => {
-        if (!i.bestBeforeDate) return false;
-        const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        return new Date(i.bestBeforeDate) < thirtyDaysFromNow && (i.quantity || 0) > 0;
-      })),
     },
   ];
 
   return (
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Inventory Management
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Total: {totalQty.toLocaleString()} units | Available: {availableQty.toLocaleString()} | Reserved: {reservedQty.toLocaleString()}
-            </p>
-          </div>
-          <Space>
-            <Button icon={<ExportOutlined />}>Export</Button>
-            <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddInventory}>
-              Add Inventory
-            </Button>
-          </Space>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            Inventory Management
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Total: {totalQty.toLocaleString()} units | Available: {availableQty.toLocaleString()} | Reserved: {reservedQty.toLocaleString()}
+          </p>
         </div>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchInventory} loading={loading}>
+            Refresh
+          </Button>
+          <Button icon={<ExportOutlined />}>Export</Button>
+          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddInventory}>
+            Add Inventory
+          </Button>
+        </Space>
+      </div>
 
-        {/* Tabs */}
-        <Card>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
-        </Card>
-
-        {/* Details Drawer */}
-        <Drawer
-          title="Inventory Details"
-          placement="right"
-          width={600}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          {selectedInventory && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{selectedInventory.product?.name}</h3>
-                <p className="text-gray-600">SKU: {selectedInventory.product?.sku}</p>
-              </div>
-              <div className="border-t pt-4 space-y-2">
-                <p><strong>Warehouse:</strong> {selectedInventory.warehouse?.name}</p>
-                <p><strong>Location:</strong> {selectedInventory.location?.code || 'Not specified'}</p>
-                <p><strong>Quantity:</strong> {selectedInventory.quantity?.toLocaleString()}</p>
-                <p><strong>Available:</strong> {selectedInventory.availableQuantity?.toLocaleString()}</p>
-                <p><strong>Reserved:</strong> {selectedInventory.reservedQuantity?.toLocaleString()}</p>
-                <p><strong>Status:</strong> <Tag color={selectedInventory.status === 'AVAILABLE' ? 'green' : 'orange'}>{selectedInventory.status}</Tag></p>
-                <p><strong>Lot Number:</strong> {selectedInventory.lotNumber || 'Not specified'}</p>
-                <p><strong>Batch Number:</strong> {selectedInventory.batchNumber || 'Not specified'}</p>
-                <p><strong>Serial Number:</strong> {selectedInventory.serialNumber || 'Not specified'}</p>
-                <p><strong>Best Before Date:</strong> {selectedInventory.bestBeforeDate ? formatDate(selectedInventory.bestBeforeDate) : 'Not specified'}</p>
-                <p className="text-xs text-gray-500 mt-4">Received: {formatDate(selectedInventory.receivedDate)}</p>
-              </div>
-            </div>
-          )}
-        </Drawer>
-
-        {/* Add/Edit Modal */}
-        <Modal
-          title={selectedInventory ? 'Edit Inventory' : 'Add Inventory'}
-          open={addModal.isOpen || editModal.isOpen}
-          onCancel={() => {
-            addModal.close();
-            editModal.close();
+      {/* Tabs and Table */}
+      <Card>
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <div className="flex gap-4 mb-4 mt-4">
+          <Search
+            placeholder="Search by product name, SKU, or lot number..."
+            style={{ width: 400 }}
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </div>
+        <Table
+          dataSource={filteredInventory}
+          columns={inventoryColumns}
+          rowKey="id"
+          scroll={{ x: 1600 }}
+          loading={loading}
+          pagination={{
+            pageSize: 50,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} items`,
           }}
-          onOk={() => form.submit()}
-          width={700}
-          confirmLoading={creating || updating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item
-              label="Product"
-              name="productId"
-              rules={[{ required: true, message: 'Please select product' }]}
+        />
+      </Card>
+
+      {/* Details Drawer */}
+      <Drawer
+        title="Inventory Details"
+        placement="right"
+        width={600}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        {selectedInventory && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg">{selectedInventory.product?.name}</h3>
+              <p className="text-gray-600">SKU: {selectedInventory.product?.sku}</p>
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <p><strong>Warehouse:</strong> {selectedInventory.warehouse?.name || 'N/A'}</p>
+              <p><strong>Location:</strong> {selectedInventory.location?.code || 'Not specified'}</p>
+              <p><strong>Quantity:</strong> {selectedInventory.quantity?.toLocaleString()}</p>
+              <p><strong>Available:</strong> {selectedInventory.availableQuantity?.toLocaleString()}</p>
+              <p><strong>Reserved:</strong> {selectedInventory.reservedQuantity?.toLocaleString()}</p>
+              <p><strong>Status:</strong> <Tag color={selectedInventory.status === 'AVAILABLE' ? 'green' : 'orange'}>{selectedInventory.status}</Tag></p>
+              <p><strong>Lot Number:</strong> {selectedInventory.lotNumber || 'Not specified'}</p>
+              <p><strong>Batch Number:</strong> {selectedInventory.batchNumber || 'Not specified'}</p>
+              <p><strong>Serial Number:</strong> {selectedInventory.serialNumber || 'Not specified'}</p>
+              <p><strong>Best Before Date:</strong> {selectedInventory.bestBeforeDate ? formatDate(selectedInventory.bestBeforeDate) : 'Not specified'}</p>
+              <p className="text-xs text-gray-500 mt-4">Received: {formatDate(selectedInventory.receivedDate)}</p>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        title={selectedInventory ? 'Edit Inventory' : 'Add Inventory'}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setSelectedInventory(null);
+          form.resetFields();
+        }}
+        onOk={() => form.submit()}
+        width={700}
+        confirmLoading={saving}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            label="Product"
+            name="productId"
+            rules={[{ required: true, message: 'Please select product' }]}
+          >
+            <Select
+              placeholder="Select product"
+              showSearch
+              filterOption={(input, option: any) =>
+                option.children?.toLowerCase().includes(input.toLowerCase())
+              }
             >
-              <Select placeholder="Select product" showSearch filterOption={(input, option: any) =>
-                option.children.toLowerCase().includes(input.toLowerCase())
-              }>
-                {products.map((p: any) => (
-                  <Option key={p.id} value={p.id}>
-                    {p.name} ({p.sku})
+              {products.map((p) => (
+                <Option key={p.id} value={p.id}>
+                  {p.name} ({p.sku})
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item
+              label="Warehouse"
+              name="warehouseId"
+              rules={[{ required: true, message: 'Please select warehouse' }]}
+            >
+              <Select placeholder="Select warehouse">
+                {warehouses.map((w) => (
+                  <Option key={w.id} value={w.id}>
+                    {w.name}
                   </Option>
                 ))}
               </Select>
             </Form.Item>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Form.Item
-                label="Warehouse"
-                name="warehouseId"
-                rules={[{ required: true, message: 'Please select warehouse' }]}
-              >
-                <Select placeholder="Select warehouse">
-                  {warehouses.map((w: any) => (
-                    <Option key={w.id} value={w.id}>
-                      {w.name}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label="Location" name="locationId">
-                <Select placeholder="Select location (optional)">
-                  {locations.map((l: any) => (
-                    <Option key={l.id} value={l.id}>
-                      {l.name} ({l.code})
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <Form.Item
-                label="Quantity"
-                name="quantity"
-                rules={[{ required: true, message: 'Required' }]}
-              >
-                <Input type="number" placeholder="0" />
-              </Form.Item>
-
-              <Form.Item label="Available" name="availableQuantity">
-                <Input type="number" placeholder="Auto-set to Quantity" />
-              </Form.Item>
-
-              <Form.Item label="Reserved" name="reservedQuantity">
-                <Input type="number" placeholder="0" />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              label="Status"
-              name="status"
-              rules={[{ required: true, message: 'Please select status' }]}
-            >
-              <Select placeholder="Select status">
-                <Option value="AVAILABLE">Available</Option>
-                <Option value="RESERVED">Reserved</Option>
-                <Option value="QUARANTINE">Quarantine</Option>
-                <Option value="DAMAGED">Damaged</Option>
-                <Option value="EXPIRED">Expired</Option>
+            <Form.Item label="Location" name="locationId">
+              <Select placeholder="Select location (optional)" allowClear>
+                {locations.map((l) => (
+                  <Option key={l.id} value={l.id}>
+                    {l.name} ({l.code})
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Form.Item label="Lot Number" name="lotNumber">
-                <Input placeholder="Enter lot number (optional)" />
-              </Form.Item>
+          <div className="grid grid-cols-3 gap-4">
+            <Form.Item
+              label="Quantity"
+              name="quantity"
+              rules={[{ required: true, message: 'Required' }]}
+            >
+              <Input type="number" placeholder="0" />
+            </Form.Item>
 
-              <Form.Item label="Batch Number" name="batchNumber">
-                <Input placeholder="Enter batch number (optional)" />
-              </Form.Item>
-            </div>
+            <Form.Item label="Available" name="availableQuantity">
+              <Input type="number" placeholder="Auto-set to Quantity" />
+            </Form.Item>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Form.Item label="Serial Number" name="serialNumber">
-                <Input placeholder="Enter serial number (optional)" />
-              </Form.Item>
+            <Form.Item label="Reserved" name="reservedQuantity">
+              <Input type="number" placeholder="0" />
+            </Form.Item>
+          </div>
 
-              <Form.Item label="Best Before Date" name="bestBeforeDate">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </div>
+          <Form.Item
+            label="Status"
+            name="status"
+            rules={[{ required: true, message: 'Please select status' }]}
+          >
+            <Select placeholder="Select status">
+              <Option value="AVAILABLE">Available</Option>
+              <Option value="RESERVED">Reserved</Option>
+              <Option value="QUARANTINE">Quarantine</Option>
+              <Option value="DAMAGED">Damaged</Option>
+              <Option value="EXPIRED">Expired</Option>
+            </Select>
+          </Form.Item>
 
-            <p className="text-xs text-gray-500">
-              Fill in batch tracking fields for perishable or serialized products.
-            </p>
-          </Form>
-        </Modal>
-      </div>
-      );
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item label="Lot Number" name="lotNumber">
+              <Input placeholder="Enter lot number (optional)" />
+            </Form.Item>
+
+            <Form.Item label="Batch Number" name="batchNumber">
+              <Input placeholder="Enter batch number (optional)" />
+            </Form.Item>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item label="Serial Number" name="serialNumber">
+              <Input placeholder="Enter serial number (optional)" />
+            </Form.Item>
+
+            <Form.Item label="Best Before Date" name="bestBeforeDate">
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Fill in batch tracking fields for perishable or serialized products.
+          </p>
+        </Form>
+      </Modal>
+    </div>
+  );
 }
