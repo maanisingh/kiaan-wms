@@ -1,0 +1,3 @@
+Testing: Super Admin - Valid Credentials
+  ✓ PASS: Got 200 status code
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU2ZjRjYTNiLWMzMzktNDhmOC05N2EyLTZiZmEwYTAzNjBkYiIsImVtYWlsIjoiYWRtaW5Aa2lhYW4td21zLmNvbSIsInJvbGUiOiJTVVBFUl9BRE1JTiIsImlhdCI6MTc2Mzk5MjYxOCwiZXhwIjoxNzY0MDc5MDE4fQ.KHweTafIAnCKnpzLdFBP4zXLFdC_6MLciEdDZos2B5Q

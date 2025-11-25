@@ -1,0 +1,193 @@
+========================================
+COMPREHENSIVE API ENDPOINT TESTING
+Started: Mon Nov 24 01:59:25 PM UTC 2025
+========================================
+
+Getting fresh authentication token...
+Token obtained successfully
+
+=== SECTION 1: HEALTH & SYSTEM ENDPOINTS ===
+
+Testing: Health Check (root)
+  ✓ PASS: Got expected status 200
+
+Testing: Health Check (API)
+  ✓ PASS: Got expected status 200
+
+=== SECTION 2: AUTHENTICATION ENDPOINTS ===
+
+Testing: Get Current User (with auth)
+  ✓ PASS: Got expected status 200
+
+Testing: Get Current User (no auth)
+  ✓ PASS: Got expected status 401
+
+Testing: Profile Update
+  ✓ PASS: Got expected status 200
+
+=== SECTION 3: DASHBOARD ENDPOINTS ===
+
+Testing: Dashboard Stats
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Recent Orders
+  ✓ PASS: Got expected status 200
+
+Testing: Low Stock Alerts
+  ✓ PASS: Got expected status 200
+
+Testing: Activity Feed
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+=== SECTION 4: PRODUCTS ENDPOINTS ===
+
+Testing: Get All Products
+  ✓ PASS: Got expected status 200
+
+Products found: 96
+Testing: Get Single Product
+  ✓ PASS: Got expected status 200
+
+Testing: Get Non-existent Product
+  ✓ PASS: Got expected status 404
+
+=== SECTION 5: BRANDS ENDPOINTS ===
+
+Testing: Get All Brands
+  ✓ PASS: Got expected status 200
+
+Brands found: 10
+=== SECTION 6: INVENTORY ENDPOINTS ===
+
+Testing: Get All Inventory
+  ✓ PASS: Got expected status 200
+
+Inventory items found: 240
+Testing: Get Inventory Adjustments
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Get Cycle Counts
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Get Inventory Alerts
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Get Inventory Batches
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Get Inventory Movements
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+=== SECTION 7: CUSTOMER ENDPOINTS ===
+
+Testing: Get All Customers
+  ✓ PASS: Got expected status 200
+
+Customers found: 25
+  B2C Customers: 20
+  B2B Customers: 5
+=== SECTION 8: WAREHOUSE ENDPOINTS ===
+
+Testing: Get All Warehouses
+  ✓ PASS: Got expected status 200
+
+Warehouses found: 4
+=== SECTION 9: SALES ORDERS ENDPOINTS ===
+
+Testing: Get All Sales Orders
+  ✓ PASS: Got expected status 200
+
+Sales orders found: 303
+=== SECTION 10: REPLENISHMENT ENDPOINTS ===
+
+Testing: Get Replenishment Tasks
+  ✓ PASS: Got expected status 200
+
+Testing: Get Replenishment Config
+  ✓ PASS: Got expected status 200
+
+=== SECTION 11: TRANSFER ENDPOINTS ===
+
+Testing: Get All Transfers
+  ✓ PASS: Got expected status 200
+
+=== SECTION 12: CHANNEL & ANALYTICS ENDPOINTS ===
+
+Testing: Get Sales Channels
+  ✓ PASS: Got expected status 200
+
+Testing: Get Channel Prices
+  ✓ PASS: Got expected status 200
+
+=== SECTION 13: COMPANY ENDPOINTS ===
+
+Testing: Get Companies
+  ✓ PASS: Got expected status 200
+
+=== SECTION 14: BARCODE & DOCUMENT ENDPOINTS ===
+
+Testing: Get Barcode Statistics
+  ✗ FAIL: Expected 200 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Get Document Templates
+  ✓ PASS: Got expected status 200
+
+=== SECTION 15: CATEGORIES ENDPOINT ===
+
+Testing: Get Categories
+  ✓ PASS: Got expected status 200
+
+=== SECTION 16: SECURITY TESTS - AUTHORIZATION ===
+
+Testing: Protected endpoint without token
+  ✓ PASS: Got expected status 401
+
+Testing: Protected endpoint with invalid token
+  ✓ PASS: Got expected status 401
+
+Testing: Protected endpoint with malformed token
+  ✓ PASS: Got expected status 401
+
+=== SECTION 17: EDGE CASES & INVALID REQUESTS ===
+
+Testing: GET non-existent endpoint
+  ✓ PASS: Got expected status 404
+
+Testing: POST to GET-only endpoint
+  ✗ FAIL: Expected 201 but got 500
+  Response: {"error":"Internal server error"}
+
+Testing: Invalid JSON in POST
+  ✗ FAIL: Expected 400 but got 500
+  Response: {"error":"Internal server error"}
+
+========================================
+API TESTING SUMMARY
+========================================
+Total Tests: 30
+Passed: 21
+Failed: 9
+
+Issues by Severity:
+  Critical (500 errors): 9
+  High (404 on expected endpoints): 0
+
+Data Verification:
+  Products: 96 (expected 40+)
+  Brands: 10 (expected 10)
+  Inventory: 240 (expected 48)
+  Customers: 25 (expected 25)
+    - B2C: 20 (expected 20)
+    - B2B: 5 (expected 5)
+  Warehouses: 4 (expected 2)
+  Sales Orders: 303
+
+Completed: Mon Nov 24 01:59:40 PM UTC 2025

@@ -1,0 +1,61 @@
+[2025-11-24T14:01:12.111Z] [INFO] ========================================
+[2025-11-24T14:01:12.112Z] [INFO] COMPREHENSIVE FRONTEND TESTING
+[2025-11-24T14:01:12.112Z] [INFO] ========================================
+[2025-11-24T14:01:12.112Z] [INFO] Started: 2025-11-24T14:01:12.112Z
+[2025-11-24T14:01:12.112Z] [INFO] 
+[2025-11-24T14:01:12.296Z] [INFO] 
+=== TESTING FRONTEND ACCESSIBILITY ===
+[2025-11-24T14:01:12.296Z] [INFO] Testing: Frontend loads successfully
+[2025-11-24T14:01:15.440Z] [INFO] Page title: Kiaan WMS - Warehouse Management System
+[2025-11-24T14:01:15.440Z] [PASS] ✓ PASS: Frontend loads
+[2025-11-24T14:01:16.912Z] [INFO] Screenshot saved: frontend_homepage_1763992875441.png
+[2025-11-24T14:01:16.958Z] [PASS] ✓ PASS: No broken images
+[2025-11-24T14:01:16.959Z] [INFO] 
+=== CHECKING CONSOLE ERRORS ===
+[2025-11-24T14:01:21.447Z] [INFO] Console Errors: 0
+[2025-11-24T14:01:21.448Z] [INFO] Console Warnings: 0
+[2025-11-24T14:01:21.448Z] [PASS] ✓ PASS: No console errors
+[2025-11-24T14:01:21.448Z] [INFO] 
+=== TESTING AUTHENTICATION FLOW ===
+[2025-11-24T14:01:21.448Z] [INFO] Testing: Login page accessible
+[2025-11-24T14:01:21.996Z] [ERROR] Console Error: Failed to load resource: the server responded with a status of 404 ()
+[2025-11-24T14:01:22.636Z] [INFO] Screenshot saved: login_page_1763992882521.png
+[2025-11-24T14:01:22.636Z] [PASS] ✓ PASS: Login page loads
+[2025-11-24T14:01:22.636Z] [INFO] Testing: Empty form validation
+[2025-11-24T14:01:22.640Z] [INFO] Testing: Invalid credentials
+[2025-11-24T14:01:52.643Z] [FAIL] ✗ FAIL: Authentication flow
+[2025-11-24T14:01:52.644Z] [WARN] Skipping authenticated tests - login failed
+[2025-11-24T14:01:52.644Z] [INFO] 
+=== TESTING RESPONSIVE DESIGN ===
+[2025-11-24T14:01:52.644Z] [INFO] Testing Mobile view (375x667)
+[2025-11-24T14:01:55.076Z] [INFO] Screenshot saved: responsive_mobile_1763992914266.png
+[2025-11-24T14:01:55.080Z] [PASS] ✓ PASS: Mobile - Responsive layout
+[2025-11-24T14:01:55.080Z] [INFO] Testing Tablet view (768x1024)
+[2025-11-24T14:01:57.486Z] [INFO] Screenshot saved: responsive_tablet_1763992916499.png
+[2025-11-24T14:01:57.491Z] [PASS] ✓ PASS: Tablet - Responsive layout
+[2025-11-24T14:01:57.491Z] [INFO] Testing Desktop view (1920x1080)
+[2025-11-24T14:02:00.734Z] [INFO] Screenshot saved: responsive_desktop_1763992919340.png
+[2025-11-24T14:02:00.739Z] [PASS] ✓ PASS: Desktop - Responsive layout
+[2025-11-24T14:02:00.800Z] [INFO] 
+[2025-11-24T14:02:00.800Z] [INFO] ========================================
+[2025-11-24T14:02:00.800Z] [INFO] FRONTEND TESTING SUMMARY
+[2025-11-24T14:02:00.800Z] [INFO] ========================================
+[2025-11-24T14:02:00.800Z] [INFO] Total Tests: 8
+[2025-11-24T14:02:00.800Z] [INFO] Passed: 7
+[2025-11-24T14:02:00.800Z] [INFO] Failed: 1
+[2025-11-24T14:02:00.800Z] [INFO] Warnings: 0
+[2025-11-24T14:02:00.800Z] [INFO] 
+[2025-11-24T14:02:00.800Z] [INFO] Issues by Severity:
+[2025-11-24T14:02:00.800Z] [INFO]   Critical: 1
+[2025-11-24T14:02:00.800Z] [INFO]   High: 0
+[2025-11-24T14:02:00.800Z] [INFO]   Medium: 0
+[2025-11-24T14:02:00.800Z] [INFO]   Low: 0
+[2025-11-24T14:02:00.800Z] [INFO] 
+[2025-11-24T14:02:00.800Z] [INFO] Critical Issues:
+[2025-11-24T14:02:00.801Z] [INFO]   1. Authentication testing failed
+[2025-11-24T14:02:00.801Z] [INFO]      page.fill: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('input[type="email"], input[name="email"]')[22m
+
+[2025-11-24T14:02:00.801Z] [INFO] 
+[2025-11-24T14:02:00.801Z] [INFO] Completed: 2025-11-24T14:02:00.801Z

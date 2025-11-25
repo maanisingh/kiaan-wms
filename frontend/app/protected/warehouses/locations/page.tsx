@@ -238,26 +238,21 @@ export default function WarehouseLocationsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 150,
       fixed: 'right' as const,
       render: (_: any, record: any) => (
-        <Space>
+        <Space size="small">
           <Button
-            type="link"
+            type="text"
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => {
               setSelectedLocation(record);
               setDrawerOpen(true);
             }}
-          >
-            View
-          </Button>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
-            Delete
-          </Button>
+          />
+          <Button type="text" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
         </Space>
       ),
     },

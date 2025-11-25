@@ -26,6 +26,13 @@ model User {
   // Picking assignments
   pickLists PickList[]
 
+  // Stock adjustments
+  adjustmentsRequested StockAdjustment[]
+  adjustmentsApproved  StockAdjustment[] @relation("ApprovedAdjustments")
+
+  // Inventory movements
+  inventoryMovements InventoryMovement[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -89,6 +96,8 @@ model Warehouse {
   inventory   Inventory[]
   transfersFrom Transfer[] @relation("TransferFrom")
   transfersTo   Transfer[] @relation("TransferTo")
+  adjustments StockAdjustment[]
+  cycleCounts CycleCount[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -151,6 +160,11 @@ model Location {
 
   inventory   Inventory[]
   pickItems   PickItem[]
+  adjustmentItems StockAdjustmentItem[]
+
+  // Inventory movements
+  movementsFrom InventoryMovement[] @relation("MovementsFrom")
+  movementsTo   InventoryMovement[] @relation("MovementsTo")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -229,6 +243,15 @@ model Product {
   // Channel pricing
   channelPrices   ChannelPrice[]
 
+  // Stock adjustments
+  adjustmentItems StockAdjustmentItem[]
+
+  // Inventory movements
+  inventoryMovements InventoryMovement[]
+
+  // Cycle counts
+  cycleCountItems CycleCountItem[]
+
   images          String[]
 
   createdAt       DateTime @default(now())
@@ -297,6 +320,9 @@ model Inventory {
 
   status            InventoryStatus @default(AVAILABLE)
 
+  // Inventory movements
+  inventoryMovements InventoryMovement[]
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -314,6 +340,177 @@ enum InventoryStatus {
   QUARANTINE
   DAMAGED
   EXPIRED
+}
+
+// ===================================
+// STOCK ADJUSTMENTS
+// ===================================
+
+model StockAdjustment {
+  id            String   @id @default(uuid())
+  type          AdjustmentType
+  status        AdjustmentStatus @default(PENDING)
+  warehouseId   String
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id])
+  reason        String
+  notes         String?
+
+  requestedBy   String
+  user          User     @relation(fields: [requestedBy], references: [id])
+  approvedBy    String?
+  approver      User?    @relation("ApprovedAdjustments", fields: [approvedBy], references: [id])
+
+  items         StockAdjustmentItem[]
+
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model StockAdjustmentItem {
+  id            String   @id @default(uuid())
+  adjustmentId  String
+  adjustment    StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id])
+
+  batchNumber   String?
+  quantity      Int
+  unitCost      Float    @default(0)
+
+  createdAt     DateTime @default(now())
+
+  @@index([adjustmentId])
+  @@index([productId])
+}
+
+enum AdjustmentType {
+  INCREASE
+  DECREASE
+  DAMAGE
+  LOSS
+  FOUND
+  RECOUNT
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+// ===================================
+// INVENTORY MOVEMENTS
+// ===================================
+
+model InventoryMovement {
+  id              String   @id @default(uuid())
+  type            MovementType
+
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+
+  batchId         String?
+  batch           Inventory? @relation(fields: [batchId], references: [id])
+
+  fromLocationId  String?
+  fromLocation    Location? @relation("MovementsFrom", fields: [fromLocationId], references: [id])
+
+  toLocationId    String?
+  toLocation      Location? @relation("MovementsTo", fields: [toLocationId], references: [id])
+
+  quantity        Float
+  reason          String?
+  notes           String?
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  createdAt       DateTime @default(now())
+
+  @@index([productId])
+  @@index([type])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum MovementType {
+  RECEIVE
+  PICK
+  TRANSFER
+  ADJUST
+  RETURN
+  CYCLE_COUNT
+  SHIPMENT
+  DAMAGE
+  LOSS
+}
+
+// ===================================
+// CYCLE COUNTS
+// ===================================
+
+model CycleCount {
+  id              String   @id @default(uuid())
+  warehouseId     String
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
+  name            String
+  status          CycleCountStatus @default(SCHEDULED)
+  type            CycleCountType @default(FULL)
+
+  scheduledDate   DateTime
+  completedDate   DateTime?
+
+  locations       Json?    // Array of location IDs
+  variance        Json?    // { total, positive, negative }
+
+  items           CycleCountItem[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([warehouseId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model CycleCountItem {
+  id                String   @id @default(uuid())
+  cycleCountId      String
+  cycleCount        CycleCount @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id])
+
+  expectedQuantity  Int      @default(0)
+  actualQuantity    Int?
+  variance          Int?
+
+  createdAt         DateTime @default(now())
+
+  @@index([cycleCountId])
+  @@index([productId])
+}
+
+enum CycleCountStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CycleCountType {
+  FULL
+  PARTIAL
+  SPOT
 }
 
 // ===================================
