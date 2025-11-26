@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-
-import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, Modal, App } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -13,77 +12,58 @@ import {
   EnvironmentOutlined,
   PhoneOutlined,
   InboxOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import { useModal } from '@/hooks/useModal';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_WAREHOUSES } from '@/lib/graphql/queries';
-import { CREATE_WAREHOUSE, UPDATE_WAREHOUSE, DELETE_WAREHOUSE } from '@/lib/graphql/mutations';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
+interface Warehouse {
+  id: string;
+  code: string;
+  name: string;
+  type: 'MAIN' | 'PREP' | 'RETURNS' | 'OVERFLOW';
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+  address?: string;
+  phone?: string;
+  capacity?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function WarehousesPage() {
+  const { modal, message } = App.useApp();
+  const [loading, setLoading] = useState(true);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const addModal = useModal();
-  const editModal = useModal();
-  const deleteModal = useModal();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
-  // GraphQL query for warehouses
-  const { data, loading, error, refetch } = useQuery(GET_WAREHOUSES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch warehouses from REST API
+  const fetchWarehouses = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.get('/warehouses');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch warehouses:', err);
+      message.error(err.message || 'Failed to load warehouses');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
-  // GraphQL mutations
-  const [createWarehouse, { loading: creating }] = useMutation(CREATE_WAREHOUSE, {
-    onCompleted: () => {
-      message.success('Warehouse created successfully!');
-      form.resetFields();
-      addModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to create warehouse: ${err.message}`);
-    },
-  });
-
-  const [updateWarehouse, { loading: updating }] = useMutation(UPDATE_WAREHOUSE, {
-    onCompleted: () => {
-      message.success('Warehouse updated successfully!');
-      form.resetFields();
-      editModal.close();
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to update warehouse: ${err.message}`);
-    },
-  });
-
-  const [deleteWarehouse] = useMutation(DELETE_WAREHOUSE, {
-    onCompleted: () => {
-      message.success('Warehouse deleted successfully!');
-      refetch();
-    },
-    onError: (err) => {
-      if (err.message.includes('foreign key') || err.message.includes('constraint')) {
-        message.error('Cannot delete warehouse: Please delete all zones and locations in this warehouse first.');
-      } else {
-        message.error(`Failed to delete warehouse: ${err.message}`);
-      }
-    },
-  });
-
-  // Get warehouses from GraphQL data
-  const warehouses = data?.Warehouse || [];
+  useEffect(() => {
+    fetchWarehouses();
+  }, [fetchWarehouses]);
 
   // Filter warehouses by search text
-  const filteredWarehouses = warehouses.filter((w: any) => {
+  const filteredWarehouses = warehouses.filter((w: Warehouse) => {
     const matchesSearch = !searchText ||
       w.name?.toLowerCase().includes(searchText.toLowerCase()) ||
       w.code?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -93,53 +73,35 @@ export default function WarehousesPage() {
 
   const handleSubmit = async (values: any) => {
     try {
-      if (selectedWarehouse) {
+      setSaving(true);
+
+      if (editMode && selectedWarehouse) {
         // UPDATE existing warehouse
-        await updateWarehouse({
-          variables: {
-            id: selectedWarehouse.id,
-            set: {
-              name: values.name,
-              type: values.type,
-              status: values.status,
-              address: values.address || null,
-              phone: values.phone || null,
-              capacity: values.capacity ? parseInt(values.capacity) : null,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.put(`/warehouses/${selectedWarehouse.id}`, values);
+        message.success('Warehouse updated successfully!');
       } else {
         // CREATE new warehouse
-        const uuid = crypto.randomUUID();
-        const warehouseCode = `WH-${Date.now().toString().slice(-6)}`;
-
-        await createWarehouse({
-          variables: {
-            object: {
-              id: uuid,
-              code: warehouseCode,
-              name: values.name,
-              type: values.type,
-              status: values.status,
-              address: values.address || null,
-              phone: values.phone || null,
-              capacity: values.capacity ? parseInt(values.capacity) : null,
-              companyId: '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        });
+        await apiService.post('/warehouses', values);
+        message.success('Warehouse created successfully!');
       }
+
+      form.resetFields();
+      setModalOpen(false);
+      setEditMode(false);
+      setSelectedWarehouse(null);
+      fetchWarehouses();
     } catch (error: any) {
       console.error('Error saving warehouse:', error);
-      message.error(error?.message || 'Failed to save warehouse');
+      message.error(error.response?.data?.error || error.message || 'Failed to save warehouse');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: Warehouse) => {
     setSelectedWarehouse(record);
     form.setFieldsValue({
+      code: record.code,
       name: record.name,
       type: record.type,
       status: record.status,
@@ -147,26 +109,33 @@ export default function WarehousesPage() {
       phone: record.phone,
       capacity: record.capacity,
     });
-    editModal.open();
+    setEditMode(true);
+    setModalOpen(true);
   };
 
-  const handleDelete = (record: any) => {
-    setDeleteTarget(record);
-    deleteModal.open();
-  };
-
-  const confirmDelete = async () => {
-    if (deleteTarget) {
-      await deleteWarehouse({ variables: { id: deleteTarget.id } });
-      deleteModal.close();
-      setDeleteTarget(null);
-    }
+  const handleDelete = (record: Warehouse) => {
+    modal.confirm({
+      title: 'Delete Warehouse',
+      content: `Are you sure you want to delete warehouse "${record.name}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await apiService.delete(`/warehouses/${record.id}`);
+          message.success('Warehouse deleted successfully!');
+          fetchWarehouses();
+        } catch (error: any) {
+          message.error(error.response?.data?.error || error.message || 'Failed to delete warehouse');
+        }
+      },
+    });
   };
 
   const handleAddWarehouse = () => {
     setSelectedWarehouse(null);
+    setEditMode(false);
     form.resetFields();
-    addModal.open();
+    setModalOpen(true);
   };
 
   const getTypeColor = (type: string) => {
@@ -267,252 +236,192 @@ export default function WarehousesPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
-      fixed: 'right' as const,
-      render: (_: any, record: any) => (
-        <Space size="small">
+      width: 200,
+      render: (_: any, record: Warehouse) => (
+        <Space>
           <Button
-            type="text"
-            size="small"
+            type="link"
             icon={<EyeOutlined />}
             onClick={() => {
               setSelectedWarehouse(record);
               setDrawerOpen(true);
             }}
-          />
-          <Button type="text" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+          >
+            View
+          </Button>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+            Edit
+          </Button>
+          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+            Delete
+          </Button>
         </Space>
       ),
     },
   ];
 
   // Stats by type
-  const mainWarehouses = filteredWarehouses.filter((w: any) => w.type === 'MAIN').length;
-  const prepWarehouses = filteredWarehouses.filter((w: any) => w.type === 'PREP').length;
-  const activeWarehouses = filteredWarehouses.filter((w: any) => w.status === 'ACTIVE').length;
+  const mainWarehouses = filteredWarehouses.filter((w: Warehouse) => w.type === 'MAIN').length;
+  const prepWarehouses = filteredWarehouses.filter((w: Warehouse) => w.type === 'PREP').length;
+  const activeWarehouses = filteredWarehouses.filter((w: Warehouse) => w.status === 'ACTIVE').length;
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Warehouse Management
-            </h1>
-            <p className="text-gray-600 mt-1">Manage your warehouse locations and facilities</p>
-          </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddWarehouse}>
-            Add Warehouse
-          </Button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Warehouse Management
+          </h1>
+          <p className="text-gray-600 mt-1">Manage your warehouse locations and facilities</p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Total Warehouses</p>
-              <p className="text-3xl font-bold text-blue-600">{filteredWarehouses.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Active</p>
-              <p className="text-3xl font-bold text-green-600">{activeWarehouses}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Main Warehouses</p>
-              <p className="text-3xl font-bold text-purple-600">{mainWarehouses}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Prep Centers</p>
-              <p className="text-3xl font-bold text-orange-600">{prepWarehouses}</p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Table */}
-        <Card className="shadow-sm">
-          <div className="flex gap-4 flex-wrap mb-4">
-            <Search
-              placeholder="Search by name, code, or address..."
-              allowClear
-              style={{ width: 350 }}
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
-          <Table
-            columns={columns}
-            dataSource={filteredWarehouses}
-            rowKey="id"
-            loading={loading}
-            scroll={{ x: 1200 }}
-            pagination={{
-              total: filteredWarehouses.length,
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total) => `Total ${total} warehouses`,
-            }}
-          />
-        </Card>
-
-        {/* Details Drawer */}
-        <Drawer
-          title="Warehouse Details"
-          placement="right"
-          width={600}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          {selectedWarehouse && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{selectedWarehouse.name}</h3>
-                <div className="flex gap-2 mt-2">
-                  <Tag color={getTypeColor(selectedWarehouse.type)}>{selectedWarehouse.type}</Tag>
-                  <Tag color={getStatusColor(selectedWarehouse.status)}>{selectedWarehouse.status}</Tag>
-                </div>
-              </div>
-              <div className="border-t pt-4 space-y-2">
-                <p><strong>Warehouse Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedWarehouse.code}</span></p>
-                <p><strong>Phone:</strong> {selectedWarehouse.phone || 'Not provided'}</p>
-                <p><strong>Address:</strong> {selectedWarehouse.address || 'Not provided'}</p>
-                <p><strong>Capacity:</strong> {selectedWarehouse.capacity ? selectedWarehouse.capacity.toLocaleString() + ' units' : 'Not specified'}</p>
-                <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedWarehouse.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          )}
-        </Drawer>
-
-        {/* Add Modal */}
-        <Modal
-          title="Add Warehouse"
-          open={addModal.isOpen}
-          onCancel={addModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={creating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item
-              label="Warehouse Name"
-              name="name"
-              rules={[{ required: true, message: 'Please enter warehouse name' }]}
-            >
-              <Input placeholder="Enter warehouse name" />
-            </Form.Item>
-            <Form.Item
-              label="Warehouse Type"
-              name="type"
-              rules={[{ required: true, message: 'Please select warehouse type' }]}
-            >
-              <Select placeholder="Select warehouse type">
-                <Option value="MAIN">Main Warehouse</Option>
-                <Option value="PREP">Prep Center</Option>
-                <Option value="RETURNS">Returns Center</Option>
-                <Option value="OVERFLOW">Overflow Storage</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              label="Status"
-              name="status"
-              rules={[{ required: true, message: 'Please select status' }]}
-            >
-              <Select placeholder="Select status">
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="MAINTENANCE">Maintenance</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-            <Form.Item label="Capacity (units)" name="capacity">
-              <Input type="number" placeholder="Enter capacity (optional)" />
-            </Form.Item>
-            <p className="text-xs text-gray-500">
-              Warehouse code will be auto-generated (e.g., WH-123456).
-            </p>
-          </Form>
-        </Modal>
-
-        {/* Edit Modal */}
-        <Modal
-          title="Edit Warehouse"
-          open={editModal.isOpen}
-          onCancel={editModal.close}
-          onOk={() => form.submit()}
-          width={600}
-          confirmLoading={updating}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item
-              label="Warehouse Name"
-              name="name"
-              rules={[{ required: true, message: 'Please enter warehouse name' }]}
-            >
-              <Input placeholder="Enter warehouse name" />
-            </Form.Item>
-            <Form.Item
-              label="Warehouse Type"
-              name="type"
-              rules={[{ required: true, message: 'Please select warehouse type' }]}
-            >
-              <Select placeholder="Select warehouse type">
-                <Option value="MAIN">Main Warehouse</Option>
-                <Option value="PREP">Prep Center</Option>
-                <Option value="RETURNS">Returns Center</Option>
-                <Option value="OVERFLOW">Overflow Storage</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              label="Status"
-              name="status"
-              rules={[{ required: true, message: 'Please select status' }]}
-            >
-              <Select placeholder="Select status">
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="MAINTENANCE">Maintenance</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="Phone" name="phone">
-              <Input placeholder="Enter phone number (optional)" />
-            </Form.Item>
-            <Form.Item label="Address" name="address">
-              <Input.TextArea placeholder="Enter address (optional)" rows={3} />
-            </Form.Item>
-            <Form.Item label="Capacity (units)" name="capacity">
-              <Input type="number" placeholder="Enter capacity (optional)" />
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          title="Delete Warehouse"
-          open={deleteModal.isOpen}
-          onCancel={() => {
-            deleteModal.close();
-            setDeleteTarget(null);
-          }}
-          onOk={confirmDelete}
-          okText="Delete"
-          okType="danger"
-          okButtonProps={{ danger: true }}
-        >
-          <p>Are you sure you want to delete warehouse "{deleteTarget?.name}"?</p>
-          <p className="text-gray-500 text-sm">This action cannot be undone. All zones and locations in this warehouse must be deleted first.</p>
-        </Modal>
+        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddWarehouse}>
+          Add Warehouse
+        </Button>
       </div>
-      );
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Total Warehouses</p>
+            <p className="text-3xl font-bold text-blue-600">{filteredWarehouses.length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Active</p>
+            <p className="text-3xl font-bold text-green-600">{activeWarehouses}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Main Warehouses</p>
+            <p className="text-3xl font-bold text-purple-600">{mainWarehouses}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Prep Centers</p>
+            <p className="text-3xl font-bold text-orange-600">{prepWarehouses}</p>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="shadow-sm">
+        <div className="flex gap-4 flex-wrap mb-4">
+          <Search
+            placeholder="Search by name, code, or address..."
+            allowClear
+            style={{ width: 350 }}
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Button icon={<ReloadOutlined />} onClick={fetchWarehouses}>Refresh</Button>
+        </div>
+        <Table
+          columns={columns}
+          dataSource={filteredWarehouses}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1200 }}
+          pagination={{
+            total: filteredWarehouses.length,
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} warehouses`,
+          }}
+        />
+      </Card>
+
+      <Drawer
+        title="Warehouse Details"
+        placement="right"
+        width={600}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        {selectedWarehouse && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg">{selectedWarehouse.name}</h3>
+              <div className="flex gap-2 mt-2">
+                <Tag color={getTypeColor(selectedWarehouse.type)}>{selectedWarehouse.type}</Tag>
+                <Tag color={getStatusColor(selectedWarehouse.status)}>{selectedWarehouse.status}</Tag>
+              </div>
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <p><strong>Warehouse Code:</strong> <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedWarehouse.code}</span></p>
+              <p><strong>Phone:</strong> {selectedWarehouse.phone || 'Not provided'}</p>
+              <p><strong>Address:</strong> {selectedWarehouse.address || 'Not provided'}</p>
+              <p><strong>Capacity:</strong> {selectedWarehouse.capacity ? selectedWarehouse.capacity.toLocaleString() + ' units' : 'Not specified'}</p>
+              <p className="text-xs text-gray-500 mt-4">Created: {new Date(selectedWarehouse.createdAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <Modal
+        title={editMode ? 'Edit Warehouse' : 'Add Warehouse'}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditMode(false);
+          setSelectedWarehouse(null);
+          form.resetFields();
+        }}
+        onOk={() => form.submit()}
+        width={600}
+        confirmLoading={saving}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            label="Warehouse Code"
+            name="code"
+            rules={[{ required: true, message: 'Please enter warehouse code' }]}
+          >
+            <Input placeholder="Enter warehouse code (e.g., WH-001)" disabled={editMode} />
+          </Form.Item>
+          <Form.Item
+            label="Warehouse Name"
+            name="name"
+            rules={[{ required: true, message: 'Please enter warehouse name' }]}
+          >
+            <Input placeholder="Enter warehouse name" />
+          </Form.Item>
+          <Form.Item
+            label="Warehouse Type"
+            name="type"
+            rules={[{ required: true, message: 'Please select warehouse type' }]}
+          >
+            <Select placeholder="Select warehouse type">
+              <Option value="MAIN">Main Warehouse</Option>
+              <Option value="PREP">Prep Center</Option>
+              <Option value="RETURNS">Returns Center</Option>
+              <Option value="OVERFLOW">Overflow Storage</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label="Status"
+            name="status"
+            rules={[{ required: true, message: 'Please select status' }]}
+          >
+            <Select placeholder="Select status">
+              <Option value="ACTIVE">Active</Option>
+              <Option value="INACTIVE">Inactive</Option>
+              <Option value="MAINTENANCE">Maintenance</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="Phone" name="phone">
+            <Input placeholder="Enter phone number (optional)" />
+          </Form.Item>
+          <Form.Item label="Address" name="address">
+            <Input.TextArea placeholder="Enter address (optional)" rows={3} />
+          </Form.Item>
+          <Form.Item label="Capacity (units)" name="capacity">
+            <Input type="number" placeholder="Enter capacity (optional)" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
 }

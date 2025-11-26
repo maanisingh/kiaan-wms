@@ -100,6 +100,7 @@ export default function SuppliersPage() {
   const handleEdit = (record: Supplier) => {
     setSelectedSupplier(record);
     form.setFieldsValue({
+      code: record.code,
       name: record.name,
       email: record.email,
       phone: record.phone,
@@ -299,6 +300,9 @@ export default function SuppliersPage() {
         confirmLoading={saving}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item label="Supplier Code" name="code" rules={[{ required: true, message: 'Please enter supplier code' }]}>
+            <Input placeholder="Enter supplier code (e.g., SUP-001)" disabled={editMode} />
+          </Form.Item>
           <Form.Item label="Supplier Name" name="name" rules={[{ required: true, message: 'Please enter supplier name' }]}>
             <Input placeholder="Enter supplier name" />
           </Form.Item>

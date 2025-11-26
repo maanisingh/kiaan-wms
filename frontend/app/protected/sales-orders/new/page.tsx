@@ -1,29 +1,80 @@
 'use client';
 
-import React, { useState } from 'react';
-
-import { Card, Form, Input, Select, Button, Row, Col, message, DatePicker, Table, InputNumber, Divider } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Card, Form, Input, Select, Button, Row, Col, message, DatePicker, Table,
+  InputNumber, Divider, Spin, Alert
+} from 'antd';
+import {
+  SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined, ReloadOutlined
+} from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@apollo/client';
-import { CREATE_SALES_ORDER } from '@/lib/graphql/mutations';
+import apiService from '@/services/api';
 import { PRIORITY_LEVELS } from '@/lib/constants';
 
 const { Option } = Select;
 const { TextArea } = Input;
 
+interface Customer {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  sellingPrice?: number;
+}
+
+interface OrderItem {
+  key: number;
+  productId: string;
+  productName?: string;
+  sku?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 export default function NewSalesOrderPage() {
   const router = useRouter();
   const [form] = Form.useForm();
-  const [createSalesOrder, { loading }] = useMutation(CREATE_SALES_ORDER);
-  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+
+  // Fetch customers and products
+  const fetchData = useCallback(async () => {
+    try {
+      setLoadingData(true);
+      const [customersData, productsData] = await Promise.all([
+        apiService.get('/customers'),
+        apiService.get('/products'),
+      ]);
+      setCustomers(Array.isArray(customersData) ? customersData : []);
+      setProducts(Array.isArray(productsData) ? productsData : []);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+      message.error('Failed to load customers and products');
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAddItem = () => {
-    const newItem = {
+    const newItem: OrderItem = {
       key: Date.now(),
-      product: '',
+      productId: '',
       quantity: 1,
-      price: 0,
+      unitPrice: 0,
       total: 0,
     };
     setOrderItems([...orderItems, newItem]);
@@ -37,9 +88,23 @@ export default function NewSalesOrderPage() {
     const updatedItems = orderItems.map(item => {
       if (item.key === key) {
         const updated = { ...item, [field]: value };
-        if (field === 'quantity' || field === 'price') {
-          updated.total = updated.quantity * updated.price;
+
+        // If product changed, update price
+        if (field === 'productId') {
+          const product = products.find(p => p.id === value);
+          if (product) {
+            updated.productName = product.name;
+            updated.sku = product.sku;
+            updated.unitPrice = product.sellingPrice || 0;
+            updated.total = updated.quantity * updated.unitPrice;
+          }
         }
+
+        // Recalculate total if quantity or price changed
+        if (field === 'quantity' || field === 'unitPrice') {
+          updated.total = updated.quantity * updated.unitPrice;
+        }
+
         return updated;
       }
       return item;
@@ -57,13 +122,18 @@ export default function NewSalesOrderPage() {
       return;
     }
 
+    // Validate all items have products selected
+    const invalidItems = orderItems.filter(item => !item.productId);
+    if (invalidItems.length > 0) {
+      message.error('Please select a product for all items');
+      return;
+    }
+
     try {
-      // Generate UUID for the sales order
-      const uuid = crypto.randomUUID();
+      setLoading(true);
       const totalAmount = calculateTotal();
 
       const orderData = {
-        id: uuid,  // Required field
         orderNumber: values.orderNumber || `SO-${Date.now()}`,
         orderDate: values.orderDate?.toISOString() || new Date().toISOString(),
         requiredDate: values.requiredDate?.toISOString() || null,
@@ -71,66 +141,71 @@ export default function NewSalesOrderPage() {
         status: 'PENDING',
         priority: values.priority || 'MEDIUM',
         salesChannel: values.salesChannel || 'DIRECT',
-        isWholesale: false,  // Required field
-        subtotal: totalAmount,  // Required field
-        taxAmount: 0,  // Required field
-        shippingCost: 0,  // Required field
-        discountAmount: 0,  // Required field
+        isWholesale: values.isWholesale || false,
+        subtotal: totalAmount,
+        taxAmount: 0,
+        shippingCost: 0,
+        discountAmount: 0,
         totalAmount: totalAmount,
         notes: values.notes || null,
-        updatedAt: new Date().toISOString(),  // Required field
-        salesOrderItems: {  // Changed to lowercase
-          data: orderItems.map(item => ({
-            id: crypto.randomUUID(),  // Generate UUID for each line item
-            productId: item.product,
-            quantity: parseInt(item.quantity),
-            unitPrice: parseFloat(item.price),
-            discount: 0,  // Required field
-            tax: 0,  // Required field
-            totalPrice: parseFloat(item.total),
-          })),
-        },
+        items: orderItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: 0,
+          tax: 0,
+          totalPrice: item.total,
+        })),
       };
 
-      const { data } = await createSalesOrder({
-        variables: { object: orderData },
-      });
-
-      if (data?.insert_SalesOrder_one) {
-        message.success('Sales order created successfully!');
-        router.push('/sales-orders');
-      }
+      await apiService.post('/sales-orders', orderData);
+      message.success('Sales order created successfully!');
+      router.push('/protected/sales-orders');
     } catch (error: any) {
       console.error('Error creating sales order:', error);
       message.error(error?.message || 'Failed to create sales order. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const itemColumns = [
     {
       title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
+      dataIndex: 'productId',
+      key: 'productId',
       width: '30%',
-      render: (text: string, record: any) => (
+      render: (productId: string, record: OrderItem) => (
         <Select
           style={{ width: '100%' }}
           placeholder="Select product"
-          value={text || undefined}
-          onChange={(value) => handleItemChange(record.key, 'product', value)}
+          value={productId || undefined}
+          onChange={(value) => handleItemChange(record.key, 'productId', value)}
+          showSearch
+          optionFilterProp="label"
+          loading={loadingData}
         >
-          <Option value="PROD-001">Laptop Stand - PRD-001</Option>
-          <Option value="PROD-002">Wireless Mouse - PRD-002</Option>
-          <Option value="PROD-003">USB-C Cable - PRD-003</Option>
+          {products.map(product => (
+            <Option key={product.id} value={product.id} label={`${product.name} - ${product.sku}`}>
+              {product.name} - {product.sku}
+            </Option>
+          ))}
         </Select>
       ),
+    },
+    {
+      title: 'SKU',
+      dataIndex: 'sku',
+      key: 'sku',
+      width: '15%',
+      render: (sku: string) => <span className="font-mono text-sm">{sku || '-'}</span>,
     },
     {
       title: 'Quantity',
       dataIndex: 'quantity',
       key: 'quantity',
       width: '15%',
-      render: (value: number, record: any) => (
+      render: (value: number, record: OrderItem) => (
         <InputNumber
           min={1}
           value={value}
@@ -141,16 +216,16 @@ export default function NewSalesOrderPage() {
     },
     {
       title: 'Unit Price',
-      dataIndex: 'price',
-      key: 'price',
-      width: '20%',
-      render: (value: number, record: any) => (
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: '15%',
+      render: (value: number, record: OrderItem) => (
         <InputNumber
           min={0}
           step={0.01}
           value={value}
-          onChange={(val) => handleItemChange(record.key, 'price', val || 0)}
-          prefix="$"
+          onChange={(val) => handleItemChange(record.key, 'unitPrice', val || 0)}
+          prefix="£"
           style={{ width: '100%' }}
         />
       ),
@@ -159,14 +234,14 @@ export default function NewSalesOrderPage() {
       title: 'Total',
       dataIndex: 'total',
       key: 'total',
-      width: '20%',
-      render: (value: number) => <span className="font-semibold">${value.toFixed(2)}</span>,
+      width: '15%',
+      render: (value: number) => <span className="font-semibold">£{(value || 0).toFixed(2)}</span>,
     },
     {
       title: 'Action',
       key: 'action',
-      width: '15%',
-      render: (_: any, record: any) => (
+      width: '10%',
+      render: (_: any, record: OrderItem) => (
         <Button
           type="link"
           danger
@@ -179,172 +254,185 @@ export default function NewSalesOrderPage() {
     },
   ];
 
-  return (
-    <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.back()}
-          >
-            Back
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Create New Sales Order</h1>
-            <p className="text-gray-600 mt-1">Add a new customer sales order</p>
-          </div>
-        </div>
-
-        <Card>
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            initialValues={{
-              priority: 'MEDIUM',
-              salesChannel: 'DIRECT',
-              status: 'PENDING',
-            }}
-          >
-            <h3 className="text-lg font-semibold mb-4">Order Information</h3>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Customer"
-                  name="customerId"
-                  rules={[{ required: true, message: 'Please select a customer' }]}
-                >
-                  <Select size="large" placeholder="Select customer">
-                    <Option value="1">Acme Corporation</Option>
-                    <Option value="2">TechStart Inc</Option>
-                    <Option value="3">Global Traders Ltd</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Order Number"
-                  name="orderNumber"
-                  rules={[{ required: true, message: 'Please enter order number' }]}
-                >
-                  <Input placeholder="SO-2024-001" size="large" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Order Date"
-                  name="orderDate"
-                  rules={[{ required: true, message: 'Please select order date' }]}
-                >
-                  <DatePicker size="large" style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Required Date"
-                  name="requiredDate"
-                >
-                  <DatePicker size="large" style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Priority"
-                  name="priority"
-                  rules={[{ required: true }]}
-                >
-                  <Select size="large">
-                    {PRIORITY_LEVELS.map(level => (
-                      <Option key={level.value} value={level.value}>
-                        {level.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Sales Channel"
-                  name="salesChannel"
-                  rules={[{ required: true }]}
-                >
-                  <Select size="large">
-                    <Option value="DIRECT">Direct</Option>
-                    <Option value="AMAZON">Amazon</Option>
-                    <Option value="SHOPIFY">Shopify</Option>
-                    <Option value="EBAY">eBay</Option>
-                    <Option value="WEBSITE">Website</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item label="Reference Number" name="referenceNumber">
-                  <Input placeholder="Customer PO or reference" size="large" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item label="Notes" name="notes">
-              <TextArea rows={3} placeholder="Add any notes or special instructions..." />
-            </Form.Item>
-
-            <Divider />
-
-            <h3 className="text-lg font-semibold mb-4">Order Items</h3>
-
-            <Table
-              dataSource={orderItems}
-              columns={itemColumns}
-              pagination={false}
-              locale={{ emptyText: 'No items added yet' }}
-              summary={() => (
-                <Table.Summary fixed>
-                  <Table.Summary.Row>
-                    <Table.Summary.Cell index={0} colSpan={3} align="right">
-                      <strong>Total:</strong>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1}>
-                      <strong className="text-xl text-blue-600">${calculateTotal().toFixed(2)}</strong>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={2} />
-                  </Table.Summary.Row>
-                </Table.Summary>
-              )}
-            />
-
-            <Button
-              type="dashed"
-              onClick={handleAddItem}
-              icon={<PlusOutlined />}
-              block
-              size="large"
-              className="mt-4"
-            >
-              Add Item
-            </Button>
-
-            <div className="flex gap-4 mt-6">
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SaveOutlined />}
-                size="large"
-                loading={loading}
-              >
-                Create Order
-              </Button>
-              <Button size="large" onClick={() => router.back()}>
-                Cancel
-              </Button>
-            </div>
-          </Form>
-        </Card>
+  if (loadingData) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Spin size="large" tip="Loading..." />
       </div>
-      );
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
+          Back
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Create New Sales Order
+          </h1>
+          <p className="text-gray-600 mt-1">Add a new customer sales order</p>
+        </div>
+      </div>
+
+      <Card>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            priority: 'MEDIUM',
+            salesChannel: 'DIRECT',
+            status: 'PENDING',
+            isWholesale: false,
+          }}
+        >
+          <h3 className="text-lg font-semibold mb-4">Order Information</h3>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Customer"
+                name="customerId"
+                rules={[{ required: true, message: 'Please select a customer' }]}
+              >
+                <Select
+                  size="large"
+                  placeholder="Select customer"
+                  showSearch
+                  optionFilterProp="label"
+                >
+                  {customers.map(customer => (
+                    <Option key={customer.id} value={customer.id} label={customer.name}>
+                      {customer.name} ({customer.code})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Order Number"
+                name="orderNumber"
+                rules={[{ required: true, message: 'Please enter order number' }]}
+              >
+                <Input placeholder="SO-2024-001" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Order Date"
+                name="orderDate"
+                rules={[{ required: true, message: 'Please select order date' }]}
+              >
+                <DatePicker size="large" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Required Date" name="requiredDate">
+                <DatePicker size="large" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Priority" name="priority" rules={[{ required: true }]}>
+                <Select size="large">
+                  {PRIORITY_LEVELS.map(level => (
+                    <Option key={level.value} value={level.value}>
+                      {level.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item label="Sales Channel" name="salesChannel" rules={[{ required: true }]}>
+                <Select size="large">
+                  <Option value="DIRECT">Direct</Option>
+                  <Option value="AMAZON">Amazon</Option>
+                  <Option value="SHOPIFY">Shopify</Option>
+                  <Option value="EBAY">eBay</Option>
+                  <Option value="WEBSITE">Website</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Order Type" name="isWholesale">
+                <Select size="large">
+                  <Option value={false}>Retail (B2C)</Option>
+                  <Option value={true}>Wholesale (B2B)</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Reference Number" name="referenceNumber">
+                <Input placeholder="Customer PO or reference" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item label="Notes" name="notes">
+            <TextArea rows={3} placeholder="Add any notes or special instructions..." />
+          </Form.Item>
+
+          <Divider />
+
+          <h3 className="text-lg font-semibold mb-4">Order Items</h3>
+
+          <Table
+            dataSource={orderItems}
+            columns={itemColumns}
+            pagination={false}
+            rowKey="key"
+            locale={{ emptyText: 'No items added yet. Click "Add Item" to begin.' }}
+            summary={() => (
+              <Table.Summary fixed>
+                <Table.Summary.Row>
+                  <Table.Summary.Cell index={0} colSpan={4} align="right">
+                    <strong>Total:</strong>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={1}>
+                    <strong className="text-xl text-blue-600">£{calculateTotal().toFixed(2)}</strong>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={2} />
+                </Table.Summary.Row>
+              </Table.Summary>
+            )}
+          />
+
+          <Button
+            type="dashed"
+            onClick={handleAddItem}
+            icon={<PlusOutlined />}
+            block
+            size="large"
+            className="mt-4"
+          >
+            Add Item
+          </Button>
+
+          <div className="flex gap-4 mt-6">
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<SaveOutlined />}
+              size="large"
+              loading={loading}
+            >
+              Create Order
+            </Button>
+            <Button size="large" onClick={() => router.back()}>
+              Cancel
+            </Button>
+          </div>
+        </Form>
+      </Card>
+    </div>
+  );
 }

@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, App } from 'antd';
 import {
   PlusOutlined,
@@ -15,61 +13,83 @@ import {
   RocketOutlined,
   EditOutlined,
   DeleteOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import { GET_SALES_ORDERS } from '@/lib/graphql/queries';
-import { DELETE_SALES_ORDER } from '@/lib/graphql/mutations';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 
-export default function SalesOrdersPageReal() {
-  const { modal, message } = App.useApp(); // Use App context for modal and message
+interface SalesOrder {
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  requiredDate?: string;
+  status: string;
+  priority?: string;
+  salesChannel?: string;
+  isWholesale?: boolean;
+  subtotal?: number;
+  taxAmount?: number;
+  shippingCost?: number;
+  discountAmount?: number;
+  totalAmount?: number;
+  notes?: string;
+  customer?: {
+    id: string;
+    name: string;
+  };
+  salesOrderItems?: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function SalesOrdersPage() {
+  const { modal, message } = App.useApp();
+  const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
 
-  // Build where clause
-  const buildWhereClause = () => {
-    const where: any = {};
-
-    if (searchText) {
-      where._or = [
-        { orderNumber: { _ilike: `%${searchText}%` } },
-        { customer: { name: { _ilike: `%${searchText}%` } } },  // Fixed: Customer → customer
-      ];
+  // Fetch sales orders from REST API
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get('/sales-orders');
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch sales orders:', err);
+      setError(err.message || 'Failed to load sales orders');
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Filter orders by search text and status
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      !searchText ||
+      order.orderNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
+      order.customer?.name?.toLowerCase().includes(searchText.toLowerCase());
 
     // Filter by tab status
-    if (activeTab !== 'all') {
-      if (activeTab === 'in_progress') {
-        where.status = { _in: ['PICKING', 'PACKING', 'ALLOCATED'] };
-      } else {
-        where.status = { _eq: activeTab.toUpperCase() };
-      }
+    if (activeTab === 'all') return matchesSearch;
+    if (activeTab === 'in_progress') {
+      return matchesSearch && ['PICKING', 'PACKING', 'ALLOCATED'].includes(order.status?.toUpperCase());
     }
-
-    return Object.keys(where).length > 0 ? where : undefined;
-  };
-
-  // Fetch sales orders from Hasura
-  const { data, loading, error, refetch } = useQuery(GET_SALES_ORDERS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-      where: buildWhereClause(),
-    },
-    fetchPolicy: 'cache-and-network',
-  });
-
-  // Delete sales order mutation
-  const [deleteSalesOrder] = useMutation(DELETE_SALES_ORDER, {
-    onCompleted: () => {
-      message.success('Sales order deleted successfully');
-      refetch();
-    },
-    onError: (err) => {
-      message.error(`Failed to delete sales order: ${err.message}`);
-    },
+    return matchesSearch && order.status?.toUpperCase() === activeTab.toUpperCase();
   });
 
   const handleDelete = (id: string, orderNumber: string) => {
@@ -79,13 +99,16 @@ export default function SalesOrdersPageReal() {
       okText: 'Delete',
       okType: 'danger',
       onOk: async () => {
-        await deleteSalesOrder({ variables: { id } });
+        try {
+          await apiService.delete(`/sales-orders/${id}`);
+          message.success('Sales order deleted successfully');
+          fetchOrders();
+        } catch (err: any) {
+          message.error(err.message || 'Failed to delete sales order');
+        }
       },
     });
   };
-
-  const orders = data?.SalesOrder || [];
-  const totalCount = data?.SalesOrder_aggregate?.aggregate?.count || 0;
 
   const tableColumns = [
     {
@@ -94,15 +117,15 @@ export default function SalesOrdersPageReal() {
       key: 'orderNumber',
       fixed: 'left' as const,
       width: 140,
-      render: (text: string, record: any) => (
-        <Link href={`/sales-orders/${record.id}`} className="text-blue-600 hover:text-blue-800 font-medium">
+      render: (text: string, record: SalesOrder) => (
+        <Link href={`/protected/sales-orders/${record.id}`} className="text-blue-600 hover:text-blue-800 font-medium">
           {text}
         </Link>
       ),
     },
     {
       title: 'Customer',
-      dataIndex: ['customer', 'name'],  // Fixed: Customer → customer
+      dataIndex: ['customer', 'name'],
       key: 'customer',
       width: 200,
       ellipsis: true,
@@ -139,7 +162,7 @@ export default function SalesOrdersPageReal() {
     },
     {
       title: 'Items',
-      dataIndex: 'salesOrderItems',  // Fixed: SalesOrderItems → salesOrderItems
+      dataIndex: 'salesOrderItems',
       key: 'items',
       width: 80,
       align: 'center' as const,
@@ -179,14 +202,14 @@ export default function SalesOrdersPageReal() {
       key: 'actions',
       fixed: 'right' as const,
       width: 180,
-      render: (_: any, record: any) => (
+      render: (_: any, record: SalesOrder) => (
         <Space>
-          <Link href={`/sales-orders/${record.id}`}>
+          <Link href={`/protected/sales-orders/${record.id}`}>
             <Button type="link" icon={<EyeOutlined />} size="small">
               View
             </Button>
           </Link>
-          <Link href={`/sales-orders/${record.id}/edit`}>
+          <Link href={`/protected/sales-orders/${record.id}/edit`}>
             <Button type="link" icon={<EditOutlined />} size="small">
               Edit
             </Button>
@@ -205,32 +228,38 @@ export default function SalesOrdersPageReal() {
     },
   ];
 
-  if (loading && !data) {
+  if (loading && orders.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-          <Spin size="large" tip="Loading sales orders..." />
-        </div>
+        <Spin size="large" tip="Loading sales orders..." />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Alert
+      <div className="p-6">
+        <Alert
           message="Error Loading Sales Orders"
-          description={error.message}
+          description={error}
           type="error"
           showIcon
-          action={<Button onClick={() => refetch()}>Retry</Button>}
+          action={
+            <Button onClick={fetchOrders} icon={<ReloadOutlined />}>
+              Retry
+            </Button>
+          }
         />
-          );
+      </div>
+    );
   }
 
   // Calculate counts for tabs
-  const allCount = totalCount;
-  const pendingCount = orders.filter((o: any) => o.status === 'PENDING').length;
-  const confirmedCount = orders.filter((o: any) => o.status === 'CONFIRMED').length;
-  const inProgressCount = orders.filter((o: any) => ['PICKING', 'PACKING', 'ALLOCATED'].includes(o.status)).length;
-  const completedCount = orders.filter((o: any) => o.status === 'COMPLETED').length;
+  const allCount = orders.length;
+  const pendingCount = orders.filter((o) => o.status?.toUpperCase() === 'PENDING').length;
+  const confirmedCount = orders.filter((o) => o.status?.toUpperCase() === 'CONFIRMED').length;
+  const inProgressCount = orders.filter((o) => ['PICKING', 'PACKING', 'ALLOCATED'].includes(o.status?.toUpperCase())).length;
+  const completedCount = orders.filter((o) => o.status?.toUpperCase() === 'COMPLETED').length;
 
   const tabItems = [
     {
@@ -256,52 +285,55 @@ export default function SalesOrdersPageReal() {
   ];
 
   return (
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Sales Orders</h1>
-            <p className="text-gray-500">Manage and track all sales orders</p>
-          </div>
-          <Space>
-            <Button icon={<ExportOutlined />}>Export</Button>
-            <Link href="/sales-orders/new">
-              <Button type="primary" icon={<PlusOutlined />}>
-                New Order
-              </Button>
-            </Link>
-          </Space>
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Sales Orders</h1>
+          <p className="text-gray-500">Manage and track all sales orders</p>
         </div>
-
-        {/* Filters */}
-        <Card className="mb-4">
-          <Search
-            placeholder="Search by order number or customer name..."
-            allowClear
-            style={{ width: 400 }}
-            prefix={<SearchOutlined />}
-            onSearch={setSearchText}
-            onChange={(e) => e.target.value === '' && setSearchText('')}
-          />
-        </Card>
-
-        {/* Tabs & Table */}
-        <Card>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
-          <Table
-            dataSource={orders}
-            columns={tableColumns}
-            rowKey="id"
-            loading={loading}
-            scroll={{ x: 1400 }}
-            pagination={{
-              total: totalCount,
-              pageSize: 50,
-              showSizeChanger: true,
-              showTotal: (total) => `Total ${total} orders`,
-            }}
-          />
-        </Card>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchOrders} loading={loading}>
+            Refresh
+          </Button>
+          <Button icon={<ExportOutlined />}>Export</Button>
+          <Link href="/protected/sales-orders/new">
+            <Button type="primary" icon={<PlusOutlined />}>
+              New Order
+            </Button>
+          </Link>
+        </Space>
       </div>
-      );
+
+      {/* Filters */}
+      <Card className="mb-4">
+        <Search
+          placeholder="Search by order number or customer name..."
+          allowClear
+          style={{ width: 400 }}
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+      </Card>
+
+      {/* Tabs & Table */}
+      <Card>
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <Table
+          dataSource={filteredOrders}
+          columns={tableColumns}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1400 }}
+          pagination={{
+            total: filteredOrders.length,
+            pageSize: 50,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} orders`,
+          }}
+        />
+      </Card>
+    </div>
+  );
 }

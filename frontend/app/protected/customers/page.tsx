@@ -108,6 +108,7 @@ export default function CustomersPage() {
   const handleEdit = (record: Customer) => {
     setSelectedCustomer(record);
     form.setFieldsValue({
+      code: record.code,
       name: record.name,
       email: record.email,
       phone: record.phone,
@@ -354,6 +355,9 @@ export default function CustomersPage() {
         confirmLoading={saving}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item label="Customer Code" name="code" rules={[{ required: true, message: 'Please enter customer code' }]}>
+            <Input placeholder="Enter customer code (e.g., CUST-001)" disabled={editMode} />
+          </Form.Item>
           <Form.Item label="Customer Name" name="name" rules={[{ required: true, message: 'Please enter customer name' }]}>
             <Input placeholder="Enter customer name" />
           </Form.Item>
