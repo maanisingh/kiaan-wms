@@ -343,7 +343,7 @@ export default function BatchesPage() {
       dataIndex: 'unitCost',
       key: 'unitCost',
       width: 100,
-      render: (cost: number) => `$${cost.toFixed(2)}`,
+      render: (cost: number) => cost != null ? `$${cost.toFixed(2)}` : '-',
     },
     {
       title: 'Actions',

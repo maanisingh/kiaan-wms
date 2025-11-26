@@ -12,9 +12,10 @@ export function cn(...inputs: ClassValue[]) {
  * Format currency values
  */
 export function formatCurrency(
-  amount: number,
+  amount: number | null | undefined,
   currency: string = 'USD'
 ): string {
+  if (amount == null) return '-';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
@@ -24,8 +25,13 @@ export function formatCurrency(
 /**
  * Format date values
  */
-export function formatDate(date: string | Date, format: 'short' | 'long' | 'time' = 'short'): string {
+export function formatDate(date: string | Date | null | undefined, format: 'short' | 'long' | 'time' = 'short'): string {
+  if (!date) return '-';
+
   const d = typeof date === 'string' ? new Date(date) : date;
+
+  // Check for invalid date
+  if (isNaN(d.getTime())) return '-';
 
   if (format === 'time') {
     return d.toLocaleTimeString('en-US', {
