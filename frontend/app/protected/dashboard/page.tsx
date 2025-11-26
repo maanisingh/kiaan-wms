@@ -34,60 +34,74 @@ export default function DashboardPage() {
   ]);
   const [loading, setLoading] = useState(false);
 
-  // Mock data - will be replaced with API calls
+  // Real data from API
   const [dashboardData, setDashboardData] = useState({
     kpis: {
-      totalStock: { value: 15420, change: 12.5, trend: 'up' },
-      lowStockItems: { value: 23, change: -15.2, trend: 'down' },
-      pendingOrders: { value: 87, change: 8.3, trend: 'up' },
-      activePickLists: { value: 34, change: -5.1, trend: 'down' },
-      warehouseUtilization: { value: 73.5, change: 3.2, trend: 'up' },
-      ordersToday: { value: 42, change: 18.7, trend: 'up' },
+      totalStock: { value: 0, change: 0, trend: 'stable' },
+      lowStockItems: { value: 0, change: 0, trend: 'stable' },
+      pendingOrders: { value: 0, change: 0, trend: 'stable' },
+      activePickLists: { value: 0, change: 0, trend: 'stable' },
+      warehouseUtilization: { value: 0, change: 0, trend: 'stable' },
+      ordersToday: { value: 0, change: 0, trend: 'stable' },
     },
-    salesTrend: [
-      { date: 'Nov 16', orders: 45, revenue: 12500 },
-      { date: 'Nov 17', orders: 52, revenue: 15200 },
-      { date: 'Nov 18', orders: 38, revenue: 9800 },
-      { date: 'Nov 19', orders: 61, revenue: 18300 },
-      { date: 'Nov 20', orders: 55, revenue: 16700 },
-      { date: 'Nov 21', orders: 49, revenue: 14200 },
-      { date: 'Nov 22', orders: 67, revenue: 21500 },
-      { date: 'Nov 23', orders: 42, revenue: 13100 },
-    ],
-    topProducts: [
-      { name: 'Product A', sold: 450, revenue: 22500 },
-      { name: 'Product B', sold: 380, revenue: 19000 },
-      { name: 'Product C', sold: 320, revenue: 16000 },
-      { name: 'Product D', sold: 285, revenue: 14250 },
-      { name: 'Product E', sold: 250, revenue: 12500 },
-    ],
-    ordersByStatus: [
-      { status: 'Pending', count: 87, color: '#faad14' },
-      { status: 'Picking', count: 34, color: '#1890ff' },
-      { status: 'Packing', count: 28, color: '#52c41a' },
-      { status: 'Shipped', count: 145, color: '#13c2c2' },
-      { status: 'Delivered', count: 312, color: '#722ed1' },
-    ],
-    recentOrders: [
-      { id: 1, orderNumber: 'SO-001234', customer: 'ABC Corp', items: 5, total: 1250, status: 'pending', date: '2025-11-23' },
-      { id: 2, orderNumber: 'SO-001235', customer: 'XYZ Ltd', items: 3, total: 890, status: 'picking', date: '2025-11-23' },
-      { id: 3, orderNumber: 'SO-001236', customer: 'Tech Solutions', items: 8, total: 2340, status: 'packing', date: '2025-11-23' },
-      { id: 4, orderNumber: 'SO-001237', customer: 'Retail Store', items: 12, total: 3150, status: 'shipped', date: '2025-11-22' },
-      { id: 5, orderNumber: 'SO-001238', customer: 'E-commerce Co', items: 6, total: 1680, status: 'delivered', date: '2025-11-22' },
-    ],
-    lowStockAlerts: [
-      { id: 1, sku: 'PRD-001', name: 'Product Alpha', current: 5, reorderPoint: 20, status: 'critical' },
-      { id: 2, sku: 'PRD-002', name: 'Product Beta', current: 15, reorderPoint: 30, status: 'warning' },
-      { id: 3, sku: 'PRD-003', name: 'Product Gamma', current: 22, reorderPoint: 50, status: 'low' },
-    ],
-    recentActivity: [
-      { id: 1, action: 'Order Created', user: 'John Doe', entity: 'SO-001238', time: '2 mins ago', icon: <ShoppingCartOutlined />, color: 'blue' },
-      { id: 2, action: 'Pick List Completed', user: 'Jane Smith', entity: 'PL-00512', time: '15 mins ago', icon: <CheckCircleOutlined />, color: 'green' },
-      { id: 3, action: 'Stock Adjusted', user: 'Mike Johnson', entity: 'PRD-045', time: '1 hour ago', icon: <DatabaseOutlined />, color: 'orange' },
-      { id: 4, action: 'Transfer Created', user: 'Sarah Lee', entity: 'TR-00234', time: '2 hours ago', icon: <CarOutlined />, color: 'purple' },
-      { id: 5, action: 'Goods Received', user: 'Tom Wilson', entity: 'GR-00892', time: '3 hours ago', icon: <InboxOutlined />, color: 'cyan' },
-    ],
+    salesTrend: [] as { date: string; orders: number; revenue: number }[],
+    topProducts: [] as { name: string; sold: number; revenue: number }[],
+    ordersByStatus: [] as { status: string; count: number; color: string }[],
+    recentOrders: [] as { id: number; orderNumber: string; customer: string; items: number; total: number; status: string; date: string }[],
+    lowStockAlerts: [] as { id: number; sku: string; name: string; current: number; reorderPoint: number; status: string }[],
+    recentActivity: [] as { id: number; action: string; user: string; entity: string; time: string; icon: React.ReactNode; color: string }[],
   });
+
+  // Fetch dashboard data from API
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('auth-storage');
+        const authData = token ? JSON.parse(token) : null;
+        const authToken = authData?.state?.token;
+
+        if (!authToken) return;
+
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://serene-adaptation-production-c6d3.up.railway.app/api';
+
+        // Fetch stats
+        const statsRes = await fetch(`${API}/dashboard/stats`, { headers });
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          setDashboardData(prev => ({
+            ...prev,
+            kpis: stats.kpis || prev.kpis,
+          }));
+        }
+
+        // Fetch recent orders
+        const ordersRes = await fetch(`${API}/dashboard/recent-orders?limit=5`, { headers });
+        if (ordersRes.ok) {
+          const orders = await ordersRes.json();
+          setDashboardData(prev => ({
+            ...prev,
+            recentOrders: orders.map((o: any, i: number) => ({
+              id: i + 1,
+              orderNumber: o.orderNumber,
+              customer: o.customer?.name || 'N/A',
+              items: o.items?.length || 0,
+              total: o.totalAmount || 0,
+              status: o.status?.toLowerCase() || 'pending',
+              date: o.createdAt,
+            })),
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {

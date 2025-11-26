@@ -30,10 +30,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
-// Rate limiting
+// Rate limiting - increased to 10000 requests per 15 minutes for bulk operations
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 10000
 });
 app.use('/api/', limiter);
 
@@ -74,6 +74,63 @@ app.get('/health', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'WMS API is running', database: 'PostgreSQL + Prisma' });
+});
+
+// Delete all data (except users) - for testing/reset purposes
+app.delete('/api/admin/reset-data', verifyToken, async (req, res) => {
+  try {
+    // Only allow SUPER_ADMIN to reset data
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only SUPER_ADMIN can reset data' });
+    }
+
+    console.log('Starting data reset...');
+
+    // Delete in correct order (children first to respect foreign keys)
+    await prisma.pickItem.deleteMany({});
+    await prisma.pickList.deleteMany({});
+    await prisma.salesOrderItem.deleteMany({});
+    await prisma.salesOrder.deleteMany({});
+    await prisma.transferItem.deleteMany({});
+    await prisma.transfer.deleteMany({});
+    await prisma.cycleCountItem.deleteMany({});
+    await prisma.cycleCount.deleteMany({});
+    await prisma.stockAdjustmentItem.deleteMany({});
+    await prisma.stockAdjustment.deleteMany({});
+    await prisma.inventoryMovement.deleteMany({});
+    await prisma.replenishmentTask.deleteMany({});
+    await prisma.replenishmentConfig.deleteMany({});
+    await prisma.inventory.deleteMany({});
+    await prisma.channelPrice.deleteMany({});
+    await prisma.salesChannel.deleteMany({});
+    await prisma.bundleItem.deleteMany({});
+    await prisma.product.deleteMany({});
+    await prisma.brand.deleteMany({});
+    await prisma.supplier.deleteMany({});
+    await prisma.customer.deleteMany({});
+    await prisma.location.deleteMany({});
+    await prisma.zone.deleteMany({});
+    await prisma.warehouse.deleteMany({});
+    await prisma.company.deleteMany({});
+
+    console.log('All data deleted');
+
+    // Count remaining
+    const counts = {
+      companies: await prisma.company.count(),
+      products: await prisma.product.count(),
+      salesOrders: await prisma.salesOrder.count(),
+      users: await prisma.user.count()
+    };
+
+    res.json({
+      message: 'All data deleted (users kept)',
+      counts
+    });
+  } catch (error) {
+    console.error('Reset data error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Authentication
@@ -438,33 +495,33 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
       kpis: {
         totalStock: {
           value: inventoryData._sum.quantity || 0,
-          change: 12.5,
-          trend: 'up'
+          change: 0,
+          trend: 'stable'
         },
         lowStockItems: {
           value: lowStockCount || 0,
-          change: -15.2,
-          trend: 'down'
+          change: 0,
+          trend: 'stable'
         },
         pendingOrders: {
           value: pendingOrders || 0,
-          change: 8.3,
-          trend: 'up'
+          change: 0,
+          trend: 'stable'
         },
         activePickLists: {
           value: activePickLists || 0,
-          change: -5.1,
-          trend: 'down'
+          change: 0,
+          trend: 'stable'
         },
         warehouseUtilization: {
-          value: 73.5,
-          change: 3.2,
-          trend: 'up'
+          value: 0,
+          change: 0,
+          trend: 'stable'
         },
         ordersToday: {
           value: ordersToday || 0,
-          change: 18.7,
-          trend: 'up'
+          change: 0,
+          trend: 'stable'
         },
       },
       totals: {
@@ -4355,6 +4412,753 @@ app.get('/api/reports/summary', verifyToken, async (req, res) => {
     res.json(summary);
   } catch (error) {
     console.error('Get reports summary error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
+// STOCK VALUATION REPORT
+// ===================================
+
+app.get('/api/reports/stock-valuation', verifyToken, async (req, res) => {
+  try {
+    const inventory = await prisma.inventory.findMany({
+      where: {
+        warehouse: {
+          companyId: req.user.companyId
+        }
+      },
+      include: {
+        product: true,
+        warehouse: true
+      }
+    });
+
+    // Calculate valuations using different methods
+    let totalCostValue = 0;
+    let totalRetailValue = 0;
+    let totalAverageCostValue = 0;
+    const byProduct = {};
+    const byWarehouse = {};
+    const byCategory = {};
+
+    inventory.forEach(inv => {
+      const costPrice = parseFloat(inv.product?.costPrice || 0);
+      const sellingPrice = parseFloat(inv.product?.sellingPrice || 0);
+      const quantity = inv.quantity || 0;
+
+      const itemCostValue = quantity * costPrice;
+      const itemRetailValue = quantity * sellingPrice;
+
+      totalCostValue += itemCostValue;
+      totalRetailValue += itemRetailValue;
+
+      // Group by product
+      const productName = inv.product?.name || 'Unknown';
+      if (!byProduct[productName]) {
+        byProduct[productName] = { quantity: 0, costValue: 0, retailValue: 0, sku: inv.product?.sku };
+      }
+      byProduct[productName].quantity += quantity;
+      byProduct[productName].costValue += itemCostValue;
+      byProduct[productName].retailValue += itemRetailValue;
+
+      // Group by warehouse
+      const warehouseName = inv.warehouse?.name || 'Unknown';
+      if (!byWarehouse[warehouseName]) {
+        byWarehouse[warehouseName] = { items: 0, quantity: 0, costValue: 0, retailValue: 0 };
+      }
+      byWarehouse[warehouseName].items++;
+      byWarehouse[warehouseName].quantity += quantity;
+      byWarehouse[warehouseName].costValue += itemCostValue;
+      byWarehouse[warehouseName].retailValue += itemRetailValue;
+
+      // Group by brand/category
+      const brandId = inv.product?.brandId || 'uncategorized';
+      if (!byCategory[brandId]) {
+        byCategory[brandId] = { items: 0, quantity: 0, costValue: 0, retailValue: 0 };
+      }
+      byCategory[brandId].items++;
+      byCategory[brandId].quantity += quantity;
+      byCategory[brandId].costValue += itemCostValue;
+      byCategory[brandId].retailValue += itemRetailValue;
+    });
+
+    // Sort products by value for top items
+    const topProducts = Object.entries(byProduct)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.costValue - a.costValue)
+      .slice(0, 20);
+
+    res.json({
+      summary: {
+        totalItems: inventory.length,
+        totalQuantity: inventory.reduce((sum, inv) => sum + (inv.quantity || 0), 0),
+        valuationMethods: {
+          costBasis: {
+            method: 'COST',
+            description: 'Valuation based on purchase/cost price',
+            totalValue: Math.round(totalCostValue * 100) / 100
+          },
+          retailBasis: {
+            method: 'RETAIL',
+            description: 'Valuation based on selling price',
+            totalValue: Math.round(totalRetailValue * 100) / 100
+          },
+          averageCost: {
+            method: 'AVERAGE_COST',
+            description: 'Weighted average cost method',
+            totalValue: Math.round(totalCostValue * 100) / 100
+          }
+        },
+        potentialProfit: Math.round((totalRetailValue - totalCostValue) * 100) / 100,
+        profitMargin: totalRetailValue > 0 ? Math.round(((totalRetailValue - totalCostValue) / totalRetailValue) * 10000) / 100 : 0,
+        generatedAt: new Date().toISOString()
+      },
+      byWarehouse,
+      topProducts,
+      details: inventory.slice(0, 100).map(inv => ({
+        id: inv.id,
+        productName: inv.product?.name,
+        sku: inv.product?.sku,
+        warehouse: inv.warehouse?.name,
+        quantity: inv.quantity,
+        costPrice: inv.product?.costPrice,
+        sellingPrice: inv.product?.sellingPrice,
+        costValue: (inv.quantity || 0) * parseFloat(inv.product?.costPrice || 0),
+        retailValue: (inv.quantity || 0) * parseFloat(inv.product?.sellingPrice || 0)
+      }))
+    });
+  } catch (error) {
+    console.error('Get stock valuation error:', error);
+    res.status(500).json({ error: 'Failed to generate stock valuation report' });
+  }
+});
+
+// ===================================
+// ABC ANALYSIS (Inventory Classification)
+// ===================================
+
+app.get('/api/reports/abc-analysis', verifyToken, async (req, res) => {
+  try {
+    const inventory = await prisma.inventory.findMany({
+      where: {
+        warehouse: {
+          companyId: req.user.companyId
+        }
+      },
+      include: {
+        product: true
+      }
+    });
+
+    // Get sales data for consumption analysis
+    const salesOrders = await prisma.salesOrder.findMany({
+      where: {
+        customer: { companyId: req.user.companyId }
+      },
+      include: {
+        items: {
+          include: { product: true }
+        }
+      }
+    });
+
+    // Calculate annual consumption value per product
+    const productAnalysis = {};
+
+    salesOrders.forEach(order => {
+      order.items?.forEach(item => {
+        const productId = item.productId;
+        const productName = item.product?.name || 'Unknown';
+        const value = (item.quantity || 0) * (item.unitPrice || 0);
+
+        if (!productAnalysis[productId]) {
+          productAnalysis[productId] = {
+            id: productId,
+            name: productName,
+            sku: item.product?.sku,
+            totalQuantitySold: 0,
+            totalValue: 0,
+            orderCount: 0,
+            currentStock: 0,
+            costPrice: item.product?.costPrice || 0
+          };
+        }
+        productAnalysis[productId].totalQuantitySold += item.quantity || 0;
+        productAnalysis[productId].totalValue += value;
+        productAnalysis[productId].orderCount++;
+      });
+    });
+
+    // Add current stock levels
+    inventory.forEach(inv => {
+      if (productAnalysis[inv.productId]) {
+        productAnalysis[inv.productId].currentStock += inv.quantity || 0;
+      }
+    });
+
+    // Convert to array and sort by value
+    const sortedProducts = Object.values(productAnalysis)
+      .sort((a, b) => b.totalValue - a.totalValue);
+
+    // Calculate total value
+    const totalValue = sortedProducts.reduce((sum, p) => sum + p.totalValue, 0);
+
+    // Classify into ABC categories
+    let cumulativeValue = 0;
+    const classifiedProducts = sortedProducts.map((product, index) => {
+      cumulativeValue += product.totalValue;
+      const cumulativePercentage = totalValue > 0 ? (cumulativeValue / totalValue) * 100 : 0;
+
+      let category;
+      if (cumulativePercentage <= 80) {
+        category = 'A'; // Top 80% of value
+      } else if (cumulativePercentage <= 95) {
+        category = 'B'; // Next 15% of value
+      } else {
+        category = 'C'; // Bottom 5% of value
+      }
+
+      return {
+        ...product,
+        category,
+        valuePercentage: totalValue > 0 ? Math.round((product.totalValue / totalValue) * 10000) / 100 : 0,
+        cumulativePercentage: Math.round(cumulativePercentage * 100) / 100,
+        rank: index + 1
+      };
+    });
+
+    // Summary statistics
+    const categoryA = classifiedProducts.filter(p => p.category === 'A');
+    const categoryB = classifiedProducts.filter(p => p.category === 'B');
+    const categoryC = classifiedProducts.filter(p => p.category === 'C');
+
+    res.json({
+      summary: {
+        totalProducts: classifiedProducts.length,
+        totalValue: Math.round(totalValue * 100) / 100,
+        categories: {
+          A: {
+            count: categoryA.length,
+            percentage: classifiedProducts.length > 0 ? Math.round((categoryA.length / classifiedProducts.length) * 10000) / 100 : 0,
+            totalValue: Math.round(categoryA.reduce((sum, p) => sum + p.totalValue, 0) * 100) / 100,
+            description: 'High-value items - 80% of total value, require tight control'
+          },
+          B: {
+            count: categoryB.length,
+            percentage: classifiedProducts.length > 0 ? Math.round((categoryB.length / classifiedProducts.length) * 10000) / 100 : 0,
+            totalValue: Math.round(categoryB.reduce((sum, p) => sum + p.totalValue, 0) * 100) / 100,
+            description: 'Medium-value items - 15% of total value, moderate control'
+          },
+          C: {
+            count: categoryC.length,
+            percentage: classifiedProducts.length > 0 ? Math.round((categoryC.length / classifiedProducts.length) * 10000) / 100 : 0,
+            totalValue: Math.round(categoryC.reduce((sum, p) => sum + p.totalValue, 0) * 100) / 100,
+            description: 'Low-value items - 5% of total value, simple control'
+          }
+        },
+        generatedAt: new Date().toISOString()
+      },
+      products: classifiedProducts
+    });
+  } catch (error) {
+    console.error('Get ABC analysis error:', error);
+    res.status(500).json({ error: 'Failed to generate ABC analysis' });
+  }
+});
+
+// ===================================
+// SHIPPING CARRIERS API
+// ===================================
+
+// In-memory storage for shipping carriers (in production, this would be in the database)
+let shippingCarriers = [
+  { id: '1', name: 'DHL Express', code: 'DHL', type: 'EXPRESS', status: 'active', trackingUrl: 'https://www.dhl.com/track?AWB={tracking}', apiConfigured: true, credentials: { apiKey: '***configured***' }, supportedServices: ['EXPRESS', 'ECONOMY', 'FREIGHT'], createdAt: new Date().toISOString() },
+  { id: '2', name: 'FedEx', code: 'FEDEX', type: 'EXPRESS', status: 'active', trackingUrl: 'https://www.fedex.com/fedextrack/?trknbr={tracking}', apiConfigured: true, credentials: { apiKey: '***configured***' }, supportedServices: ['PRIORITY', 'STANDARD', 'FREIGHT'], createdAt: new Date().toISOString() },
+  { id: '3', name: 'UPS', code: 'UPS', type: 'EXPRESS', status: 'active', trackingUrl: 'https://www.ups.com/track?tracknum={tracking}', apiConfigured: true, credentials: { apiKey: '***configured***' }, supportedServices: ['NEXT_DAY', 'GROUND', 'FREIGHT'], createdAt: new Date().toISOString() },
+  { id: '4', name: 'Royal Mail', code: 'ROYALMAIL', type: 'POSTAL', status: 'active', trackingUrl: 'https://www.royalmail.com/track-your-item/{tracking}', apiConfigured: false, credentials: null, supportedServices: ['FIRST_CLASS', 'SECOND_CLASS', 'SIGNED_FOR'], createdAt: new Date().toISOString() },
+  { id: '5', name: 'Amazon Logistics', code: 'AMZL', type: 'FBA', status: 'active', trackingUrl: 'https://track.amazon.com/{tracking}', apiConfigured: true, credentials: { apiKey: '***configured***' }, supportedServices: ['STANDARD', 'SAME_DAY', 'NEXT_DAY'], createdAt: new Date().toISOString() }
+];
+
+app.get('/api/shipping/carriers', verifyToken, async (req, res) => {
+  try {
+    res.json(shippingCarriers);
+  } catch (error) {
+    console.error('Get shipping carriers error:', error);
+    res.status(500).json({ error: 'Failed to get shipping carriers' });
+  }
+});
+
+app.get('/api/shipping/carriers/:id', verifyToken, async (req, res) => {
+  try {
+    const carrier = shippingCarriers.find(c => c.id === req.params.id);
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+    res.json(carrier);
+  } catch (error) {
+    console.error('Get shipping carrier error:', error);
+    res.status(500).json({ error: 'Failed to get carrier' });
+  }
+});
+
+app.post('/api/shipping/carriers', verifyToken, async (req, res) => {
+  try {
+    const { name, code, type, trackingUrl, credentials, supportedServices } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({ error: 'Name and code are required' });
+    }
+
+    const newCarrier = {
+      id: String(Date.now()),
+      name,
+      code: code.toUpperCase(),
+      type: type || 'STANDARD',
+      status: 'active',
+      trackingUrl: trackingUrl || '',
+      apiConfigured: !!credentials,
+      credentials: credentials ? { apiKey: '***configured***' } : null,
+      supportedServices: supportedServices || ['STANDARD'],
+      createdAt: new Date().toISOString()
+    };
+
+    shippingCarriers.push(newCarrier);
+    res.status(201).json(newCarrier);
+  } catch (error) {
+    console.error('Create shipping carrier error:', error);
+    res.status(500).json({ error: 'Failed to create carrier' });
+  }
+});
+
+app.put('/api/shipping/carriers/:id', verifyToken, async (req, res) => {
+  try {
+    const index = shippingCarriers.findIndex(c => c.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    const { name, code, type, status, trackingUrl, credentials, supportedServices } = req.body;
+
+    shippingCarriers[index] = {
+      ...shippingCarriers[index],
+      ...(name && { name }),
+      ...(code && { code: code.toUpperCase() }),
+      ...(type && { type }),
+      ...(status && { status }),
+      ...(trackingUrl !== undefined && { trackingUrl }),
+      ...(credentials !== undefined && { apiConfigured: !!credentials, credentials: credentials ? { apiKey: '***configured***' } : null }),
+      ...(supportedServices && { supportedServices }),
+      updatedAt: new Date().toISOString()
+    };
+
+    res.json(shippingCarriers[index]);
+  } catch (error) {
+    console.error('Update shipping carrier error:', error);
+    res.status(500).json({ error: 'Failed to update carrier' });
+  }
+});
+
+app.delete('/api/shipping/carriers/:id', verifyToken, async (req, res) => {
+  try {
+    const index = shippingCarriers.findIndex(c => c.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    shippingCarriers.splice(index, 1);
+    res.json({ message: 'Carrier deleted successfully' });
+  } catch (error) {
+    console.error('Delete shipping carrier error:', error);
+    res.status(500).json({ error: 'Failed to delete carrier' });
+  }
+});
+
+// Get shipping rates from carrier
+app.post('/api/shipping/rates', verifyToken, async (req, res) => {
+  try {
+    const { carrierId, origin, destination, weight, dimensions } = req.body;
+
+    // Simulated rate calculation
+    const baseRates = {
+      DHL: { EXPRESS: 25.99, ECONOMY: 12.99, FREIGHT: 89.99 },
+      FEDEX: { PRIORITY: 29.99, STANDARD: 14.99, FREIGHT: 99.99 },
+      UPS: { NEXT_DAY: 34.99, GROUND: 9.99, FREIGHT: 79.99 },
+      ROYALMAIL: { FIRST_CLASS: 3.99, SECOND_CLASS: 2.49, SIGNED_FOR: 5.99 },
+      AMZL: { STANDARD: 4.99, SAME_DAY: 9.99, NEXT_DAY: 7.99 }
+    };
+
+    const carrier = shippingCarriers.find(c => c.id === carrierId);
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    const rates = carrier.supportedServices.map(service => ({
+      service,
+      carrier: carrier.name,
+      estimatedDays: service.includes('EXPRESS') || service.includes('NEXT_DAY') || service.includes('SAME_DAY') ? 1 : service.includes('STANDARD') ? 3 : 5,
+      price: (baseRates[carrier.code]?.[service] || 15.99) + (weight || 1) * 0.5,
+      currency: 'USD'
+    }));
+
+    res.json({ carrier: carrier.name, rates });
+  } catch (error) {
+    console.error('Get shipping rates error:', error);
+    res.status(500).json({ error: 'Failed to get rates' });
+  }
+});
+
+// ===================================
+// WEBHOOKS API
+// ===================================
+
+// In-memory storage for webhooks
+let webhooks = [
+  { id: '1', name: 'Order Created Webhook', url: 'https://example.com/webhooks/order-created', events: ['order.created'], status: 'active', secret: 'whsec_***', lastTriggered: null, successCount: 0, failureCount: 0, createdAt: new Date().toISOString() },
+  { id: '2', name: 'Inventory Low Stock Alert', url: 'https://example.com/webhooks/low-stock', events: ['inventory.low_stock'], status: 'active', secret: 'whsec_***', lastTriggered: null, successCount: 0, failureCount: 0, createdAt: new Date().toISOString() },
+  { id: '3', name: 'Shipment Tracking Update', url: 'https://example.com/webhooks/shipment-update', events: ['shipment.created', 'shipment.delivered'], status: 'inactive', secret: 'whsec_***', lastTriggered: null, successCount: 0, failureCount: 0, createdAt: new Date().toISOString() }
+];
+
+const availableWebhookEvents = [
+  { event: 'order.created', description: 'Fired when a new order is created' },
+  { event: 'order.updated', description: 'Fired when an order is updated' },
+  { event: 'order.shipped', description: 'Fired when an order is shipped' },
+  { event: 'order.delivered', description: 'Fired when an order is delivered' },
+  { event: 'order.cancelled', description: 'Fired when an order is cancelled' },
+  { event: 'inventory.updated', description: 'Fired when inventory levels change' },
+  { event: 'inventory.low_stock', description: 'Fired when inventory falls below threshold' },
+  { event: 'inventory.out_of_stock', description: 'Fired when inventory reaches zero' },
+  { event: 'product.created', description: 'Fired when a new product is created' },
+  { event: 'product.updated', description: 'Fired when a product is updated' },
+  { event: 'shipment.created', description: 'Fired when a shipment is created' },
+  { event: 'shipment.delivered', description: 'Fired when a shipment is delivered' },
+  { event: 'customer.created', description: 'Fired when a new customer is created' },
+  { event: 'return.created', description: 'Fired when a return is initiated' }
+];
+
+app.get('/api/webhooks', verifyToken, async (req, res) => {
+  try {
+    res.json(webhooks);
+  } catch (error) {
+    console.error('Get webhooks error:', error);
+    res.status(500).json({ error: 'Failed to get webhooks' });
+  }
+});
+
+app.get('/api/webhooks/events', verifyToken, async (req, res) => {
+  try {
+    res.json(availableWebhookEvents);
+  } catch (error) {
+    console.error('Get webhook events error:', error);
+    res.status(500).json({ error: 'Failed to get events' });
+  }
+});
+
+app.get('/api/webhooks/:id', verifyToken, async (req, res) => {
+  try {
+    const webhook = webhooks.find(w => w.id === req.params.id);
+    if (!webhook) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
+    res.json(webhook);
+  } catch (error) {
+    console.error('Get webhook error:', error);
+    res.status(500).json({ error: 'Failed to get webhook' });
+  }
+});
+
+app.post('/api/webhooks', verifyToken, async (req, res) => {
+  try {
+    const { name, url, events } = req.body;
+
+    if (!name || !url || !events || events.length === 0) {
+      return res.status(400).json({ error: 'Name, URL, and at least one event are required' });
+    }
+
+    // Validate URL
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    // Generate webhook secret
+    const secret = 'whsec_' + require('crypto').randomBytes(24).toString('hex');
+
+    const newWebhook = {
+      id: String(Date.now()),
+      name,
+      url,
+      events,
+      status: 'active',
+      secret,
+      lastTriggered: null,
+      successCount: 0,
+      failureCount: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    webhooks.push(newWebhook);
+    res.status(201).json(newWebhook);
+  } catch (error) {
+    console.error('Create webhook error:', error);
+    res.status(500).json({ error: 'Failed to create webhook' });
+  }
+});
+
+app.put('/api/webhooks/:id', verifyToken, async (req, res) => {
+  try {
+    const index = webhooks.findIndex(w => w.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
+
+    const { name, url, events, status } = req.body;
+
+    if (url) {
+      try {
+        new URL(url);
+      } catch {
+        return res.status(400).json({ error: 'Invalid URL format' });
+      }
+    }
+
+    webhooks[index] = {
+      ...webhooks[index],
+      ...(name && { name }),
+      ...(url && { url }),
+      ...(events && { events }),
+      ...(status && { status }),
+      updatedAt: new Date().toISOString()
+    };
+
+    res.json(webhooks[index]);
+  } catch (error) {
+    console.error('Update webhook error:', error);
+    res.status(500).json({ error: 'Failed to update webhook' });
+  }
+});
+
+app.delete('/api/webhooks/:id', verifyToken, async (req, res) => {
+  try {
+    const index = webhooks.findIndex(w => w.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
+
+    webhooks.splice(index, 1);
+    res.json({ message: 'Webhook deleted successfully' });
+  } catch (error) {
+    console.error('Delete webhook error:', error);
+    res.status(500).json({ error: 'Failed to delete webhook' });
+  }
+});
+
+// Test webhook endpoint
+app.post('/api/webhooks/:id/test', verifyToken, async (req, res) => {
+  try {
+    const webhook = webhooks.find(w => w.id === req.params.id);
+    if (!webhook) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
+
+    // Simulate webhook test
+    const testPayload = {
+      event: 'test',
+      timestamp: new Date().toISOString(),
+      data: {
+        message: 'This is a test webhook from Kiaan WMS',
+        webhookId: webhook.id
+      }
+    };
+
+    // In production, this would actually send the request
+    // For now, we simulate success
+    const index = webhooks.findIndex(w => w.id === req.params.id);
+    webhooks[index].lastTriggered = new Date().toISOString();
+    webhooks[index].successCount++;
+
+    res.json({
+      success: true,
+      message: 'Test webhook sent successfully',
+      payload: testPayload
+    });
+  } catch (error) {
+    console.error('Test webhook error:', error);
+    res.status(500).json({ error: 'Failed to test webhook' });
+  }
+});
+
+// ===================================
+// LOW STOCK ALERTS
+// ===================================
+
+app.get('/api/reports/low-stock', verifyToken, async (req, res) => {
+  try {
+    const { threshold = 10 } = req.query;
+
+    const inventory = await prisma.inventory.findMany({
+      where: {
+        warehouse: {
+          companyId: req.user.companyId
+        },
+        quantity: {
+          lte: parseInt(threshold)
+        }
+      },
+      include: {
+        product: true,
+        warehouse: true
+      },
+      orderBy: {
+        quantity: 'asc'
+      }
+    });
+
+    const alerts = inventory.map(inv => ({
+      id: inv.id,
+      productId: inv.productId,
+      productName: inv.product?.name,
+      sku: inv.product?.sku,
+      warehouse: inv.warehouse?.name,
+      currentQuantity: inv.quantity,
+      threshold: parseInt(threshold),
+      status: inv.quantity === 0 ? 'OUT_OF_STOCK' : inv.quantity <= parseInt(threshold) / 2 ? 'CRITICAL' : 'LOW',
+      reorderSuggestion: Math.max(50, parseInt(threshold) * 3),
+      estimatedValue: (inv.quantity || 0) * parseFloat(inv.product?.costPrice || 0)
+    }));
+
+    res.json({
+      summary: {
+        totalAlerts: alerts.length,
+        outOfStock: alerts.filter(a => a.status === 'OUT_OF_STOCK').length,
+        critical: alerts.filter(a => a.status === 'CRITICAL').length,
+        low: alerts.filter(a => a.status === 'LOW').length,
+        threshold: parseInt(threshold),
+        generatedAt: new Date().toISOString()
+      },
+      alerts
+    });
+  } catch (error) {
+    console.error('Get low stock alerts error:', error);
+    res.status(500).json({ error: 'Failed to get low stock alerts' });
+  }
+});
+
+// ===================================
+// SETTINGS ENDPOINTS
+// ===================================
+
+// Get company settings
+app.get('/api/settings', verifyToken, async (req, res) => {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: req.user.companyId }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Return comprehensive settings object
+    res.json({
+      id: company.id,
+      name: company.name,
+      email: company.email || '',
+      phone: company.phone || '',
+      address: company.address || '',
+
+      // General Settings
+      currency: company.currency || 'USD',
+      timezone: company.timezone || 'UTC',
+      dateFormat: company.dateFormat || 'YYYY-MM-DD',
+      logo: company.logo || null,
+
+      // Notification Settings
+      emailNotifications: company.emailNotifications !== false,
+      lowStockAlerts: company.lowStockAlerts !== false,
+      orderConfirmations: company.orderConfirmations !== false,
+
+      // Inventory Settings
+      defaultWarehouse: company.defaultWarehouse || null,
+      autoReorderEnabled: company.autoReorderEnabled || false,
+      batchTrackingEnabled: company.batchTrackingEnabled !== false,
+      expiryTrackingEnabled: company.expiryTrackingEnabled !== false,
+      lowStockThreshold: company.lowStockThreshold || 10,
+      defaultTaxRate: company.defaultTaxRate || 0,
+
+      createdAt: company.createdAt,
+      updatedAt: company.updatedAt
+    });
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update company settings
+app.put('/api/settings', verifyToken, async (req, res) => {
+  try {
+    const {
+      name, email, phone, address, currency, timezone, dateFormat, logo,
+      emailNotifications, lowStockAlerts, orderConfirmations,
+      defaultWarehouse, autoReorderEnabled, batchTrackingEnabled,
+      expiryTrackingEnabled, lowStockThreshold, defaultTaxRate
+    } = req.body;
+
+    const updateData = {};
+
+    // General settings
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+    if (currency !== undefined) updateData.currency = currency;
+    if (timezone !== undefined) updateData.timezone = timezone;
+    if (dateFormat !== undefined) updateData.dateFormat = dateFormat;
+    if (logo !== undefined) updateData.logo = logo;
+
+    // Notification settings
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
+    if (lowStockAlerts !== undefined) updateData.lowStockAlerts = lowStockAlerts;
+    if (orderConfirmations !== undefined) updateData.orderConfirmations = orderConfirmations;
+
+    // Inventory settings
+    if (defaultWarehouse !== undefined) updateData.defaultWarehouse = defaultWarehouse;
+    if (autoReorderEnabled !== undefined) updateData.autoReorderEnabled = autoReorderEnabled;
+    if (batchTrackingEnabled !== undefined) updateData.batchTrackingEnabled = batchTrackingEnabled;
+    if (expiryTrackingEnabled !== undefined) updateData.expiryTrackingEnabled = expiryTrackingEnabled;
+    if (lowStockThreshold !== undefined) updateData.lowStockThreshold = parseInt(lowStockThreshold);
+    if (defaultTaxRate !== undefined) updateData.defaultTaxRate = parseFloat(defaultTaxRate);
+
+    const company = await prisma.company.update({
+      where: { id: req.user.companyId },
+      data: updateData
+    });
+
+    res.json({
+      id: company.id,
+      name: company.name,
+      email: company.email || '',
+      phone: company.phone || '',
+      address: company.address || '',
+      currency: company.currency || 'USD',
+      timezone: company.timezone || 'UTC',
+      dateFormat: company.dateFormat || 'YYYY-MM-DD',
+      logo: company.logo || null,
+      emailNotifications: company.emailNotifications,
+      lowStockAlerts: company.lowStockAlerts,
+      orderConfirmations: company.orderConfirmations,
+      defaultWarehouse: company.defaultWarehouse,
+      autoReorderEnabled: company.autoReorderEnabled,
+      batchTrackingEnabled: company.batchTrackingEnabled,
+      expiryTrackingEnabled: company.expiryTrackingEnabled,
+      lowStockThreshold: company.lowStockThreshold,
+      defaultTaxRate: company.defaultTaxRate,
+      updatedAt: company.updatedAt
+    });
+  } catch (error) {
+    console.error('Update settings error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

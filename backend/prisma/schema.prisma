@@ -62,6 +62,25 @@ model Company {
   phone       String?
   email       String?
 
+  // Settings fields
+  currency    String   @default("USD")
+  timezone    String   @default("UTC")
+  dateFormat  String   @default("YYYY-MM-DD")
+  logo        String?
+
+  // Notification Settings
+  emailNotifications    Boolean @default(true)
+  lowStockAlerts        Boolean @default(true)
+  orderConfirmations    Boolean @default(true)
+
+  // Inventory Settings
+  defaultWarehouse      String?
+  autoReorderEnabled    Boolean @default(false)
+  batchTrackingEnabled  Boolean @default(true)
+  expiryTrackingEnabled Boolean @default(true)
+  lowStockThreshold     Int     @default(10)
+  defaultTaxRate        Float   @default(0)
+
   users       User[]
   warehouses  Warehouse[]
   products    Product[]
