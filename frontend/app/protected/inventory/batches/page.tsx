@@ -29,6 +29,7 @@ import {
   ReloadOutlined,
   EyeOutlined,
   EditOutlined,
+  DeleteOutlined,
   FilterOutlined,
   BoxPlotOutlined,
   ClockCircleOutlined,
@@ -50,19 +51,25 @@ const { Option } = Select;
 interface Batch {
   id: string;
   batchNumber: string;
+  lotNumber?: string;
   productId: string;
   product: any;
-  locationId: string;
-  location: any;
+  warehouseId: string;
+  warehouse?: any;
+  locationId?: string;
+  location?: any;
   quantity: number;
   availableQuantity: number;
+  reservedQuantity?: number;
   receivedDate: string;
+  bestBeforeDate?: string;
   expiryDate?: string;
   manufacturingDate?: string;
-  unitCost: number;
+  unitCost?: number;
   supplier?: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
   movements?: any[];
 }
 
@@ -77,7 +84,16 @@ export default function BatchesPage() {
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [allocationModalVisible, setAllocationModalVisible] = useState(false);
   const [allocationMethod, setAllocationMethod] = useState<'FIFO' | 'LIFO' | 'FEFO'>('FIFO');
+  const [products, setProducts] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
   const [allocationForm] = Form.useForm();
 
   // Fetch batches
@@ -108,8 +124,50 @@ export default function BatchesPage() {
     }
   };
 
+  // Fetch products for dropdown
+  const fetchProducts = async () => {
+    try {
+      setProductsLoading(true);
+      const data = await apiService.get('/products');
+      setProducts(Array.isArray(data) ? data : (data?.data || []));
+    } catch (error: any) {
+      console.error('Fetch products error:', error);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // Fetch locations for dropdown
+  const fetchLocations = async () => {
+    try {
+      setLocationsLoading(true);
+      const data = await apiService.get('/locations');
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('Fetch locations error:', error);
+    } finally {
+      setLocationsLoading(false);
+    }
+  };
+
+  // Fetch warehouses for dropdown
+  const fetchWarehouses = async () => {
+    try {
+      setWarehousesLoading(true);
+      const data = await apiService.get('/warehouses');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('Fetch warehouses error:', error);
+    } finally {
+      setWarehousesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBatches();
+    fetchProducts();
+    fetchLocations();
+    fetchWarehouses();
   }, []);
 
   // Apply filters
@@ -199,19 +257,74 @@ export default function BatchesPage() {
     }
   };
 
+  // Edit batch
+  const handleEditBatch = (batch: Batch) => {
+    setEditingBatch(batch);
+    editForm.setFieldsValue({
+      batchNumber: batch.batchNumber,
+      productId: batch.productId,
+      warehouseId: batch.warehouseId,
+      locationId: batch.locationId,
+      quantity: batch.quantity,
+      unitCost: batch.unitCost,
+      status: batch.status,
+    });
+    setEditModalVisible(true);
+  };
+
+  // Save edited batch
+  const handleSaveEdit = async (values: any) => {
+    if (!editingBatch) return;
+    try {
+      await apiService.patch(`/inventory/batches/${editingBatch.id}`, values);
+      message.success('Batch updated successfully');
+      editForm.resetFields();
+      setEditModalVisible(false);
+      setEditingBatch(null);
+      fetchBatches();
+    } catch (error: any) {
+      console.error('Edit batch error:', error);
+      message.error(error.response?.data?.error || error.message || 'Failed to update batch');
+    }
+  };
+
+  // Delete batch
+  const handleDeleteBatch = (batch: Batch) => {
+    Modal.confirm({
+      title: 'Delete Batch',
+      content: `Are you sure you want to delete batch "${batch.batchNumber}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          await apiService.delete(`/inventory/batches/${batch.id}`);
+          message.success('Batch deleted successfully');
+          fetchBatches();
+        } catch (error: any) {
+          console.error('Delete batch error:', error);
+          message.error(error.response?.data?.error || error.message || 'Failed to delete batch');
+        }
+      },
+    });
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
+      AVAILABLE: 'green',
       ACTIVE: 'green',
       DEPLETED: 'default',
       EXPIRED: 'red',
       QUARANTINED: 'orange',
       DAMAGED: 'volcano',
+      LOW_STOCK: 'gold',
     };
     return colors[status] || 'default';
   };
 
   const getStatusIcon = (status: string) => {
     const icons: Record<string, any> = {
+      AVAILABLE: <CheckCircleOutlined />,
       ACTIVE: <CheckCircleOutlined />,
       DEPLETED: <StopOutlined />,
       EXPIRED: <ExclamationCircleOutlined />,
@@ -290,11 +403,11 @@ export default function BatchesPage() {
         new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime(),
     },
     {
-      title: 'Expiry Date',
-      dataIndex: 'expiryDate',
-      key: 'expiryDate',
+      title: 'Best Before',
+      key: 'bestBeforeDate',
       width: 150,
-      render: (date: string) => {
+      render: (_: any, record: Batch) => {
+        const date = record.bestBeforeDate || record.expiryDate;
         if (!date) return <Tag>No Expiry</Tag>;
         const daysUntilExpiry = Math.floor(
           (new Date(date).getTime() - Date.now()) / (24 * 60 * 60 * 1000)
@@ -321,10 +434,12 @@ export default function BatchesPage() {
         );
       },
       sorter: (a: Batch, b: Batch) => {
-        if (!a.expiryDate && !b.expiryDate) return 0;
-        if (!a.expiryDate) return 1;
-        if (!b.expiryDate) return -1;
-        return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+        const aDate = a.bestBeforeDate || a.expiryDate;
+        const bDate = b.bestBeforeDate || b.expiryDate;
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+        return new Date(aDate).getTime() - new Date(bDate).getTime();
       },
     },
     {
@@ -349,24 +464,40 @@ export default function BatchesPage() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right' as const,
-      width: 200,
+      width: 280,
       render: (record: Batch) => (
         <Space>
           <Tooltip title="View Details">
             <Button
               type="text"
               icon={<EyeOutlined />}
-              onClick={() => fetchBatchDetails(record.id)}
+              onClick={(e) => { e.stopPropagation(); fetchBatchDetails(record.id); }}
+            />
+          </Tooltip>
+          <Tooltip title="Edit Batch">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={(e) => { e.stopPropagation(); handleEditBatch(record); }}
+            />
+          </Tooltip>
+          <Tooltip title="Delete Batch">
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => { e.stopPropagation(); handleDeleteBatch(record); }}
             />
           </Tooltip>
           <Select
-            placeholder="Update Status"
-            style={{ width: 120 }}
+            placeholder="Status"
+            style={{ width: 110 }}
             size="small"
             value={record.status}
+            onClick={(e) => e.stopPropagation()}
             onChange={(value) => handleUpdateStatus(record.id, value)}
           >
-            <Option value="ACTIVE">Active</Option>
+            <Option value="AVAILABLE">Available</Option>
             <Option value="DEPLETED">Depleted</Option>
             <Option value="EXPIRED">Expired</Option>
             <Option value="QUARANTINED">Quarantine</Option>
@@ -533,18 +664,56 @@ export default function BatchesPage() {
 
           <Form.Item
             name="productId"
-            label="Product ID"
-            rules={[{ required: true, message: 'Please enter product ID' }]}
+            label="Product"
+            rules={[{ required: true, message: 'Please select a product' }]}
           >
-            <Input placeholder="Product UUID" />
+            <Select
+              placeholder="Select a product"
+              loading={productsLoading}
+              showSearch
+              optionFilterProp="label"
+              options={products.map((product) => ({
+                key: product.id,
+                value: product.id,
+                label: `${product.name || 'Unnamed'} ${product.sku ? `(${product.sku})` : ''}`
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="warehouseId"
+            label="Warehouse"
+            rules={[{ required: true, message: 'Please select a warehouse' }]}
+          >
+            <Select
+              placeholder="Select a warehouse"
+              loading={warehousesLoading}
+              showSearch
+              optionFilterProp="label"
+              options={warehouses.map((wh) => ({
+                key: wh.id,
+                value: wh.id,
+                label: `${wh.name || 'Unnamed'} ${wh.code ? `(${wh.code})` : ''}`
+              }))}
+            />
           </Form.Item>
 
           <Form.Item
             name="locationId"
-            label="Location ID"
-            rules={[{ required: true, message: 'Please enter location ID' }]}
+            label="Location (Optional)"
           >
-            <Input placeholder="Location UUID" />
+            <Select
+              placeholder="Select a location (optional)"
+              loading={locationsLoading}
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={locations.map((loc) => ({
+                key: loc.id,
+                value: loc.id,
+                label: `${loc.name || `${loc.aisle || ''}-${loc.rack || ''}-${loc.shelf || ''}-${loc.bin || ''}`}${loc.zone?.name ? ` (${loc.zone.name})` : ''}`
+              }))}
+            />
           </Form.Item>
 
           <Row gutter={16}>
@@ -623,14 +792,50 @@ export default function BatchesPage() {
 
           <Form.Item
             name="productId"
-            label="Product ID"
-            rules={[{ required: true, message: 'Please enter product ID' }]}
+            label="Product"
+            rules={[{ required: true, message: 'Please select a product' }]}
           >
-            <Input placeholder="Product UUID" />
+            <Select
+              placeholder="Select a product"
+              loading={productsLoading}
+              showSearch
+              optionFilterProp="label"
+              options={products.map((product) => ({
+                key: product.id,
+                value: product.id,
+                label: `${product.name || 'Unnamed'} ${product.sku ? `(${product.sku})` : ''}`
+              }))}
+            />
           </Form.Item>
 
-          <Form.Item name="locationId" label="Location ID (Optional)">
-            <Input placeholder="Filter by location" />
+          <Form.Item name="warehouseId" label="Warehouse (Optional)">
+            <Select
+              placeholder="Filter by warehouse (optional)"
+              loading={warehousesLoading}
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={warehouses.map((wh) => ({
+                key: wh.id,
+                value: wh.id,
+                label: `${wh.name || 'Unnamed'} ${wh.code ? `(${wh.code})` : ''}`
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item name="locationId" label="Location (Optional)">
+            <Select
+              placeholder="Filter by location (optional)"
+              loading={locationsLoading}
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={locations.map((loc) => ({
+                key: loc.id,
+                value: loc.id,
+                label: `${loc.name || `${loc.aisle || ''}-${loc.rack || ''}-${loc.shelf || ''}-${loc.bin || ''}`}${loc.zone?.name ? ` (${loc.zone.name})` : ''}`
+              }))}
+            />
           </Form.Item>
 
           <Form.Item
@@ -679,12 +884,12 @@ export default function BatchesPage() {
               <Descriptions.Item label="Received">
                 {dayjs(selectedBatch.receivedDate).format('MMM DD, YYYY')}
               </Descriptions.Item>
-              <Descriptions.Item label="Expiry">
-                {selectedBatch.expiryDate
-                  ? dayjs(selectedBatch.expiryDate).format('MMM DD, YYYY')
+              <Descriptions.Item label="Best Before">
+                {selectedBatch.bestBeforeDate || selectedBatch.expiryDate
+                  ? dayjs(selectedBatch.bestBeforeDate || selectedBatch.expiryDate).format('MMM DD, YYYY')
                   : 'No Expiry'}
               </Descriptions.Item>
-              <Descriptions.Item label="Unit Cost">${selectedBatch.unitCost.toFixed(2)}</Descriptions.Item>
+              <Descriptions.Item label="Unit Cost">{selectedBatch.unitCost != null ? `$${selectedBatch.unitCost.toFixed(2)}` : 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Supplier">{selectedBatch.supplier || 'N/A'}</Descriptions.Item>
             </Descriptions>
 
@@ -711,6 +916,110 @@ export default function BatchesPage() {
           </div>
         )}
       </Drawer>
+
+      {/* Edit Batch Modal */}
+      <Modal
+        title="Edit Batch"
+        open={editModalVisible}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setEditingBatch(null);
+          editForm.resetFields();
+        }}
+        onOk={() => editForm.submit()}
+        width={600}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleSaveEdit}>
+          <Form.Item
+            name="batchNumber"
+            label="Batch Number"
+            rules={[{ required: true, message: 'Please enter batch number' }]}
+          >
+            <Input placeholder="e.g., BATCH-2025-001" />
+          </Form.Item>
+
+          <Form.Item
+            name="productId"
+            label="Product"
+            rules={[{ required: true, message: 'Please select a product' }]}
+          >
+            <Select
+              placeholder="Select a product"
+              loading={productsLoading}
+              showSearch
+              optionFilterProp="label"
+              options={products.map((product) => ({
+                key: product.id,
+                value: product.id,
+                label: `${product.name || 'Unnamed'} ${product.sku ? `(${product.sku})` : ''}`
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="warehouseId"
+            label="Warehouse"
+            rules={[{ required: true, message: 'Please select a warehouse' }]}
+          >
+            <Select
+              placeholder="Select a warehouse"
+              loading={warehousesLoading}
+              showSearch
+              optionFilterProp="label"
+              options={warehouses.map((wh) => ({
+                key: wh.id,
+                value: wh.id,
+                label: `${wh.name || 'Unnamed'} ${wh.code ? `(${wh.code})` : ''}`
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="locationId"
+            label="Location (Optional)"
+          >
+            <Select
+              placeholder="Select a location (optional)"
+              loading={locationsLoading}
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              options={locations.map((loc) => ({
+                key: loc.id,
+                value: loc.id,
+                label: `${loc.name || `${loc.aisle || ''}-${loc.rack || ''}-${loc.shelf || ''}-${loc.bin || ''}`}${loc.zone?.name ? ` (${loc.zone.name})` : ''}`
+              }))}
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="quantity"
+                label="Quantity"
+                rules={[{ required: true, message: 'Please enter quantity' }]}
+              >
+                <InputNumber min={1} style={{ width: '100%' }} placeholder="Units" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="unitCost" label="Unit Cost">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} prefix="$" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="status" label="Status">
+            <Select>
+              <Option value="AVAILABLE">Available</Option>
+              <Option value="DEPLETED">Depleted</Option>
+              <Option value="EXPIRED">Expired</Option>
+              <Option value="QUARANTINED">Quarantined</Option>
+              <Option value="DAMAGED">Damaged</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

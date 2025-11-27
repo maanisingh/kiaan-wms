@@ -12,9 +12,16 @@ const { Search } = Input;
 
 interface Location {
   id: string;
+  name?: string;
+  code?: string;
   aisle: string;
   rack: string;
+  shelf?: string;
   bin: string;
+  zone?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface CycleCount {
@@ -46,8 +53,23 @@ export default function CycleCountsPage() {
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
   const [form] = Form.useForm();
   const router = useRouter();
+
+  // Fetch locations for the dropdown
+  const fetchLocations = useCallback(async () => {
+    try {
+      setLocationsLoading(true);
+      const data = await apiService.get('/locations');
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch locations:', err);
+    } finally {
+      setLocationsLoading(false);
+    }
+  }, []);
 
   // Fetch cycle counts from API
   const fetchCycleCounts = useCallback(async () => {
@@ -66,14 +88,17 @@ export default function CycleCountsPage() {
 
   useEffect(() => {
     fetchCycleCounts();
-  }, [fetchCycleCounts]);
+    fetchLocations();
+  }, [fetchCycleCounts, fetchLocations]);
 
   const handleSubmit = async (values: any) => {
     try {
       setSaving(true);
 
       const payload = {
-        locationId: values.locationId,
+        name: values.name,
+        type: values.type || 'FULL',
+        locations: values.locationId ? [values.locationId] : [],
         scheduledDate: values.scheduledDate,
         notes: values.notes
       };
@@ -342,16 +367,52 @@ export default function CycleCountsPage() {
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
-            label="Location ID"
-            name="locationId"
-            rules={[{ required: true, message: 'Please enter location ID' }]}
+            label="Count Name"
+            name="name"
+            rules={[{ required: true, message: 'Please enter a name for this cycle count' }]}
           >
-            <Input placeholder="Enter location ID" />
+            <Input placeholder="e.g., Weekly Zone A Count" />
+          </Form.Item>
+
+          <Form.Item
+            label="Count Type"
+            name="type"
+            initialValue="FULL"
+          >
+            <Select>
+              <Select.Option value="FULL">Full Count</Select.Option>
+              <Select.Option value="PARTIAL">Partial Count</Select.Option>
+              <Select.Option value="SPOT">Spot Check</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Location"
+            name="locationId"
+            rules={[{ required: true, message: 'Please select a location' }]}
+          >
+            <Select
+              placeholder="Select a location to count"
+              loading={locationsLoading}
+              showSearch
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {locations.map((loc) => (
+                <Select.Option key={loc.id} value={loc.id}>
+                  {loc.name || `${loc.aisle}-${loc.rack}-${loc.shelf || ''}-${loc.bin}`}
+                  {loc.zone?.name ? ` (${loc.zone.name})` : ''}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item
             label="Scheduled Date"
             name="scheduledDate"
+            rules={[{ required: true, message: 'Please select a date' }]}
           >
             <Input type="date" />
           </Form.Item>
