@@ -706,61 +706,114 @@ export default function GoodsReceivingPage() {
           receiveForm.resetFields();
           setSelectedReceipt(null);
         }}
-        onOk={() => receiveForm.submit()}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setReceiveModalOpen(false);
+            receiveForm.resetFields();
+            setSelectedReceipt(null);
+          }}>
+            Cancel
+          </Button>,
+          <Button key="receiveAll" onClick={() => {
+            // Set all received quantities to expected quantities
+            const items = receiveForm.getFieldValue('items');
+            if (items) {
+              const updatedItems = items.map((item: any) => ({
+                ...item,
+                receivedQty: item.expectedQty,
+                qualityStatus: item.qualityStatus || 'GOOD'
+              }));
+              receiveForm.setFieldsValue({ items: updatedItems });
+            }
+          }}>
+            Receive All
+          </Button>,
+          <Button key="submit" type="primary" onClick={() => receiveForm.submit()}>
+            Save Received Items
+          </Button>
+        ]}
         width={900}
-        okText="Save Received Items"
       >
-        <Form form={receiveForm} onFinish={handleReceiveItems}>
+        <Form form={receiveForm} onFinish={handleReceiveItems} layout="vertical">
           <Form.List name="items">
             {(fields) => (
               <div className="space-y-4">
-                {fields.map((field, index) => {
-                  const item = receiveForm.getFieldValue(['items', index]);
-                  return (
-                    <Card key={field.key} size="small" className="bg-gray-50">
-                      <div className="flex justify-between items-center mb-2">
-                        <div>
-                          <Text strong>{item?.productName}</Text>
-                          <Text type="secondary" className="ml-2">({item?.productSku})</Text>
-                        </div>
-                        <Text type="secondary">Expected: {item?.expectedQty}</Text>
-                      </div>
-                      <div className="grid grid-cols-4 gap-4">
-                        <Form.Item name={[field.name, 'id']} hidden>
-                          <Input />
-                        </Form.Item>
-                        <Form.Item
-                          label="Received Qty"
-                          name={[field.name, 'receivedQty']}
-                          rules={[{ required: true, message: 'Required' }]}
-                        >
-                          <InputNumber min={0} max={item?.expectedQty} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item label="Damaged Qty" name={[field.name, 'damagedQty']}>
-                          <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item label="Batch Number" name={[field.name, 'batchNumber']}>
-                          <Input placeholder="Batch #" />
-                        </Form.Item>
-                        <Form.Item label="Best Before" name={[field.name, 'bestBeforeDate']}>
-                          <DatePicker style={{ width: '100%' }} />
-                        </Form.Item>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Form.Item label="Quality Status" name={[field.name, 'qualityStatus']}>
-                          <Select>
-                            <Option value="GOOD">Good</Option>
-                            <Option value="DAMAGED">Damaged</Option>
-                            <Option value="REJECTED">Rejected</Option>
-                          </Select>
-                        </Form.Item>
-                        <Form.Item label="Notes" name={[field.name, 'notes']}>
-                          <Input placeholder="Item notes" />
-                        </Form.Item>
-                      </div>
-                    </Card>
-                  );
-                })}
+                {fields.map((field, index) => (
+                  <Card key={field.key} size="small" className="bg-gray-50">
+                    <Form.Item shouldUpdate noStyle>
+                      {() => {
+                        const item = receiveForm.getFieldValue(['items', index]);
+                        return (
+                          <>
+                            <div className="flex justify-between items-center mb-3">
+                              <div>
+                                <Text strong className="text-base">{item?.productName}</Text>
+                                <Text type="secondary" className="ml-2">({item?.productSku})</Text>
+                              </div>
+                              <div className="text-right">
+                                <Text type="secondary">Expected: </Text>
+                                <Text strong className="text-blue-600 text-lg">{item?.expectedQty}</Text>
+                                <Button
+                                  size="small"
+                                  className="ml-2"
+                                  onClick={() => {
+                                    const items = receiveForm.getFieldValue('items');
+                                    items[index].receivedQty = items[index].expectedQty;
+                                    receiveForm.setFieldsValue({ items });
+                                  }}
+                                >
+                                  Receive All
+                                </Button>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      }}
+                    </Form.Item>
+                    <div className="grid grid-cols-4 gap-4">
+                      <Form.Item name={[field.name, 'id']} hidden>
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'expectedQty']} hidden>
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'productName']} hidden>
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'productSku']} hidden>
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        label="Received Qty"
+                        name={[field.name, 'receivedQty']}
+                        rules={[{ required: true, message: 'Required' }]}
+                      >
+                        <InputNumber min={0} style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item label="Damaged Qty" name={[field.name, 'damagedQty']}>
+                        <InputNumber min={0} style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item label="Batch Number" name={[field.name, 'batchNumber']}>
+                        <Input placeholder="Batch #" />
+                      </Form.Item>
+                      <Form.Item label="Best Before" name={[field.name, 'bestBeforeDate']}>
+                        <DatePicker style={{ width: '100%' }} />
+                      </Form.Item>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Form.Item label="Quality Status" name={[field.name, 'qualityStatus']}>
+                        <Select>
+                          <Option value="GOOD">Good</Option>
+                          <Option value="DAMAGED">Damaged</Option>
+                          <Option value="REJECTED">Rejected</Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item label="Notes" name={[field.name, 'notes']}>
+                        <Input placeholder="Item notes" />
+                      </Form.Item>
+                    </div>
+                  </Card>
+                ))}
               </div>
             )}
           </Form.List>
