@@ -123,8 +123,8 @@ export default function MarketingPage() {
     },
     {
       icon: <ThunderboltOutlined className="text-4xl" />,
-      title: 'Lightning Fast Performance',
-      description: 'Built with Next.js 16 and optimized for speed, delivering sub-second page loads.'
+      title: 'Barcode & QR Scanning',
+      description: 'Built-in barcode scanning for products, batches, and locations. Generate and print labels instantly.'
     },
     {
       icon: <DashboardOutlined className="text-4xl" />,
@@ -138,13 +138,13 @@ export default function MarketingPage() {
     },
     {
       icon: <BarChartOutlined className="text-4xl" />,
-      title: 'Advanced Analytics',
-      description: 'Comprehensive reports and charts to make data-driven warehouse decisions.'
+      title: 'Invoicing & Payments',
+      description: 'Generate professional invoices, accept Stripe payments, and track all billing in one place.'
     },
     {
       icon: <ApiOutlined className="text-4xl" />,
-      title: 'Seamless Integrations',
-      description: 'Connect with Amazon, Shopify, eBay and more through our powerful API.'
+      title: '80+ Shipping Carriers',
+      description: 'Connect with UPS, FedEx, DHL, Royal Mail, and 80+ carriers. Real-time rates & label printing.'
     },
   ];
 
@@ -766,15 +766,45 @@ export default function MarketingPage() {
             </p>
           </motion.div>
 
+          {/* Shipping Carriers Section */}
+          <div className="mb-12">
+            <h3 className="text-2xl font-bold text-center mb-6 text-gray-700">🚚 80+ Shipping Carriers</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+              {[
+                { name: 'Royal Mail', emoji: '👑' },
+                { name: 'DHL Express', emoji: '✈️' },
+                { name: 'UPS', emoji: '📦' },
+                { name: 'FedEx', emoji: '🚀' },
+                { name: 'DPD UK', emoji: '🚛' },
+                { name: 'Evri', emoji: '📫' },
+                { name: 'USPS', emoji: '📬' },
+                { name: 'Parcelforce', emoji: '🇬🇧' },
+              ].map((carrier, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-xl p-4 text-center shadow-md hover:shadow-lg transition-all"
+                >
+                  <div className="text-3xl mb-2">{carrier.emoji}</div>
+                  <div className="text-sm font-semibold text-gray-700">{carrier.name}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Integrations Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { name: 'Amazon', icon: <AmazonOutlined />, color: 'from-orange-500 to-yellow-500', desc: 'FBA & FBM Integration' },
               { name: 'Shopify', icon: <ShoppingCartOutlined />, color: 'from-green-500 to-emerald-600', desc: 'Order Sync' },
               { name: 'eBay', icon: <TagsOutlined />, color: 'from-blue-500 to-cyan-500', desc: 'Marketplace Sync' },
-              { name: 'WooCommerce', icon: <GlobalOutlined />, color: 'from-purple-500 to-indigo-500', desc: 'Real-time Updates' },
-              { name: 'FedEx', icon: <CarOutlined />, color: 'from-purple-600 to-blue-600', desc: 'Shipping Labels' },
-              { name: 'UPS', icon: <CarOutlined />, color: 'from-yellow-600 to-amber-700', desc: 'Tracking API' },
+              { name: 'Stripe', icon: <ThunderboltOutlined />, color: 'from-purple-600 to-indigo-600', desc: 'Payment Processing' },
+              { name: 'DocuSign', icon: <SafetyOutlined />, color: 'from-blue-600 to-cyan-600', desc: 'Digital Signatures' },
               { name: 'QuickBooks', icon: <BarChartOutlined />, color: 'from-green-600 to-teal-600', desc: 'Accounting Sync' },
+              { name: 'Xero', icon: <LineChartOutlined />, color: 'from-cyan-500 to-blue-500', desc: 'Financial Reports' },
               { name: 'Slack', icon: <MailOutlined />, color: 'from-pink-500 to-rose-600', desc: 'Notifications' },
             ].map((integration, index) => (
               <motion.div
@@ -795,6 +825,25 @@ export default function MarketingPage() {
             ))}
           </div>
 
+          {/* Key Features Grid */}
+          <div className="mt-12 grid md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
+              <div className="text-4xl mb-3">📊</div>
+              <h4 className="text-xl font-bold text-gray-800 mb-2">Barcode Scanning</h4>
+              <p className="text-gray-600">Built-in scanner for products, batches & locations. Generate and print labels instantly.</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+              <div className="text-4xl mb-3">💳</div>
+              <h4 className="text-xl font-bold text-gray-800 mb-2">Invoicing & Payments</h4>
+              <p className="text-gray-600">Professional invoices with Stripe integration. Accept payments directly in the system.</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200">
+              <div className="text-4xl mb-3">✍️</div>
+              <h4 className="text-xl font-bold text-gray-800 mb-2">DocuSign Integration</h4>
+              <p className="text-gray-600">Digital signatures for POs, contracts, and delivery confirmations. Paperless operations.</p>
+            </div>
+          </div>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -802,7 +851,7 @@ export default function MarketingPage() {
             className="mt-12 text-center"
           >
             <div className="inline-block bg-white rounded-2xl px-8 py-4 shadow-lg">
-              <p className="text-gray-600 mb-2">Plus 50+ more integrations via</p>
+              <p className="text-gray-600 mb-2">Plus 100+ more integrations via</p>
               <div className="flex items-center gap-3 justify-center">
                 <ApiOutlined className="text-3xl text-blue-600" />
                 <span className="text-xl font-bold text-gray-800">REST API & Webhooks</span>

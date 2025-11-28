@@ -230,10 +230,43 @@ export default function SystemIntegrationsPage() {
             <Button onClick={fetchIntegrations} icon={<SyncOutlined />}>
               Refresh
             </Button>
+            <Button icon={<ShoppingOutlined />} size="large" onClick={() => router.push('/protected/integrations/channels')}>
+              Manage Channels
+            </Button>
             <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddIntegration}>
               Add Integration
             </Button>
           </Space>
+        </div>
+
+        {/* Quick Navigation Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card
+            hoverable
+            onClick={() => router.push('/protected/integrations/channels')}
+            className="cursor-pointer border-green-200 hover:border-green-400"
+          >
+            <div className="flex items-center gap-4">
+              <ShoppingOutlined style={{ fontSize: 40, color: '#52c41a' }} />
+              <div>
+                <h3 className="text-lg font-semibold">Sales Channels</h3>
+                <p className="text-gray-500 text-sm">Manage Amazon, Shopify, eBay, and marketplace integrations</p>
+              </div>
+            </div>
+          </Card>
+          <Card
+            hoverable
+            onClick={() => router.push('/protected/settings/integrations')}
+            className="cursor-pointer border-blue-200 hover:border-blue-400"
+          >
+            <div className="flex items-center gap-4">
+              <TruckOutlined style={{ fontSize: 40, color: '#1890ff' }} />
+              <div>
+                <h3 className="text-lg font-semibold">Shipping Carriers</h3>
+                <p className="text-gray-500 text-sm">Connect UPS, FedEx, DHL, Royal Mail, and 80+ carriers</p>
+              </div>
+            </div>
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
