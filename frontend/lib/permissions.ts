@@ -19,8 +19,9 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/profile': ['super_admin', 'company_admin', 'warehouse_manager', 'inventory_manager', 'admin', 'manager', 'picker', 'packer', 'warehouse_staff', 'viewer'],
 
   // Admin routes
-  '/settings': ['super_admin', 'company_admin'],
-  '/users': ['super_admin', 'company_admin'],
+  '/settings': ['super_admin', 'company_admin', 'admin'],
+  '/settings/carriers': ['super_admin', 'company_admin', 'admin'],
+  '/users': ['super_admin', 'company_admin', 'admin'],
   '/companies': ['super_admin'],
 
   // Warehouse management

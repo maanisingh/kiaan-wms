@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 
 import { Table, Card, Tag, Button, Select, Space, Statistic, Row, Col, message, Modal, Form, Input, InputNumber } from 'antd';
-import { CheckOutlined, ClockCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { CheckOutlined, ClockCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 export default function ReplenishmentTasksPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
@@ -15,10 +17,38 @@ export default function ReplenishmentTasksPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [form] = Form.useForm();
+  const [products, setProducts] = useState<any[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
 
   useEffect(() => {
     fetchTasks();
+    fetchProducts();
+    fetchLocations();
   }, [statusFilter]);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await apiService.get('/api/products');
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchLocations = async () => {
+    try {
+      // Fetch from inventory to get unique locations
+      const inventory = await apiService.get('/api/inventory');
+      const uniqueLocations = [...new Set((inventory || []).map((i: any) => i.locationId).filter(Boolean))];
+      // Add common location prefixes
+      const defaultLocations = ['BULK-A1', 'BULK-A2', 'BULK-B1', 'BULK-B2', 'PICK-A1', 'PICK-A2', 'PICK-B1', 'PICK-B2', 'SHELF-01', 'SHELF-02'];
+      const allLocations = [...new Set([...uniqueLocations, ...defaultLocations])];
+      setLocations(allLocations as string[]);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      setLocations(['BULK-A1', 'BULK-A2', 'BULK-B1', 'PICK-A1', 'PICK-A2', 'PICK-B1', 'SHELF-01', 'SHELF-02']);
+    }
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -95,7 +125,7 @@ export default function ReplenishmentTasksPage() {
         await apiService.patch(`/api/replenishment/tasks/${selectedTask.id}`, values);
         message.success('Task updated successfully');
       } else {
-        await apiService.post('/replenishment/tasks', values);
+        await apiService.post('/api/replenishment/tasks', values);
         message.success('Task created successfully');
       }
       setIsModalVisible(false);
@@ -104,6 +134,28 @@ export default function ReplenishmentTasksPage() {
     } catch (error) {
       message.error(`Failed to ${isEditMode ? 'update' : 'create'} task`);
     }
+  };
+
+  const handleViewTask = (record: any) => {
+    Modal.info({
+      title: `Task Details: ${record.taskNumber}`,
+      width: 600,
+      content: (
+        <div className="space-y-3 mt-4">
+          <p><strong>Product:</strong> {record.product?.name || record.productId}</p>
+          <p><strong>Brand:</strong> {record.product?.brand?.name || '-'}</p>
+          <p><strong>From Location:</strong> {record.fromLocation}</p>
+          <p><strong>To Location:</strong> {record.toLocation}</p>
+          <p><strong>Quantity Needed:</strong> {record.quantityNeeded}</p>
+          <p><strong>Quantity Moved:</strong> {record.quantityMoved || 0}</p>
+          <p><strong>Priority:</strong> <Tag color={record.priority === 'URGENT' ? 'red' : record.priority === 'HIGH' ? 'orange' : 'blue'}>{record.priority}</Tag></p>
+          <p><strong>Status:</strong> <Tag color={record.status === 'COMPLETED' ? 'green' : record.status === 'IN_PROGRESS' ? 'blue' : 'orange'}>{record.status}</Tag></p>
+          <p><strong>Created:</strong> {record.createdAt ? format(new Date(record.createdAt), 'dd/MM/yyyy HH:mm') : '-'}</p>
+          {record.completedAt && <p><strong>Completed:</strong> {format(new Date(record.completedAt), 'dd/MM/yyyy HH:mm')}</p>}
+          {record.notes && <p><strong>Notes:</strong> {record.notes}</p>}
+        </div>
+      ),
+    });
   };
 
   const columns = [
@@ -190,10 +242,17 @@ export default function ReplenishmentTasksPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 250,
       fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewTask(record)}
+          >
+            View
+          </Button>
           {record.status !== 'COMPLETED' && (
             <Button
               size="small"
@@ -314,25 +373,58 @@ export default function ReplenishmentTasksPage() {
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <Form.Item
-              label="Product ID"
+              label="Product"
               name="productId"
-              rules={[{ required: true, message: 'Please enter product ID' }]}
+              rules={[{ required: true, message: 'Please select a product' }]}
             >
-              <Input placeholder="Enter product ID" />
+              <Select
+                showSearch
+                placeholder="Select a product"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={products.map(p => ({
+                  value: p.id,
+                  label: `${p.name} (${p.sku})`,
+                }))}
+              />
             </Form.Item>
             <Form.Item
-              label="From Location"
+              label="From Location (Bulk/Storage)"
               name="fromLocation"
-              rules={[{ required: true, message: 'Please enter from location' }]}
+              rules={[{ required: true, message: 'Please select source location' }]}
             >
-              <Input placeholder="e.g., BULK-A1" />
+              <Select
+                showSearch
+                placeholder="Select source location"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={locations.filter(l => l.includes('BULK') || l.includes('SHELF')).map(loc => ({
+                  value: loc,
+                  label: loc,
+                }))}
+              />
             </Form.Item>
             <Form.Item
-              label="To Location"
+              label="To Location (Pick Area)"
               name="toLocation"
-              rules={[{ required: true, message: 'Please enter to location' }]}
+              rules={[{ required: true, message: 'Please select destination location' }]}
             >
-              <Input placeholder="e.g., PICK-B2" />
+              <Select
+                showSearch
+                placeholder="Select destination location"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={locations.filter(l => l.includes('PICK') || !l.includes('BULK')).map(loc => ({
+                  value: loc,
+                  label: loc,
+                }))}
+              />
             </Form.Item>
             <Form.Item
               label="Quantity Needed"
@@ -345,6 +437,7 @@ export default function ReplenishmentTasksPage() {
               label="Priority"
               name="priority"
               rules={[{ required: true, message: 'Please select priority' }]}
+              initialValue="MEDIUM"
             >
               <Select placeholder="Select priority">
                 <Select.Option value="LOW">Low</Select.Option>

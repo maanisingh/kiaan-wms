@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card, Button, Tag, Descriptions, Table, Space, Timeline, Divider, Row, Col,
-  Spin, Alert, Statistic
+  Spin, Alert, Statistic, Modal, Form, Input, Select, message, InputNumber
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -17,11 +17,20 @@ import {
   GlobalOutlined,
   ReloadOutlined,
   DollarOutlined,
+  CreditCardOutlined,
+  InboxOutlined,
+  FileTextOutlined,
+  CarOutlined,
+  CloseCircleOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import apiService from '@/services/api';
 import Link from 'next/link';
+
+const { Option } = Select;
+const { TextArea } = Input;
 
 interface SalesOrderItem {
   id: string;
@@ -73,6 +82,15 @@ export default function SalesOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Action states
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [shipModalOpen, setShipModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [paymentForm] = Form.useForm();
+  const [cancelForm] = Form.useForm();
+  const [shipForm] = Form.useForm();
+
   const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
@@ -92,6 +110,303 @@ export default function SalesOrderDetailPage() {
       fetchOrder();
     }
   }, [params.id, fetchOrder]);
+
+  // Process Payment Handler
+  const handleProcessPayment = async (values: any) => {
+    try {
+      setActionLoading('payment');
+      await apiService.post(`/sales-orders/${params.id}/process-payment`, {
+        paymentMethod: values.paymentMethod,
+        paymentReference: values.paymentReference,
+        amount: values.amount,
+      });
+      message.success('Payment processed successfully!');
+      setPaymentModalOpen(false);
+      paymentForm.resetFields();
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to process payment');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Allocate Inventory Handler
+  const handleAllocateInventory = async () => {
+    try {
+      setActionLoading('allocate');
+      const result = await apiService.post(`/sales-orders/${params.id}/allocate-inventory`);
+      if (result.insufficientStock && result.insufficientStock.length > 0) {
+        Modal.warning({
+          title: 'Insufficient Stock',
+          content: (
+            <div>
+              <p>Some items have insufficient stock:</p>
+              <ul className="list-disc pl-4 mt-2">
+                {result.insufficientStock.map((item: any, idx: number) => (
+                  <li key={idx}>
+                    {item.productName} (SKU: {item.sku}): Need {item.required}, Available {item.available}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ),
+        });
+      } else {
+        message.success('Inventory allocated successfully!');
+      }
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to allocate inventory');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Create Pick List Handler
+  const handleCreatePickList = async () => {
+    try {
+      setActionLoading('picklist');
+      const result = await apiService.post(`/sales-orders/${params.id}/create-pick-list`);
+      message.success(`Pick list ${result.pickList?.pickListNumber || ''} created successfully!`);
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create pick list');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Print Packing Slip Handler
+  const handlePrintPackingSlip = async () => {
+    try {
+      setActionLoading('packingslip');
+      const result = await apiService.get(`/sales-orders/${params.id}/packing-slip`);
+
+      // Create a printable packing slip
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Packing Slip - ${result.orderNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { font-size: 24px; margin-bottom: 20px; }
+              .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+              .section { margin-bottom: 20px; }
+              .section h3 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+              th { background: #f5f5f5; }
+              .total { font-weight: bold; font-size: 18px; text-align: right; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <h1>PACKING SLIP</h1>
+            <div class="header">
+              <div>
+                <strong>Order Number:</strong> ${result.orderNumber}<br>
+                <strong>Date:</strong> ${result.orderDate}<br>
+                <strong>Channel:</strong> ${result.salesChannel || 'DIRECT'}
+              </div>
+            </div>
+            <div class="section">
+              <h3>Ship To</h3>
+              <p>
+                <strong>${result.customer?.name || 'N/A'}</strong><br>
+                ${result.customer?.address || ''}<br>
+                ${result.customer?.phone ? 'Phone: ' + result.customer.phone : ''}
+              </p>
+            </div>
+            <div class="section">
+              <h3>Items</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${result.items?.map((item: any) => `
+                    <tr>
+                      <td>${item.sku}</td>
+                      <td>${item.productName}</td>
+                      <td>${item.quantity}</td>
+                      <td>£${item.unitPrice?.toFixed(2)}</td>
+                      <td>£${item.totalPrice?.toFixed(2)}</td>
+                    </tr>
+                  `).join('') || ''}
+                </tbody>
+              </table>
+            </div>
+            <div class="total">
+              Total: £${result.totalAmount?.toFixed(2) || '0.00'}
+            </div>
+            <p style="margin-top: 40px; font-size: 12px; color: #666;">
+              Thank you for your order!
+            </p>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+      message.success('Packing slip generated!');
+    } catch (err: any) {
+      message.error(err.message || 'Failed to generate packing slip');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Generate Invoice Handler
+  const handleGenerateInvoice = async () => {
+    try {
+      setActionLoading('invoice');
+      const result = await apiService.post(`/sales-orders/${params.id}/generate-invoice`);
+
+      // Create a printable invoice
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Invoice - ${result.invoiceNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { font-size: 24px; margin-bottom: 20px; }
+              .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+              .section { margin-bottom: 20px; }
+              .section h3 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+              th { background: #f5f5f5; }
+              .totals { text-align: right; margin-top: 20px; }
+              .totals p { margin: 5px 0; }
+              .grand-total { font-weight: bold; font-size: 20px; color: #1890ff; }
+            </style>
+          </head>
+          <body>
+            <h1>INVOICE</h1>
+            <div class="header">
+              <div>
+                <strong>Invoice Number:</strong> ${result.invoiceNumber}<br>
+                <strong>Invoice Date:</strong> ${result.invoiceDate}<br>
+                <strong>Order Number:</strong> ${result.orderNumber}
+              </div>
+            </div>
+            <div class="section">
+              <h3>Bill To</h3>
+              <p>
+                <strong>${result.customer?.name || 'N/A'}</strong><br>
+                ${result.customer?.email || ''}<br>
+                ${result.customer?.address || ''}<br>
+                ${result.customer?.phone ? 'Phone: ' + result.customer.phone : ''}
+              </p>
+            </div>
+            <div class="section">
+              <h3>Items</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${result.items?.map((item: any) => `
+                    <tr>
+                      <td>${item.sku}</td>
+                      <td>${item.productName}</td>
+                      <td>${item.quantity}</td>
+                      <td>£${item.unitPrice?.toFixed(2)}</td>
+                      <td>£${item.totalPrice?.toFixed(2)}</td>
+                    </tr>
+                  `).join('') || ''}
+                </tbody>
+              </table>
+            </div>
+            <div class="totals">
+              <p>Subtotal: £${result.subtotal?.toFixed(2) || '0.00'}</p>
+              <p>Tax: £${result.taxAmount?.toFixed(2) || '0.00'}</p>
+              <p>Shipping: £${result.shippingCost?.toFixed(2) || '0.00'}</p>
+              ${result.discountAmount ? `<p>Discount: -£${result.discountAmount?.toFixed(2)}</p>` : ''}
+              <p class="grand-total">Total: £${result.totalAmount?.toFixed(2) || '0.00'}</p>
+            </div>
+            <p style="margin-top: 40px; font-size: 12px; color: #666;">
+              Payment Terms: Net 30 days<br>
+              Thank you for your business!
+            </p>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+      message.success(`Invoice ${result.invoiceNumber} generated successfully!`);
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to generate invoice');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Ship Order Handler
+  const handleShipOrder = async (values: any) => {
+    try {
+      setActionLoading('ship');
+      await apiService.post(`/sales-orders/${params.id}/ship`, {
+        trackingNumber: values.trackingNumber,
+        carrier: values.carrier,
+        notes: values.notes,
+      });
+      message.success('Order marked as shipped!');
+      setShipModalOpen(false);
+      shipForm.resetFields();
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to ship order');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Cancel Order Handler
+  const handleCancelOrder = async (values: any) => {
+    try {
+      setActionLoading('cancel');
+      await apiService.post(`/sales-orders/${params.id}/cancel`, {
+        reason: values.reason,
+      });
+      message.success('Order cancelled successfully');
+      setCancelModalOpen(false);
+      cancelForm.resetFields();
+      fetchOrder();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to cancel order');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Check if actions are allowed based on status
+  const canProcessPayment = ['PENDING'].includes(order?.status?.toUpperCase() || '');
+  const canAllocate = ['PENDING', 'CONFIRMED'].includes(order?.status?.toUpperCase() || '');
+  const canCreatePickList = ['CONFIRMED', 'ALLOCATED'].includes(order?.status?.toUpperCase() || '');
+  const canGenerateInvoice = !['PENDING', 'CANCELLED'].includes(order?.status?.toUpperCase() || '');
+  const canShip = ['PICKING', 'PACKING', 'ALLOCATED'].includes(order?.status?.toUpperCase() || '');
+  const canCancel = !['SHIPPED', 'COMPLETED', 'CANCELLED'].includes(order?.status?.toUpperCase() || '');
 
   if (loading) {
     return (
@@ -415,16 +730,219 @@ export default function SalesOrderDetailPage() {
 
           <Card title="Quick Actions" className="mt-4">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Button block>Process Payment</Button>
-              <Button block>Allocate Inventory</Button>
-              <Button block>Create Pick List</Button>
-              <Button block>Print Packing Slip</Button>
-              <Button block>Generate Invoice</Button>
-              <Button block danger>Cancel Order</Button>
+              <Button
+                block
+                icon={<CreditCardOutlined />}
+                onClick={() => {
+                  paymentForm.setFieldsValue({ amount: order.totalAmount });
+                  setPaymentModalOpen(true);
+                }}
+                disabled={!canProcessPayment}
+                loading={actionLoading === 'payment'}
+              >
+                Process Payment
+              </Button>
+              <Button
+                block
+                icon={<InboxOutlined />}
+                onClick={handleAllocateInventory}
+                disabled={!canAllocate}
+                loading={actionLoading === 'allocate'}
+              >
+                Allocate Inventory
+              </Button>
+              <Button
+                block
+                icon={<FileTextOutlined />}
+                onClick={handleCreatePickList}
+                disabled={!canCreatePickList}
+                loading={actionLoading === 'picklist'}
+              >
+                Create Pick List
+              </Button>
+              <Button
+                block
+                icon={<FilePdfOutlined />}
+                onClick={handlePrintPackingSlip}
+                loading={actionLoading === 'packingslip'}
+              >
+                Print Packing Slip
+              </Button>
+              <Button
+                block
+                icon={<DollarOutlined />}
+                onClick={handleGenerateInvoice}
+                disabled={!canGenerateInvoice}
+                loading={actionLoading === 'invoice'}
+              >
+                Generate Invoice
+              </Button>
+              <Button
+                block
+                type="primary"
+                icon={<CarOutlined />}
+                onClick={() => setShipModalOpen(true)}
+                disabled={!canShip}
+                loading={actionLoading === 'ship'}
+              >
+                Mark as Shipped
+              </Button>
+              <Button
+                block
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={() => setCancelModalOpen(true)}
+                disabled={!canCancel}
+                loading={actionLoading === 'cancel'}
+              >
+                Cancel Order
+              </Button>
             </Space>
           </Card>
         </Col>
       </Row>
+
+      {/* Payment Modal */}
+      <Modal
+        title="Process Payment"
+        open={paymentModalOpen}
+        onCancel={() => setPaymentModalOpen(false)}
+        footer={null}
+      >
+        <Form form={paymentForm} layout="vertical" onFinish={handleProcessPayment}>
+          <Form.Item
+            label="Payment Method"
+            name="paymentMethod"
+            rules={[{ required: true, message: 'Please select payment method' }]}
+          >
+            <Select placeholder="Select payment method">
+              <Option value="CREDIT_CARD">Credit Card</Option>
+              <Option value="DEBIT_CARD">Debit Card</Option>
+              <Option value="BANK_TRANSFER">Bank Transfer</Option>
+              <Option value="CASH">Cash</Option>
+              <Option value="PAYPAL">PayPal</Option>
+              <Option value="STRIPE">Stripe</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label="Amount"
+            name="amount"
+            rules={[{ required: true, message: 'Please enter amount' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              prefix="£"
+              precision={2}
+              min={0}
+            />
+          </Form.Item>
+          <Form.Item label="Payment Reference" name="paymentReference">
+            <Input placeholder="Transaction ID or reference number" />
+          </Form.Item>
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button onClick={() => setPaymentModalOpen(false)}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={actionLoading === 'payment'}
+                icon={<CreditCardOutlined />}
+              >
+                Process Payment
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Ship Order Modal */}
+      <Modal
+        title="Ship Order"
+        open={shipModalOpen}
+        onCancel={() => setShipModalOpen(false)}
+        footer={null}
+      >
+        <Form form={shipForm} layout="vertical" onFinish={handleShipOrder}>
+          <Form.Item
+            label="Carrier"
+            name="carrier"
+            rules={[{ required: true, message: 'Please select carrier' }]}
+          >
+            <Select placeholder="Select carrier">
+              <Option value="DHL">DHL</Option>
+              <Option value="FEDEX">FedEx</Option>
+              <Option value="UPS">UPS</Option>
+              <Option value="ROYAL_MAIL">Royal Mail</Option>
+              <Option value="PARCELFORCE">Parcelforce</Option>
+              <Option value="DPD">DPD</Option>
+              <Option value="HERMES">Hermes</Option>
+              <Option value="OTHER">Other</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label="Tracking Number"
+            name="trackingNumber"
+            rules={[{ required: true, message: 'Please enter tracking number' }]}
+          >
+            <Input placeholder="Enter tracking number" />
+          </Form.Item>
+          <Form.Item label="Shipping Notes" name="notes">
+            <TextArea rows={3} placeholder="Any shipping notes..." />
+          </Form.Item>
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button onClick={() => setShipModalOpen(false)}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={actionLoading === 'ship'}
+                icon={<CarOutlined />}
+              >
+                Mark as Shipped
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Cancel Order Modal */}
+      <Modal
+        title="Cancel Order"
+        open={cancelModalOpen}
+        onCancel={() => setCancelModalOpen(false)}
+        footer={null}
+      >
+        <Alert
+          message="Warning"
+          description="This action cannot be undone. The order will be marked as cancelled."
+          type="warning"
+          showIcon
+          className="mb-4"
+        />
+        <Form form={cancelForm} layout="vertical" onFinish={handleCancelOrder}>
+          <Form.Item
+            label="Cancellation Reason"
+            name="reason"
+            rules={[{ required: true, message: 'Please provide a reason for cancellation' }]}
+          >
+            <TextArea rows={4} placeholder="Enter reason for cancellation..." />
+          </Form.Item>
+          <Form.Item className="mb-0">
+            <Space className="w-full justify-end">
+              <Button onClick={() => setCancelModalOpen(false)}>Go Back</Button>
+              <Button
+                type="primary"
+                danger
+                htmlType="submit"
+                loading={actionLoading === 'cancel'}
+                icon={<CloseCircleOutlined />}
+              >
+                Cancel Order
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

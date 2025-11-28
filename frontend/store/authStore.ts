@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
 
 // Ensure API URL always ends with /api for correct routing
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://serene-adaptation-production-c6d3.up.railway.app';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
 const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.replace('/api', '') : rawApiUrl;
 
 // Demo users for client-side authentication (when backend is not available)

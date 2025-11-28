@@ -151,6 +151,8 @@ export default function ClientsPage() {
       address: record.address,
       tier: record.tier,
       segment: record.segment,
+      creditLimit: record.creditLimit,
+      paymentTerms: record.paymentTerms,
     });
     setEditMode(true);
     setModalOpen(true);
@@ -205,16 +207,19 @@ export default function ClientsPage() {
       key: 'client',
       width: 300,
       render: (record: Client) => (
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+          onClick={() => router.push(`/clients/${record.id}`)}
+        >
           <Avatar size={40} style={{ backgroundColor: '#722ed1' }}>
             <UsergroupAddOutlined />
           </Avatar>
           <div>
-            <div className="font-semibold text-purple-600 flex items-center gap-2">
+            <div className="font-semibold text-purple-600 flex items-center gap-2 hover:underline">
               {record.name}
               {getTierIcon(record.tier || '')}
             </div>
-            <div className="text-xs text-gray-500">{record.id?.slice(0, 8)}</div>
+            <div className="text-xs text-gray-500 font-mono">{record.code || record.id?.slice(0, 8)}</div>
           </div>
         </div>
       ),
@@ -315,10 +320,10 @@ export default function ClientsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Clients Management
+            3PL Clients
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage your B2B and B2C clients, customer relationships, and sales channels
+            Manage third-party logistics clients who store inventory in your warehouse
           </p>
         </div>
         <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddClient}>
@@ -469,14 +474,27 @@ export default function ClientsPage() {
             <Input.TextArea placeholder="Enter address" rows={2} />
           </Form.Item>
           <Form.Item label="Tier" name="tier">
-            <Select placeholder="Select tier">
+            <Select placeholder="Select tier" allowClear>
               <Option value="Premium">Premium</Option>
               <Option value="Gold">Gold</Option>
               <Option value="Silver">Silver</Option>
+              <Option value="Standard">Standard</Option>
             </Select>
           </Form.Item>
           <Form.Item label="Segment" name="segment">
             <Input placeholder="Enter business segment (e.g., E-commerce, Retail)" />
+          </Form.Item>
+          <Form.Item label="Credit Limit" name="creditLimit">
+            <Input type="number" placeholder="Enter credit limit (e.g., 50000)" prefix="£" />
+          </Form.Item>
+          <Form.Item label="Payment Terms" name="paymentTerms">
+            <Select placeholder="Select payment terms" allowClear>
+              <Option value="NET30">NET 30 Days</Option>
+              <Option value="NET60">NET 60 Days</Option>
+              <Option value="NET90">NET 90 Days</Option>
+              <Option value="COD">Cash on Delivery</Option>
+              <Option value="PREPAID">Prepaid</Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

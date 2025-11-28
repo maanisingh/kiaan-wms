@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
-import { Table, Card, Tag, Button, Space, Statistic, Row, Col, Progress, Tooltip, Select, Alert } from 'antd';
+import { Table, Card, Tag, Button, Space, Statistic, Row, Col, Progress, Tooltip, Select, Alert, message, Spin } from 'antd';
 import {
   RiseOutlined,
   FallOutlined,
@@ -15,91 +15,72 @@ import {
   TrophyOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
+  ReloadOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
-import Link from 'next/link';
-
-// Real product data with actual pricing scenarios
-const mockProducts = [
-  // Products with optimization opportunities
-  { id: 1, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Amazon UK', currentPrice: 1.35, cost: 0.85, packaging: 0.05, shipping: 0.15, channelFee: 0.20, volume: 2500, competitorPrice: 1.45, demandElasticity: -1.2 },
-  { id: 2, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Amazon UK', currentPrice: 1.99, cost: 1.20, packaging: 0.06, shipping: 0.18, channelFee: 0.30, volume: 1800, competitorPrice: 2.15, demandElasticity: -1.5 },
-  { id: 3, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'Amazon UK', currentPrice: 2.45, cost: 1.45, packaging: 0.07, shipping: 0.20, channelFee: 0.37, volume: 1200, competitorPrice: 2.49, demandElasticity: -0.9 },
-  { id: 4, sku: 'NK-CC-12PK', name: 'Nakd Cashew Cookie 12-Pack', brand: 'Nakd', channel: 'Amazon UK', currentPrice: 14.99, cost: 10.20, packaging: 0.25, shipping: 0.50, channelFee: 2.25, volume: 850, competitorPrice: 15.99, demandElasticity: -1.1 },
-  { id: 5, sku: 'GR-MIX-8PK', name: 'Graze Mixed Box 8-Pack', brand: 'Graze', channel: 'Amazon UK', currentPrice: 13.99, cost: 9.60, packaging: 0.30, shipping: 0.55, channelFee: 2.10, volume: 650, competitorPrice: 14.49, demandElasticity: -1.3 },
-
-  { id: 6, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Shopify', currentPrice: 1.49, cost: 0.85, packaging: 0.05, shipping: 0.40, channelFee: 0.06, volume: 1500, competitorPrice: 1.59, demandElasticity: -1.4 },
-  { id: 7, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Shopify', currentPrice: 2.19, cost: 1.20, packaging: 0.06, shipping: 0.45, channelFee: 0.09, volume: 1200, competitorPrice: 2.29, demandElasticity: -1.6 },
-  { id: 8, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'Shopify', currentPrice: 2.69, cost: 1.45, packaging: 0.07, shipping: 0.48, channelFee: 0.11, volume: 900, competitorPrice: 2.79, demandElasticity: -1.0 },
-  { id: 9, sku: 'NK-BL-24PK', name: 'Nakd Berry Lovers 24-Pack', brand: 'Nakd', channel: 'Shopify', currentPrice: 27.99, cost: 19.20, packaging: 0.50, shipping: 0.80, channelFee: 1.12, volume: 420, competitorPrice: 29.99, demandElasticity: -1.2 },
-  { id: 10, sku: 'GR-PR-16PK', name: 'Graze Protein Box 16-Pack', brand: 'Graze', channel: 'Shopify', currentPrice: 25.99, cost: 18.40, packaging: 0.45, shipping: 0.75, channelFee: 1.04, volume: 380, competitorPrice: 27.49, demandElasticity: -1.3 },
-
-  { id: 11, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'B2B Wholesale', currentPrice: 1.15, cost: 0.85, packaging: 0.02, shipping: 0.05, channelFee: 0.00, volume: 5000, competitorPrice: 1.20, demandElasticity: -0.7 },
-  { id: 12, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'B2B Wholesale', currentPrice: 1.65, cost: 1.20, packaging: 0.03, shipping: 0.06, channelFee: 0.00, volume: 4200, competitorPrice: 1.70, demandElasticity: -0.8 },
-  { id: 13, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'B2B Wholesale', currentPrice: 1.95, cost: 1.45, packaging: 0.03, shipping: 0.07, channelFee: 0.00, volume: 3500, competitorPrice: 2.00, demandElasticity: -0.6 },
-
-  { id: 14, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'eBay', currentPrice: 1.39, cost: 0.85, packaging: 0.05, shipping: 0.25, channelFee: 0.14, volume: 800, competitorPrice: 1.49, demandElasticity: -1.5 },
-  { id: 15, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'eBay', currentPrice: 2.09, cost: 1.20, packaging: 0.06, shipping: 0.28, channelFee: 0.21, volume: 650, competitorPrice: 2.19, demandElasticity: -1.7 },
-
-  { id: 16, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Direct', currentPrice: 1.55, cost: 0.85, packaging: 0.05, shipping: 0.00, channelFee: 0.00, volume: 600, competitorPrice: 1.65, demandElasticity: -1.1 },
-  { id: 17, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Direct', currentPrice: 2.29, cost: 1.20, packaging: 0.06, shipping: 0.00, channelFee: 0.00, volume: 450, competitorPrice: 2.39, demandElasticity: -1.2 },
-];
+import apiService from '@/services/api';
 
 // ALGORITHM: Price Optimization Engine
 const optimizePrice = (product: any, targetMargin: number = 25) => {
-  const totalCost = product.cost + product.packaging + product.shipping + product.channelFee;
-  const currentMargin = ((product.currentPrice - totalCost) / product.currentPrice) * 100;
+  const cost = parseFloat(product.costPrice || product.cost || 0);
+  const currentPrice = parseFloat(product.sellingPrice || product.currentPrice || 0);
+  const packaging = parseFloat(product.packaging || 0.05);
+  const shipping = parseFloat(product.shipping || 0.15);
+  const channelFee = parseFloat(product.channelFee || 0);
+  const volume = parseInt(product.volume || product.totalStock || 100);
+  const competitorPrice = parseFloat(product.competitorPrice || currentPrice * 1.05);
+  const demandElasticity = parseFloat(product.demandElasticity || -1.2);
+
+  const totalCost = cost + packaging + shipping + channelFee;
+  const currentMargin = currentPrice > 0 ? ((currentPrice - totalCost) / currentPrice) * 100 : 0;
 
   // Strategy 1: Margin-based pricing
-  const marginBasedPrice = totalCost / (1 - targetMargin / 100);
+  const marginBasedPrice = totalCost > 0 ? totalCost / (1 - targetMargin / 100) : currentPrice;
 
   // Strategy 2: Competitor-aware pricing (stay within 5% of competitor)
-  const competitorBasedPrice = product.competitorPrice * 0.97; // 3% below competitor
+  const competitorBasedPrice = competitorPrice * 0.97; // 3% below competitor
 
   // Strategy 3: Elasticity-based pricing (demand sensitivity)
-  // If elastic (elasticity < -1), be conservative with price increases
-  const elasticityFactor = product.demandElasticity < -1 ? 0.95 : 1.05;
-  const elasticityBasedPrice = product.currentPrice * elasticityFactor;
-
-  // Strategy 4: Volume-weighted recommendation
-  const volumeWeight = Math.min(product.volume / 5000, 1);
+  const elasticityFactor = demandElasticity < -1 ? 0.95 : 1.05;
+  const elasticityBasedPrice = currentPrice * elasticityFactor;
 
   // Combined algorithm: weighted average of strategies
-  const recommendedPrice = (
+  const recommendedPrice = currentPrice > 0 ? (
     marginBasedPrice * 0.4 + // 40% weight on target margin
     competitorBasedPrice * 0.3 + // 30% weight on competition
     elasticityBasedPrice * 0.3 // 30% weight on demand elasticity
-  );
+  ) : marginBasedPrice;
 
-  const priceChange = recommendedPrice - product.currentPrice;
-  const priceChangePercent = (priceChange / product.currentPrice) * 100;
+  const priceChange = recommendedPrice - currentPrice;
+  const priceChangePercent = currentPrice > 0 ? (priceChange / currentPrice) * 100 : 0;
 
   // Calculate projected impact
-  const volumeChange = priceChangePercent * product.demandElasticity; // elasticity formula
-  const projectedVolume = Math.max(0, product.volume * (1 + volumeChange / 100));
+  const volumeChange = priceChangePercent * demandElasticity;
+  const projectedVolume = Math.max(0, volume * (1 + volumeChange / 100));
 
-  const currentRevenue = product.currentPrice * product.volume;
-  const currentProfit = (product.currentPrice - totalCost) * product.volume;
+  const currentRevenue = currentPrice * volume;
+  const currentProfit = (currentPrice - totalCost) * volume;
 
   const projectedRevenue = recommendedPrice * projectedVolume;
   const projectedProfit = (recommendedPrice - totalCost) * projectedVolume;
 
-  const projectedMargin = ((recommendedPrice - totalCost) / recommendedPrice) * 100;
+  const projectedMargin = recommendedPrice > 0 ? ((recommendedPrice - totalCost) / recommendedPrice) * 100 : 0;
 
   const revenueImpact = projectedRevenue - currentRevenue;
   const profitImpact = projectedProfit - currentProfit;
 
   // Confidence score (0-100) based on various factors
   const marginGap = Math.abs(currentMargin - targetMargin);
-  const competitorGap = Math.abs(product.currentPrice - product.competitorPrice) / product.competitorPrice;
-  const elasticityConfidence = Math.abs(product.demandElasticity) > 1 ? 80 : 60; // More confident with elastic products
+  const competitorGap = currentPrice > 0 ? Math.abs(currentPrice - competitorPrice) / competitorPrice : 0;
+  const elasticityConfidence = Math.abs(demandElasticity) > 1 ? 80 : 60;
 
-  const confidenceScore = Math.min(100,
+  const confidenceScore = Math.min(100, Math.max(0,
     100 - (marginGap * 2) - (competitorGap * 50) + (elasticityConfidence - 50)
-  );
+  ));
 
   // Priority score (1-5 stars) based on profit impact potential
-  const profitImpactPercent = (profitImpact / currentProfit) * 100;
-  let priorityScore = 3; // default
+  const profitImpactPercent = currentProfit !== 0 ? (profitImpact / Math.abs(currentProfit)) * 100 : 0;
+  let priorityScore = 3;
   if (profitImpactPercent > 15) priorityScore = 5;
   else if (profitImpactPercent > 10) priorityScore = 4;
   else if (profitImpactPercent > 5) priorityScore = 4;
@@ -108,6 +89,8 @@ const optimizePrice = (product: any, targetMargin: number = 25) => {
 
   return {
     ...product,
+    cost,
+    currentPrice,
     totalCost,
     currentMargin,
     recommendedPrice,
@@ -119,22 +102,65 @@ const optimizePrice = (product: any, targetMargin: number = 25) => {
     projectedRevenue,
     projectedProfit,
     projectedVolume,
+    volume,
     volumeChange,
     revenueImpact,
     profitImpact,
     confidenceScore,
     priorityScore,
+    channel: product.channel || 'Direct',
   };
 };
 
 export default function PriceOptimizerPage() {
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
   const [targetMargin, setTargetMargin] = useState(25);
   const [selectedChannel, setSelectedChannel] = useState('all');
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Try analytics endpoint first
+      const data = await apiService.get('/api/analytics/pricing-optimizer');
+      if (data && data.products && data.products.length > 0) {
+        setProducts(data.products);
+      } else {
+        // Fallback to products
+        const productsData = await apiService.get('/api/products');
+        const inventory = await apiService.get('/api/inventory');
+
+        const enrichedProducts = (productsData || []).map((p: any) => {
+          const inv = (inventory || []).filter((i: any) => i.productId === p.id);
+          const totalStock = inv.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0);
+          return {
+            ...p,
+            volume: totalStock,
+            channel: p.channelPrices?.[0]?.channel?.name || 'Direct',
+            channelFee: p.channelPrices?.[0]?.channel?.commissionRate || 0,
+            competitorPrice: parseFloat(p.sellingPrice || 0) * 1.05,
+            demandElasticity: -1.2,
+          };
+        });
+        setProducts(enrichedProducts);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      message.error('Failed to load pricing data');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Calculate optimized prices for all products
   const optimizedProducts = useMemo(() => {
-    return mockProducts.map(p => optimizePrice(p, targetMargin));
-  }, [targetMargin]);
+    return products.map(p => optimizePrice(p, targetMargin));
+  }, [products, targetMargin]);
 
   // Filter by channel
   const filteredProducts = useMemo(() => {
@@ -143,29 +169,63 @@ export default function PriceOptimizerPage() {
   }, [optimizedProducts, selectedChannel]);
 
   // Get unique channels
-  const channels = ['all', ...Array.from(new Set(mockProducts.map(p => p.channel)))];
+  const channels = useMemo(() => {
+    const uniqueChannels = [...new Set(products.map((p: any) => p.channel || 'Direct').filter(Boolean))];
+    return ['all', ...uniqueChannels];
+  }, [products]);
 
   // Calculate aggregate metrics
-  const totalCurrentRevenue = filteredProducts.reduce((sum, p) => sum + p.currentRevenue, 0);
-  const totalProjectedRevenue = filteredProducts.reduce((sum, p) => sum + p.projectedRevenue, 0);
-  const totalCurrentProfit = filteredProducts.reduce((sum, p) => sum + p.currentProfit, 0);
-  const totalProjectedProfit = filteredProducts.reduce((sum, p) => sum + p.projectedProfit, 0);
+  const totalCurrentRevenue = filteredProducts.reduce((sum, p) => sum + (p.currentRevenue || 0), 0);
+  const totalProjectedRevenue = filteredProducts.reduce((sum, p) => sum + (p.projectedRevenue || 0), 0);
+  const totalCurrentProfit = filteredProducts.reduce((sum, p) => sum + (p.currentProfit || 0), 0);
+  const totalProjectedProfit = filteredProducts.reduce((sum, p) => sum + (p.projectedProfit || 0), 0);
   const totalRevenueImpact = totalProjectedRevenue - totalCurrentRevenue;
   const totalProfitImpact = totalProjectedProfit - totalCurrentProfit;
 
-  const avgCurrentMargin = filteredProducts.reduce((sum, p) => sum + p.currentMargin, 0) / filteredProducts.length;
-  const avgProjectedMargin = filteredProducts.reduce((sum, p) => sum + p.projectedMargin, 0) / filteredProducts.length;
+  const avgCurrentMargin = filteredProducts.length > 0
+    ? filteredProducts.reduce((sum, p) => sum + (p.currentMargin || 0), 0) / filteredProducts.length
+    : 0;
+  const avgProjectedMargin = filteredProducts.length > 0
+    ? filteredProducts.reduce((sum, p) => sum + (p.projectedMargin || 0), 0) / filteredProducts.length
+    : 0;
 
   // Find top opportunities
   const topOpportunities = [...optimizedProducts].sort((a, b) => b.profitImpact - a.profitImpact).slice(0, 3);
 
   const getRecommendationTag = (product: any) => {
-    if (product.priceChangePercent > 10) return { color: 'red', text: 'Significant Increase', icon: <RiseOutlined /> };
-    if (product.priceChangePercent > 5) return { color: 'orange', text: 'Moderate Increase', icon: <RiseOutlined /> };
-    if (product.priceChangePercent > 1) return { color: 'blue', text: 'Minor Adjustment', icon: <RiseOutlined /> };
-    if (product.priceChangePercent > -1) return { color: 'green', text: 'Optimal', icon: <CheckCircleOutlined /> };
-    if (product.priceChangePercent > -5) return { color: 'orange', text: 'Consider Decrease', icon: <FallOutlined /> };
+    const change = product.priceChangePercent || 0;
+    if (change > 10) return { color: 'red', text: 'Significant Increase', icon: <RiseOutlined /> };
+    if (change > 5) return { color: 'orange', text: 'Moderate Increase', icon: <RiseOutlined /> };
+    if (change > 1) return { color: 'blue', text: 'Minor Adjustment', icon: <RiseOutlined /> };
+    if (change > -1) return { color: 'green', text: 'Optimal', icon: <CheckCircleOutlined /> };
+    if (change > -5) return { color: 'orange', text: 'Consider Decrease', icon: <FallOutlined /> };
     return { color: 'red', text: 'Decrease Needed', icon: <FallOutlined /> };
+  };
+
+  const handleExport = () => {
+    const headers = ['SKU', 'Product', 'Channel', 'Current Price', 'Current Margin', 'Recommended Price', 'Projected Margin', 'Price Change %', 'Profit Impact', 'Confidence'];
+    const rows = filteredProducts.map(p => [
+      p.sku,
+      p.name,
+      p.channel,
+      p.currentPrice?.toFixed(2),
+      p.currentMargin?.toFixed(1),
+      p.recommendedPrice?.toFixed(2),
+      p.projectedMargin?.toFixed(1),
+      p.priceChangePercent?.toFixed(1),
+      p.profitImpact?.toFixed(0),
+      p.confidenceScore?.toFixed(0),
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `price-optimization-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    message.success('Report exported successfully!');
   };
 
   const columns = [
@@ -187,7 +247,7 @@ export default function PriceOptimizerPage() {
       dataIndex: 'channel',
       key: 'channel',
       width: 130,
-      render: (channel: string) => <Tag color="purple" icon={<GlobalOutlined />}>{channel}</Tag>,
+      render: (channel: string) => <Tag color="purple" icon={<GlobalOutlined />}>{channel || 'Direct'}</Tag>,
     },
     {
       title: 'Current Price',
@@ -195,7 +255,7 @@ export default function PriceOptimizerPage() {
       key: 'currentPrice',
       width: 110,
       align: 'right' as const,
-      render: (price: number) => <span className="font-semibold">£{price.toFixed(2)}</span>,
+      render: (price: number) => <span className="font-semibold">£{(price || 0).toFixed(2)}</span>,
     },
     {
       title: 'Current Margin',
@@ -203,7 +263,7 @@ export default function PriceOptimizerPage() {
       width: 120,
       align: 'center' as const,
       render: (record: any) => {
-        const margin = record.currentMargin;
+        const margin = record.currentMargin || 0;
         const color = margin >= 25 ? '#52c41a' : margin >= 15 ? '#1890ff' : margin >= 10 ? '#faad14' : '#ff4d4f';
         return <Tag color={color} style={{ fontWeight: 'bold' }}>{margin.toFixed(1)}%</Tag>;
       },
@@ -215,8 +275,8 @@ export default function PriceOptimizerPage() {
       align: 'right' as const,
       render: (record: any) => (
         <div>
-          <div className="font-bold text-green-600 text-lg">£{record.recommendedPrice.toFixed(2)}</div>
-          <div className="text-xs text-gray-500">Margin: {record.projectedMargin.toFixed(1)}%</div>
+          <div className="font-bold text-green-600 text-lg">£{(record.recommendedPrice || 0).toFixed(2)}</div>
+          <div className="text-xs text-gray-500">Margin: {(record.projectedMargin || 0).toFixed(1)}%</div>
         </div>
       ),
     },
@@ -226,13 +286,13 @@ export default function PriceOptimizerPage() {
       width: 120,
       align: 'center' as const,
       render: (record: any) => {
-        const change = record.priceChangePercent;
+        const change = record.priceChangePercent || 0;
         const color = Math.abs(change) < 1 ? 'text-green-600' : change > 0 ? 'text-red-600' : 'text-orange-600';
         const Icon = change > 0 ? RiseOutlined : change < 0 ? FallOutlined : CheckCircleOutlined;
         return (
           <div className={color}>
             <div className="font-bold"><Icon /> {change > 0 ? '+' : ''}{change.toFixed(1)}%</div>
-            <div className="text-xs">{change > 0 ? '+' : ''}£{record.priceChange.toFixed(2)}</div>
+            <div className="text-xs">{change > 0 ? '+' : ''}£{(record.priceChange || 0).toFixed(2)}</div>
           </div>
         );
       },
@@ -243,11 +303,11 @@ export default function PriceOptimizerPage() {
       width: 130,
       align: 'right' as const,
       render: (record: any) => {
-        const impact = record.profitImpact;
+        const impact = record.profitImpact || 0;
         const color = impact > 0 ? 'text-green-600' : 'text-red-600';
         const Icon = impact > 0 ? RiseOutlined : FallOutlined;
         return (
-          <Tooltip title={`Current Profit: £${record.currentProfit.toLocaleString()} → Projected: £${record.projectedProfit.toLocaleString()}`}>
+          <Tooltip title={`Current Profit: £${(record.currentProfit || 0).toLocaleString()} → Projected: £${(record.projectedProfit || 0).toLocaleString()}`}>
             <div className={`${color} font-semibold cursor-help`}>
               <Icon /> {impact > 0 ? '+' : ''}£{Math.abs(impact).toLocaleString()}
             </div>
@@ -255,23 +315,6 @@ export default function PriceOptimizerPage() {
         );
       },
       sorter: (a: any, b: any) => b.profitImpact - a.profitImpact,
-    },
-    {
-      title: 'Volume Impact',
-      key: 'volumeChange',
-      width: 110,
-      align: 'center' as const,
-      render: (record: any) => {
-        const change = record.volumeChange;
-        const color = Math.abs(change) < 5 ? 'default' : change < -10 ? 'error' : 'warning';
-        return (
-          <Tooltip title={`Current: ${record.volume} → Projected: ${Math.round(record.projectedVolume)}`}>
-            <Tag color={color} className="cursor-help">
-              {change > 0 ? '+' : ''}{change.toFixed(1)}%
-            </Tag>
-          </Tooltip>
-        );
-      },
     },
     {
       title: (
@@ -283,7 +326,7 @@ export default function PriceOptimizerPage() {
       width: 110,
       align: 'center' as const,
       render: (record: any) => {
-        const score = record.confidenceScore;
+        const score = record.confidenceScore || 0;
         const status = score >= 75 ? 'success' : score >= 50 ? 'normal' : 'exception';
         return <Progress type="circle" percent={score} size={45} status={status} />;
       },
@@ -294,8 +337,8 @@ export default function PriceOptimizerPage() {
       width: 100,
       align: 'center' as const,
       render: (record: any) => {
-        const stars = '⭐'.repeat(record.priorityScore);
-        const color = record.priorityScore >= 4 ? 'gold' : record.priorityScore >= 3 ? 'blue' : 'default';
+        const stars = '⭐'.repeat(record.priorityScore || 1);
+        const color = (record.priorityScore || 1) >= 4 ? 'gold' : (record.priorityScore || 1) >= 3 ? 'blue' : 'default';
         return <Tag color={color} style={{ fontSize: 16 }}>{stars}</Tag>;
       },
       sorter: (a: any, b: any) => b.priorityScore - a.priorityScore,
@@ -311,16 +354,30 @@ export default function PriceOptimizerPage() {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Spin size="large" tip="Loading price optimizer..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            AI Price Optimizer
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Algorithm-based pricing recommendations using demand elasticity, competitor analysis, and margin targets
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+              AI Price Optimizer
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Algorithm-based pricing recommendations using demand elasticity, competitor analysis, and margin targets
+            </p>
+          </div>
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={fetchData}>Refresh</Button>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>Export</Button>
+          </Space>
         </div>
 
         {/* Algorithm Info */}
@@ -342,27 +399,25 @@ export default function PriceOptimizerPage() {
           <Col xs={24} sm={12} lg={6}>
             <Card>
               <Statistic
-                title="Projected Revenue Increase"
-                value={totalRevenueImpact}
-                prefix="£"
+                title="Projected Revenue Impact"
+                value={Math.abs(totalRevenueImpact)}
+                prefix={totalRevenueImpact >= 0 ? <><RiseOutlined /> £</> : <><FallOutlined /> -£</>}
                 precision={0}
                 valueStyle={{ color: totalRevenueImpact >= 0 ? '#52c41a' : '#ff4d4f', fontSize: 24 }}
-                prefix={totalRevenueImpact >= 0 ? <RiseOutlined /> : <FallOutlined />}
               />
               <div className="mt-2 text-xs text-gray-500">
-                {totalCurrentRevenue.toLocaleString()} → £{totalProjectedRevenue.toLocaleString()}
+                £{totalCurrentRevenue.toLocaleString()} → £{totalProjectedRevenue.toLocaleString()}
               </div>
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
             <Card>
               <Statistic
-                title="Projected Profit Increase"
-                value={totalProfitImpact}
-                prefix="£"
+                title="Projected Profit Impact"
+                value={Math.abs(totalProfitImpact)}
+                prefix={totalProfitImpact >= 0 ? <><RiseOutlined /> £</> : <><FallOutlined /> -£</>}
                 precision={0}
                 valueStyle={{ color: totalProfitImpact >= 0 ? '#52c41a' : '#ff4d4f', fontSize: 24 }}
-                prefix={totalProfitImpact >= 0 ? <RiseOutlined /> : <FallOutlined />}
               />
               <div className="mt-2 text-xs text-gray-500">
                 Current: £{totalCurrentProfit.toLocaleString()}
@@ -406,31 +461,34 @@ export default function PriceOptimizerPage() {
         </Row>
 
         {/* Top Opportunities */}
-        <Card title={<span className="text-lg font-semibold"><TrophyOutlined /> Top 3 Optimization Opportunities</span>}>
+        {topOpportunities.length > 0 && (
+        <Card title={<span className="text-lg font-semibold"><TrophyOutlined /> Top Optimization Opportunities</span>}>
           <Row gutter={16}>
             {topOpportunities.map((product, idx) => (
-              <Col key={product.id} xs={24} md={8}>
+              <Col key={product.id || idx} xs={24} md={8}>
                 <Card className={`${idx === 0 ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300' : idx === 1 ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300' : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <Tag color={idx === 0 ? 'gold' : idx === 1 ? 'default' : 'orange'} style={{ fontSize: 18 }}>
                       #{idx + 1}
                     </Tag>
-                    <Tag color="purple">{product.channel}</Tag>
+                    <Tag color="purple">{product.channel || 'Direct'}</Tag>
                   </div>
-                  <div className="font-bold text-lg mb-1">{product.name}</div>
-                  <div className="text-sm text-gray-600 mb-3">{product.brand}</div>
+                  <div className="font-bold text-lg mb-1">{product.name || 'Product'}</div>
+                  <div className="text-sm text-gray-600 mb-3">{product.brand?.name || ''}</div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Profit Impact:</span>
-                      <span className="font-bold text-green-600">+£{product.profitImpact.toLocaleString()}</span>
+                      <span className={`font-bold ${(product.profitImpact || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(product.profitImpact || 0) >= 0 ? '+' : ''}£{(product.profitImpact || 0).toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Price Change:</span>
-                      <span className="font-semibold">{product.priceChangePercent > 0 ? '+' : ''}{product.priceChangePercent.toFixed(1)}%</span>
+                      <span className="font-semibold">{(product.priceChangePercent || 0) > 0 ? '+' : ''}{(product.priceChangePercent || 0).toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Confidence:</span>
-                      <Progress percent={product.confidenceScore} size="small" style={{ width: 100 }} />
+                      <Progress percent={product.confidenceScore || 0} size="small" style={{ width: 100 }} />
                     </div>
                   </div>
                 </Card>
@@ -438,6 +496,7 @@ export default function PriceOptimizerPage() {
             ))}
           </Row>
         </Card>
+        )}
 
         {/* Controls */}
         <Card>
@@ -461,11 +520,6 @@ export default function PriceOptimizerPage() {
                 ))}
               </Select>
             </div>
-            <div className="ml-auto">
-              <Button type="primary" icon={<LineChartOutlined />}>
-                Apply Optimizations
-              </Button>
-            </div>
           </div>
         </Card>
 
@@ -477,6 +531,7 @@ export default function PriceOptimizerPage() {
             rowKey="id"
             pagination={{ pageSize: 15, showTotal: (total) => `Total ${total} products` }}
             scroll={{ x: 1600 }}
+            locale={{ emptyText: 'No products found. Add products with pricing information to see optimization suggestions.' }}
           />
         </Card>
       </div>

@@ -182,20 +182,29 @@ export default function GoodsReceivingPage() {
   const handleOpenReceive = async (record: GoodsReceipt) => {
     const details = await fetchReceiptDetails(record.id);
     if (details) {
+      // Check if items exist and is an array
+      if (!details.items || !Array.isArray(details.items) || details.items.length === 0) {
+        message.error('This goods receipt has no items to receive.');
+        return;
+      }
+
       // Set initial values for receive form
       const initialItems = details.items.map((item: GoodsReceiptItem) => ({
         id: item.id,
-        productName: item.productName,
-        productSku: item.productSku,
-        expectedQty: item.expectedQty,
-        receivedQty: item.receivedQty,
-        damagedQty: item.damagedQty,
-        batchNumber: item.batchNumber,
-        lotNumber: item.lotNumber,
+        productName: item.productName || 'Unknown Product',
+        productSku: item.productSku || 'N/A',
+        expectedQty: item.expectedQty || 0,
+        receivedQty: item.receivedQty || 0,
+        damagedQty: item.damagedQty || 0,
+        batchNumber: item.batchNumber || '',
+        lotNumber: item.lotNumber || '',
         bestBeforeDate: item.bestBeforeDate ? dayjs(item.bestBeforeDate) : null,
         qualityStatus: item.qualityStatus || 'GOOD',
-        notes: item.notes
+        notes: item.notes || ''
       }));
+
+      // Reset form first, then set values
+      receiveForm.resetFields();
       receiveForm.setFieldsValue({ items: initialItems });
       setReceiveModalOpen(true);
     }
@@ -203,19 +212,35 @@ export default function GoodsReceivingPage() {
 
   // Submit receive items
   const handleReceiveItems = async (values: any) => {
-    if (!selectedReceipt) return;
+    if (!selectedReceipt) {
+      message.error('No receipt selected');
+      return;
+    }
 
     try {
+      // Check if items exist and is an array
+      if (!values.items || !Array.isArray(values.items) || values.items.length === 0) {
+        message.error('No items to receive. Please ensure the goods receipt has items.');
+        return;
+      }
+
       const items = values.items.map((item: any) => ({
         id: item.id,
-        receivedQty: item.receivedQty || 0,
-        damagedQty: item.damagedQty || 0,
-        batchNumber: item.batchNumber,
-        lotNumber: item.lotNumber,
-        bestBeforeDate: item.bestBeforeDate?.toISOString(),
-        qualityStatus: item.qualityStatus,
-        notes: item.notes
+        receivedQty: parseInt(item.receivedQty) || 0,
+        damagedQty: parseInt(item.damagedQty) || 0,
+        batchNumber: item.batchNumber || null,
+        lotNumber: item.lotNumber || null,
+        bestBeforeDate: item.bestBeforeDate?.toISOString() || null,
+        qualityStatus: item.qualityStatus || 'GOOD',
+        notes: item.notes || null
       }));
+
+      // Validate that at least some items have received quantities
+      const totalReceived = items.reduce((sum: number, item: any) => sum + (item.receivedQty || 0), 0);
+      if (totalReceived === 0) {
+        message.warning('Please enter received quantities for at least one item.');
+        return;
+      }
 
       await apiService.post(`/goods-receiving/${selectedReceipt.id}/receive-items`, {
         items,
@@ -228,7 +253,8 @@ export default function GoodsReceivingPage() {
       setSelectedReceipt(null);
       fetchReceipts();
     } catch (err: any) {
-      message.error(err.message || 'Failed to receive items');
+      console.error('Receive items error:', err);
+      message.error(err?.response?.data?.error || err.message || 'Failed to receive items');
     }
   };
 
@@ -717,10 +743,10 @@ export default function GoodsReceivingPage() {
           <Button key="receiveAll" onClick={() => {
             // Set all received quantities to expected quantities
             const items = receiveForm.getFieldValue('items');
-            if (items) {
+            if (items && Array.isArray(items)) {
               const updatedItems = items.map((item: any) => ({
                 ...item,
-                receivedQty: item.expectedQty,
+                receivedQty: item.expectedQty || 0,
                 qualityStatus: item.qualityStatus || 'GOOD'
               }));
               receiveForm.setFieldsValue({ items: updatedItems });
@@ -733,87 +759,115 @@ export default function GoodsReceivingPage() {
           </Button>
         ]}
         width={900}
+        destroyOnClose={false}
       >
-        <Form form={receiveForm} onFinish={handleReceiveItems} layout="vertical">
+        <Form form={receiveForm} onFinish={handleReceiveItems} layout="vertical" preserve={true}>
           <Form.List name="items">
             {(fields) => (
               <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <Card key={field.key} size="small" className="bg-gray-50">
-                    <Form.Item shouldUpdate noStyle>
-                      {() => {
-                        const item = receiveForm.getFieldValue(['items', index]);
-                        return (
-                          <>
-                            <div className="flex justify-between items-center mb-3">
-                              <div>
-                                <Text strong className="text-base">{item?.productName}</Text>
-                                <Text type="secondary" className="ml-2">({item?.productSku})</Text>
-                              </div>
-                              <div className="text-right">
-                                <Text type="secondary">Expected: </Text>
-                                <Text strong className="text-blue-600 text-lg">{item?.expectedQty}</Text>
-                                <Button
-                                  size="small"
-                                  className="ml-2"
-                                  onClick={() => {
-                                    const items = receiveForm.getFieldValue('items');
-                                    items[index].receivedQty = items[index].expectedQty;
-                                    receiveForm.setFieldsValue({ items });
-                                  }}
-                                >
-                                  Receive All
-                                </Button>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      }}
-                    </Form.Item>
-                    <div className="grid grid-cols-4 gap-4">
-                      <Form.Item name={[field.name, 'id']} hidden>
-                        <Input />
-                      </Form.Item>
-                      <Form.Item name={[field.name, 'expectedQty']} hidden>
-                        <Input />
-                      </Form.Item>
-                      <Form.Item name={[field.name, 'productName']} hidden>
-                        <Input />
-                      </Form.Item>
-                      <Form.Item name={[field.name, 'productSku']} hidden>
-                        <Input />
-                      </Form.Item>
-                      <Form.Item
-                        label="Received Qty"
-                        name={[field.name, 'receivedQty']}
-                        rules={[{ required: true, message: 'Required' }]}
-                      >
-                        <InputNumber min={0} style={{ width: '100%' }} />
-                      </Form.Item>
-                      <Form.Item label="Damaged Qty" name={[field.name, 'damagedQty']}>
-                        <InputNumber min={0} style={{ width: '100%' }} />
-                      </Form.Item>
-                      <Form.Item label="Batch Number" name={[field.name, 'batchNumber']}>
-                        <Input placeholder="Batch #" />
-                      </Form.Item>
-                      <Form.Item label="Best Before" name={[field.name, 'bestBeforeDate']}>
-                        <DatePicker style={{ width: '100%' }} />
-                      </Form.Item>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Form.Item label="Quality Status" name={[field.name, 'qualityStatus']}>
-                        <Select>
-                          <Option value="GOOD">Good</Option>
-                          <Option value="DAMAGED">Damaged</Option>
-                          <Option value="REJECTED">Rejected</Option>
-                        </Select>
-                      </Form.Item>
-                      <Form.Item label="Notes" name={[field.name, 'notes']}>
-                        <Input placeholder="Item notes" />
-                      </Form.Item>
-                    </div>
-                  </Card>
-                ))}
+                {fields.length === 0 && (
+                  <div className="text-center text-gray-500 py-8">
+                    No items to receive. This goods receipt may not have any items.
+                  </div>
+                )}
+                {fields.map((field, index) => {
+                  // Get item data directly for display (not using shouldUpdate)
+                  const itemData = receiveForm.getFieldValue(['items', index]) || {};
+                  return (
+                    <Card key={field.key} size="small" className="bg-gray-50">
+                      <div className="flex justify-between items-center mb-3">
+                        <div>
+                          <Text strong className="text-base">
+                            <Form.Item name={[field.name, 'productName']} noStyle>
+                              <span>{itemData.productName || 'Unknown Product'}</span>
+                            </Form.Item>
+                          </Text>
+                          <Text type="secondary" className="ml-2">
+                            (<Form.Item name={[field.name, 'productSku']} noStyle>
+                              <span>{itemData.productSku || 'N/A'}</span>
+                            </Form.Item>)
+                          </Text>
+                        </div>
+                        <div className="text-right">
+                          <Text type="secondary">Expected: </Text>
+                          <Text strong className="text-blue-600 text-lg">{itemData.expectedQty || 0}</Text>
+                          <Button
+                            size="small"
+                            className="ml-2"
+                            onClick={() => {
+                              const currentItems = receiveForm.getFieldValue('items') || [];
+                              if (currentItems[index]) {
+                                currentItems[index] = {
+                                  ...currentItems[index],
+                                  receivedQty: currentItems[index].expectedQty || 0
+                                };
+                                receiveForm.setFieldsValue({ items: [...currentItems] });
+                              }
+                            }}
+                          >
+                            Receive All
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        {/* Hidden fields to preserve data */}
+                        <Form.Item name={[field.name, 'id']} hidden initialValue="">
+                          <Input />
+                        </Form.Item>
+                        <Form.Item name={[field.name, 'expectedQty']} hidden initialValue={0}>
+                          <InputNumber />
+                        </Form.Item>
+                        <Form.Item name={[field.name, 'productName']} hidden initialValue="">
+                          <Input />
+                        </Form.Item>
+                        <Form.Item name={[field.name, 'productSku']} hidden initialValue="">
+                          <Input />
+                        </Form.Item>
+                        <Form.Item
+                          label="Received Qty"
+                          name={[field.name, 'receivedQty']}
+                          rules={[{ required: true, message: 'Required' }]}
+                          initialValue={0}
+                        >
+                          <InputNumber
+                            min={0}
+                            style={{ width: '100%' }}
+                            placeholder="Enter quantity"
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          label="Damaged Qty"
+                          name={[field.name, 'damagedQty']}
+                          initialValue={0}
+                        >
+                          <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                        </Form.Item>
+                        <Form.Item label="Batch Number" name={[field.name, 'batchNumber']}>
+                          <Input placeholder="Batch #" />
+                        </Form.Item>
+                        <Form.Item label="Best Before" name={[field.name, 'bestBeforeDate']}>
+                          <DatePicker style={{ width: '100%' }} />
+                        </Form.Item>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Form.Item
+                          label="Quality Status"
+                          name={[field.name, 'qualityStatus']}
+                          initialValue="GOOD"
+                        >
+                          <Select>
+                            <Option value="GOOD">Good</Option>
+                            <Option value="DAMAGED">Damaged</Option>
+                            <Option value="REJECTED">Rejected</Option>
+                          </Select>
+                        </Form.Item>
+                        <Form.Item label="Notes" name={[field.name, 'notes']}>
+                          <Input placeholder="Item notes" />
+                        </Form.Item>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </Form.List>

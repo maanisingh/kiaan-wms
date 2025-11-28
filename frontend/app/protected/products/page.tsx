@@ -139,7 +139,7 @@ export default function ProductsPage() {
   };
 
   const handleExport = () => {
-    const headers = ['SKU', 'Name', 'Brand', 'Price', 'Cost', 'Stock', 'Status'];
+    const headers = ['SKU', 'Name', 'Category', 'Price', 'Cost', 'Stock', 'Status'];
     const csvData = filteredProducts.map((p) => [
       p.sku,
       p.name,
@@ -182,7 +182,7 @@ export default function ProductsPage() {
       ellipsis: true,
     },
     {
-      title: 'Brand',
+      title: 'Category',
       dataIndex: ['brand', 'name'],
       key: 'brand',
       width: 130,
@@ -356,7 +356,7 @@ export default function ProductsPage() {
             prefix={<SearchOutlined />}
           />
           <Select
-            placeholder="Filter by brand"
+            placeholder="Filter by category"
             allowClear
             style={{ width: 180 }}
             value={brandFilter}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
-import { Table, Card, Tag, Statistic, Row, Col, Button, Space, Modal, Form, Input, InputNumber, Switch, message } from 'antd';
+import { Table, Card, Tag, Statistic, Row, Col, Button, Space, Modal, Form, Select, InputNumber, Switch, message } from 'antd';
 import { SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 
@@ -13,15 +13,26 @@ export default function ReplenishmentSettingsPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
   const [form] = Form.useForm();
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     fetchConfigs();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await apiService.get('/api/products');
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
 
   const fetchConfigs = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/replenishment/settings');
+      const data = await apiService.get('/api/replenishment/configs');
       setConfigs(data || []);
     } catch (error) {
       console.error('Error fetching configs:', error);
@@ -62,7 +73,7 @@ export default function ReplenishmentSettingsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/replenishment/settings/${configId}`);
+          await apiService.delete(`/api/replenishment/configs/${configId}`);
           message.success('Configuration deleted successfully');
           fetchConfigs();
         } catch (error) {
@@ -81,10 +92,10 @@ export default function ReplenishmentSettingsPage() {
       };
 
       if (isEditMode && selectedConfig) {
-        await apiService.put(`/api/replenishment/settings/${selectedConfig.id}`, payload);
+        await apiService.put(`/api/replenishment/configs/${selectedConfig.id}`, payload);
         message.success('Configuration updated successfully');
       } else {
-        await apiService.post('/replenishment/settings', payload);
+        await apiService.post('/api/replenishment/configs', payload);
         message.success('Configuration created successfully');
       }
       setIsModalVisible(false);
@@ -275,16 +286,28 @@ export default function ReplenishmentSettingsPage() {
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <Form.Item
-              label="Product ID"
+              label="Product"
               name="productId"
-              rules={[{ required: true, message: 'Please enter product ID' }]}
+              rules={[{ required: true, message: 'Please select a product' }]}
             >
-              <Input placeholder="Enter product ID" />
+              <Select
+                showSearch
+                placeholder="Select a product"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={products.map(p => ({
+                  value: p.id,
+                  label: `${p.name} (${p.sku})`,
+                }))}
+              />
             </Form.Item>
             <Form.Item
               label="Minimum Stock Level"
               name="minStockLevel"
               rules={[{ required: true, message: 'Please enter minimum stock level' }]}
+              tooltip="Alert when stock goes below this level"
             >
               <InputNumber min={0} style={{ width: '100%' }} placeholder="Minimum stock" />
             </Form.Item>
@@ -292,6 +315,7 @@ export default function ReplenishmentSettingsPage() {
               label="Maximum Stock Level"
               name="maxStockLevel"
               rules={[{ required: true, message: 'Please enter maximum stock level' }]}
+              tooltip="Target level to replenish to"
             >
               <InputNumber min={0} style={{ width: '100%' }} placeholder="Maximum stock" />
             </Form.Item>
@@ -299,6 +323,7 @@ export default function ReplenishmentSettingsPage() {
               label="Reorder Point"
               name="reorderPoint"
               rules={[{ required: true, message: 'Please enter reorder point' }]}
+              tooltip="Trigger replenishment when stock reaches this level"
             >
               <InputNumber min={0} style={{ width: '100%' }} placeholder="Reorder when stock reaches" />
             </Form.Item>
@@ -306,6 +331,7 @@ export default function ReplenishmentSettingsPage() {
               label="Reorder Quantity"
               name="reorderQuantity"
               rules={[{ required: true, message: 'Please enter reorder quantity' }]}
+              tooltip="Default quantity to order when replenishing"
             >
               <InputNumber min={1} style={{ width: '100%' }} placeholder="Quantity to reorder" />
             </Form.Item>
@@ -313,6 +339,7 @@ export default function ReplenishmentSettingsPage() {
               label="Auto-Create Tasks"
               name="autoCreateTasks"
               valuePropName="checked"
+              tooltip="Automatically create replenishment tasks when stock falls below reorder point"
             >
               <Switch />
             </Form.Item>

@@ -231,7 +231,7 @@ export default function ProductImportPage() {
       'Type': p.type,
       'Reorder Point': p.reorderPoint,
       'Max Stock Level': p.maxStockLevel,
-      'Brand': p.brand,
+      'Category': p.brand,
       'Valid': p.valid ? 'Yes' : 'No',
       'Errors': p.errors.join('; '),
     }));
@@ -306,7 +306,7 @@ export default function ProductImportPage() {
       ),
     },
     {
-      title: 'Brand',
+      title: 'Category',
       dataIndex: 'brand',
       key: 'brand',
       width: 100,

@@ -171,10 +171,10 @@ export default function NewProductPage() {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Brand" name="brandId">
+              <Form.Item label="Category" name="brandId">
                 <Select
                   size="large"
-                  placeholder="Select brand"
+                  placeholder="Select category"
                   allowClear
                   loading={loadingBrands}
                   showSearch

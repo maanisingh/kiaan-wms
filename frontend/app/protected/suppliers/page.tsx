@@ -150,8 +150,11 @@ export default function SuppliersPage() {
       dataIndex: 'name',
       key: 'name',
       width: 200,
-      render: (text: string) => (
-        <div className="flex items-center gap-2">
+      render: (text: string, record: Supplier) => (
+        <div
+          className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
+          onClick={() => router.push(`/suppliers/${record.id}`)}
+        >
           <ContactsOutlined className="text-blue-500" />
           <span className="font-medium">{text}</span>
         </div>
@@ -190,10 +193,7 @@ export default function SuppliersPage() {
           <Button
             type="link"
             icon={<EyeOutlined />}
-            onClick={() => {
-              setSelectedSupplier(record);
-              setDrawerOpen(true);
-            }}
+            onClick={() => router.push(`/suppliers/${record.id}`)}
           >
             View
           </Button>

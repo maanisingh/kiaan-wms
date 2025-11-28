@@ -1,32 +1,59 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, InboxOutlined, SyncOutlined, CheckCircleOutlined, RocketOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useModal } from '@/hooks/useModal';
+import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs, Space, Tooltip } from 'antd';
+import {
+  PlusOutlined, SearchOutlined, EyeOutlined, InboxOutlined, SyncOutlined,
+  CheckCircleOutlined, RocketOutlined, ReloadOutlined, UserOutlined,
+  ShoppingCartOutlined, EnvironmentOutlined
+} from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import apiService from '@/services/api';
+import { formatDate } from '@/lib/utils';
 
 const { Search } = Input;
 const { Option } = Select;
 
-export default function PackingAndShippingPreparationPage() {
+interface PackingTask {
+  id: string;
+  packingSlip: string;
+  pickListNumber: string;
+  orderNumber: string;
+  orderId?: string;
+  customer: string;
+  customerId?: string;
+  packer: string;
+  packerId?: string;
+  status: string;
+  priority: string;
+  items: number;
+  itemCount: number;
+  weight: string;
+  completedAt?: string;
+  createdAt: string;
+  shippingAddress?: string;
+  shippingMethod?: string;
+  trackingNumber?: string;
+}
+
+export default function PackingPage() {
   const [loading, setLoading] = useState(false);
-  const [packingTasks, setPackingTasks] = useState<any[]>([]);
+  const [packingTasks, setPackingTasks] = useState<PackingTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
-  const addModal = useModal();
-  const [form] = Form.useForm();
+  const [searchText, setSearchText] = useState('');
   const router = useRouter();
 
-  // Fetch packing tasks
   const fetchPackingTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiService.get('/packing');
-      setPackingTasks(Array.isArray(data) ? data : []);
+      console.log('Packing API response:', data);
+      const tasks = Array.isArray(data) ? data : [];
+      console.log('Packing tasks:', tasks.map(t => ({ id: t.id, packingSlip: t.packingSlip })));
+      setPackingTasks(tasks);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch packing tasks');
       message.error(err.message || 'Failed to fetch packing tasks');
@@ -39,183 +66,275 @@ export default function PackingAndShippingPreparationPage() {
     fetchPackingTasks();
   }, []);
 
-  const handleSubmit = async (values: any) => {
-    try {
-      await apiService.post('/packing', values);
-      message.success('Packing slip created successfully!');
-      form.resetFields();
-      addModal.close();
-      fetchPackingTasks();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to create packing slip');
+  // Filter by search text
+  const filteredTasks = packingTasks.filter(task =>
+    !searchText ||
+    task.packingSlip.toLowerCase().includes(searchText.toLowerCase()) ||
+    task.orderNumber.toLowerCase().includes(searchText.toLowerCase()) ||
+    task.customer.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const allPacks = filteredTasks;
+  const readyToPack = filteredTasks.filter(p => p.status === 'ready_to_pack');
+  const packing = filteredTasks.filter(p => p.status === 'packing');
+  const packed = filteredTasks.filter(p => p.status === 'packed' || p.status === 'ready_to_ship');
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ready_to_pack': return 'orange';
+      case 'packing': return 'blue';
+      case 'packed': return 'cyan';
+      case 'ready_to_ship': return 'green';
+      case 'shipped': return 'default';
+      default: return 'default';
     }
   };
 
-  const allPacks = packingTasks;
-  const readyToPack = packingTasks.filter(p => p.status === 'ready_to_pack');
-  const packing = packingTasks.filter(p => p.status === 'packing');
-  const packed = packingTasks.filter(p => p.status === 'packed');
-  const readyToShip = packingTasks.filter(p => p.status === 'ready_to_ship');
+  const getPriorityColor = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'high': return 'red';
+      case 'medium': return 'orange';
+      case 'low': return 'blue';
+      default: return 'default';
+    }
+  };
 
   const columns = [
     {
       title: 'Packing Slip',
       dataIndex: 'packingSlip',
       key: 'packingSlip',
-      width: 130,
-      render: (text: string, record: any) => (
-        <Link href={`/packing/${record.id}`}>
-          <span className="font-medium text-blue-600 cursor-pointer hover:underline">{text}</span>
+      width: 150,
+      render: (text: string, record: PackingTask) => (
+        <Link href={`/protected/packing/${record.id}`}>
+          <span className="font-semibold text-blue-600 hover:underline cursor-pointer">{text}</span>
         </Link>
       )
     },
-    { title: 'Order #', dataIndex: 'orderNumber', key: 'orderNumber', width: 140 },
-    { title: 'Packer', dataIndex: 'packer', key: 'packer', width: 130 },
-    { title: 'Status', dataIndex: 'status', key: 'status', width: 130, render: (status: string) => <Tag color={status === 'ready_to_ship' ? 'green' : status === 'packed' ? 'cyan' : status === 'packing' ? 'blue' : 'orange'}>{status.replace(/_/g, ' ')}</Tag> },
-    { title: 'Priority', dataIndex: 'priority', key: 'priority', width: 100, render: (p: string) => <Tag color={p === 'high' ? 'red' : p === 'medium' ? 'orange' : 'blue'}>{p}</Tag> },
-    { title: 'Items', dataIndex: 'items', key: 'items', width: 80 },
-    { title: 'Weight', dataIndex: 'weight', key: 'weight', width: 100 },
+    {
+      title: 'Order',
+      dataIndex: 'orderNumber',
+      key: 'orderNumber',
+      width: 140,
+      render: (text: string, record: PackingTask) => (
+        <Tooltip title="View Order">
+          <Link href={`/protected/sales-orders/${record.orderId}`}>
+            <span className="text-blue-600 hover:underline flex items-center gap-1">
+              <ShoppingCartOutlined /> {text}
+            </span>
+          </Link>
+        </Tooltip>
+      )
+    },
+    {
+      title: 'Customer',
+      dataIndex: 'customer',
+      key: 'customer',
+      width: 180,
+      render: (text: string) => (
+        <span className="flex items-center gap-1">
+          <UserOutlined className="text-gray-400" /> {text}
+        </span>
+      )
+    },
+    {
+      title: 'Items',
+      key: 'items',
+      width: 100,
+      render: (_: any, record: PackingTask) => (
+        <span>
+          <strong>{record.items}</strong> units
+          <span className="text-gray-400 text-xs ml-1">({record.itemCount} SKUs)</span>
+        </span>
+      )
+    },
+    {
+      title: 'Weight',
+      dataIndex: 'weight',
+      key: 'weight',
+      width: 100
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 130,
+      render: (status: string) => (
+        <Tag color={getStatusColor(status)} className="uppercase">
+          {status.replace(/_/g, ' ')}
+        </Tag>
+      )
+    },
+    {
+      title: 'Priority',
+      dataIndex: 'priority',
+      key: 'priority',
+      width: 100,
+      render: (p: string) => (
+        <Tag color={getPriorityColor(p)} className="uppercase">
+          {p}
+        </Tag>
+      )
+    },
+    {
+      title: 'Packer',
+      dataIndex: 'packer',
+      key: 'packer',
+      width: 130,
+      render: (text: string) => text || <span className="text-gray-400">Unassigned</span>
+    },
     {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      render: (_: any, record: any) => (
-        <Link href={`/packing/${record.id}`}>
-          <Button type="link" icon={<EyeOutlined />} size="small">View</Button>
-        </Link>
+      render: (_: any, record: PackingTask) => (
+        <Space>
+          <Link href={`/protected/packing/${record.id}`}>
+            <Button type="primary" icon={<EyeOutlined />} size="small">
+              Pack
+            </Button>
+          </Link>
+        </Space>
       ),
     },
   ];
 
-  const renderFiltersAndTable = (dataSource: any[]) => (
-    <>
-      <div className="flex gap-4 mb-4">
-        <Search placeholder="Search packing slips..." style={{ width: 300 }} prefix={<SearchOutlined />} />
-        <Select placeholder="Packer" style={{ width: 150 }} allowClear>
-          <Option value="Mike Johnson">Mike Johnson</Option>
-          <Option value="Sarah Lee">Sarah Lee</Option>
-          <Option value="Tom Davis">Tom Davis</Option>
-        </Select>
-        <Select placeholder="Priority" style={{ width: 150 }} allowClear>
-          <Option value="high">High</Option>
-          <Option value="medium">Medium</Option>
-          <Option value="low">Low</Option>
-        </Select>
-        <Button icon={<ReloadOutlined />} onClick={fetchPackingTasks}>
-          Refresh
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={dataSource}
-        rowKey="id"
-        loading={loading}
-        scroll={{ x: 1000 }}
-        onRow={(record) => ({
-          onClick: () => router.push(`/packing/${record.id}`),
-          style: { cursor: 'pointer' }
-        })}
-      />
-    </>
+  const renderTable = (dataSource: PackingTask[]) => (
+    <Table
+      columns={columns}
+      dataSource={dataSource}
+      rowKey="id"
+      loading={loading}
+      scroll={{ x: 1200 }}
+      pagination={{ pageSize: 20, showSizeChanger: true }}
+      onRow={(record) => ({
+        onClick: () => router.push(`/protected/packing/${record.id}`),
+        style: { cursor: 'pointer' }
+      })}
+      locale={{
+        emptyText: error ? (
+          <div className="text-center py-8">
+            <p className="text-red-500 mb-2">{error}</p>
+            <Button onClick={fetchPackingTasks}>Retry</Button>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <InboxOutlined className="text-4xl mb-2" />
+            <p>No packing tasks found</p>
+            <p className="text-sm">Complete picking on orders to see them here</p>
+          </div>
+        )
+      }}
+    />
   );
 
   const tabItems = [
     {
       key: 'all',
-      label: <span className="flex items-center gap-2"><InboxOutlined />All Packs ({allPacks.length})</span>,
-      children: renderFiltersAndTable(allPacks),
+      label: (
+        <span className="flex items-center gap-2">
+          <InboxOutlined />All ({allPacks.length})
+        </span>
+      ),
+      children: renderTable(allPacks),
     },
     {
       key: 'ready_to_pack',
-      label: <span className="flex items-center gap-2"><InboxOutlined />Ready to Pack ({readyToPack.length})</span>,
-      children: renderFiltersAndTable(readyToPack),
+      label: (
+        <span className="flex items-center gap-2">
+          <InboxOutlined className="text-orange-500" />
+          Ready to Pack ({readyToPack.length})
+        </span>
+      ),
+      children: renderTable(readyToPack),
     },
     {
       key: 'packing',
-      label: <span className="flex items-center gap-2"><SyncOutlined />Packing ({packing.length})</span>,
-      children: renderFiltersAndTable(packing),
+      label: (
+        <span className="flex items-center gap-2">
+          <SyncOutlined className="text-blue-500" spin={packing.length > 0} />
+          Packing ({packing.length})
+        </span>
+      ),
+      children: renderTable(packing),
     },
     {
       key: 'packed',
-      label: <span className="flex items-center gap-2"><CheckCircleOutlined />Packed ({packed.length})</span>,
-      children: renderFiltersAndTable(packed),
-    },
-    {
-      key: 'ready_to_ship',
-      label: <span className="flex items-center gap-2"><RocketOutlined />Ready to Ship ({readyToShip.length})</span>,
-      children: renderFiltersAndTable(readyToShip),
+      label: (
+        <span className="flex items-center gap-2">
+          <CheckCircleOutlined className="text-green-500" />
+          Packed / Ready to Ship ({packed.length})
+        </span>
+      ),
+      children: renderTable(packed),
     },
   ];
 
   return (
     <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Packing & Shipping Preparation
-            </h1>
-            <p className="text-gray-600 mt-1">Pack orders and prepare for shipment</p>
-          </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={addModal.open}>
-            Create Packing Slip
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Packing & Shipping Preparation
+          </h1>
+          <p className="text-gray-600 mt-1">Pack orders and prepare for shipment</p>
+        </div>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchPackingTasks} loading={loading}>
+            Refresh
           </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Ready to Pack</p>
-              <p className="text-3xl font-bold text-orange-600">{readyToPack.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Packing Now</p>
-              <p className="text-3xl font-bold text-blue-600">{packing.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Packed</p>
-              <p className="text-3xl font-bold text-cyan-600">{packed.length}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Ready to Ship</p>
-              <p className="text-3xl font-bold text-green-600">{readyToShip.length}</p>
-            </div>
-          </Card>
-        </div>
-
-        <Card className="shadow-sm">
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={tabItems}
-            size="large"
-          />
-        </Card>
-
-        <Modal
-          title="Create Packing Slip"
-          open={addModal.isOpen}
-          onCancel={addModal.close}
-          onOk={() => form.submit()}
-          width={600}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Order Number" name="orderNumber" rules={[{ required: true }]}>
-              <Input placeholder="Enter order number" />
-            </Form.Item>
-            <Form.Item label="Packer" name="packer" rules={[{ required: true }]}>
-              <Input placeholder="Select packer" />
-            </Form.Item>
-            <Form.Item label="Weight (kg)" name="weight" rules={[{ required: true }]}>
-              <Input type="number" placeholder="Enter weight" />
-            </Form.Item>
-          </Form>
-        </Modal>
+        </Space>
       </div>
-      );
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-orange-500">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Ready to Pack</p>
+            <p className="text-3xl font-bold text-orange-600">{readyToPack.length}</p>
+          </div>
+        </Card>
+        <Card className="border-l-4 border-l-blue-500">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Packing Now</p>
+            <p className="text-3xl font-bold text-blue-600">{packing.length}</p>
+          </div>
+        </Card>
+        <Card className="border-l-4 border-l-cyan-500">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Packed</p>
+            <p className="text-3xl font-bold text-cyan-600">
+              {packed.filter(p => p.status === 'packed').length}
+            </p>
+          </div>
+        </Card>
+        <Card className="border-l-4 border-l-green-500">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Ready to Ship</p>
+            <p className="text-3xl font-bold text-green-600">
+              {packed.filter(p => p.status === 'ready_to_ship').length}
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="shadow-sm">
+        <div className="flex gap-4 mb-4">
+          <Search
+            placeholder="Search packing slips, orders, customers..."
+            style={{ width: 350 }}
+            prefix={<SearchOutlined />}
+            allowClear
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </div>
+
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          size="large"
+        />
+      </Card>
+    </div>
+  );
 }

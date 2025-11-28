@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
-import { Table, Card, Select, Tag, Statistic, Row, Col, Space, Progress, Tooltip, Button } from 'antd';
+import { Table, Card, Select, Tag, Statistic, Row, Col, Space, Progress, Tooltip, Button, message, Spin } from 'antd';
 import {
   DollarOutlined,
   RiseOutlined,
@@ -14,61 +14,43 @@ import {
   BarChartOutlined,
   InfoCircleOutlined,
   GlobalOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import Link from 'next/link';
-
-// Real product data with actual calculations
-const mockProducts = [
-  // Amazon UK - High volume
-  { id: 1, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Amazon UK', cost: 0.85, sellingPrice: 1.35, volume: 2500, packaging: 0.05, shipping: 0.15, channelFee: 0.20 },
-  { id: 2, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Amazon UK', cost: 1.20, sellingPrice: 1.99, volume: 1800, packaging: 0.06, shipping: 0.18, channelFee: 0.30 },
-  { id: 3, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'Amazon UK', cost: 1.45, sellingPrice: 2.45, volume: 1200, packaging: 0.07, shipping: 0.20, channelFee: 0.37 },
-  { id: 4, sku: 'NK-CC-12PK', name: 'Nakd Cashew Cookie 12-Pack', brand: 'Nakd', channel: 'Amazon UK', cost: 10.20, sellingPrice: 14.99, volume: 850, packaging: 0.25, shipping: 0.50, channelFee: 2.25 },
-  { id: 5, sku: 'GR-MIX-8PK', name: 'Graze Mixed Box 8-Pack', brand: 'Graze', channel: 'Amazon UK', cost: 9.60, sellingPrice: 13.99, volume: 650, packaging: 0.30, shipping: 0.55, channelFee: 2.10 },
-
-  // Shopify - Direct to consumer
-  { id: 6, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Shopify', cost: 0.85, sellingPrice: 1.49, volume: 1500, packaging: 0.05, shipping: 0.40, channelFee: 0.06 },
-  { id: 7, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Shopify', cost: 1.20, sellingPrice: 2.19, volume: 1200, packaging: 0.06, shipping: 0.45, channelFee: 0.09 },
-  { id: 8, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'Shopify', cost: 1.45, sellingPrice: 2.69, volume: 900, packaging: 0.07, shipping: 0.48, channelFee: 0.11 },
-  { id: 9, sku: 'NK-BL-24PK', name: 'Nakd Berry Lovers 24-Pack', brand: 'Nakd', channel: 'Shopify', cost: 19.20, sellingPrice: 27.99, volume: 420, packaging: 0.50, shipping: 0.80, channelFee: 1.12 },
-  { id: 10, sku: 'GR-PR-16PK', name: 'Graze Protein Box 16-Pack', brand: 'Graze', channel: 'Shopify', cost: 18.40, sellingPrice: 25.99, volume: 380, packaging: 0.45, shipping: 0.75, channelFee: 1.04 },
-
-  // B2B Wholesale
-  { id: 11, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'B2B Wholesale', cost: 0.85, sellingPrice: 1.15, volume: 5000, packaging: 0.02, shipping: 0.05, channelFee: 0.00 },
-  { id: 12, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'B2B Wholesale', cost: 1.20, sellingPrice: 1.65, volume: 4200, packaging: 0.03, shipping: 0.06, channelFee: 0.00 },
-  { id: 13, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'B2B Wholesale', cost: 1.45, sellingPrice: 1.95, volume: 3500, packaging: 0.03, shipping: 0.07, channelFee: 0.00 },
-  { id: 14, sku: 'NK-MIX-48PK', name: 'Nakd Mixed Case 48-Pack', brand: 'Nakd', channel: 'B2B Wholesale', cost: 38.40, sellingPrice: 48.00, volume: 280, packaging: 0.80, shipping: 1.20, channelFee: 0.00 },
-
-  // eBay
-  { id: 15, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'eBay', cost: 0.85, sellingPrice: 1.39, volume: 800, packaging: 0.05, shipping: 0.25, channelFee: 0.14 },
-  { id: 16, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'eBay', cost: 1.20, sellingPrice: 2.09, volume: 650, packaging: 0.06, shipping: 0.28, channelFee: 0.21 },
-  { id: 17, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'eBay', cost: 1.45, sellingPrice: 2.59, volume: 550, packaging: 0.07, shipping: 0.30, channelFee: 0.26 },
-
-  // Direct Sales
-  { id: 18, sku: 'NK-CC-35G', name: 'Nakd Cashew Cookie Bar 35g', brand: 'Nakd', channel: 'Direct', cost: 0.85, sellingPrice: 1.55, volume: 600, packaging: 0.05, shipping: 0.00, channelFee: 0.00 },
-  { id: 19, sku: 'GR-VB-50G', name: 'Graze Vanilla Bliss 50g', brand: 'Graze', channel: 'Direct', cost: 1.20, sellingPrice: 2.29, volume: 450, packaging: 0.06, shipping: 0.00, channelFee: 0.00 },
-  { id: 20, sku: 'KD-DC-40G', name: 'KIND Dark Chocolate Bar 40g', brand: 'KIND', channel: 'Direct', cost: 1.45, sellingPrice: 2.79, volume: 350, packaging: 0.07, shipping: 0.00, channelFee: 0.00 },
-];
+import apiService from '@/services/api';
 
 // Algorithm: Calculate comprehensive pricing metrics
 const calculateMetrics = (product: any) => {
-  const totalCost = product.cost + product.packaging + product.shipping + product.channelFee;
-  const grossProfit = product.sellingPrice - totalCost;
-  const profitMargin = (grossProfit / product.sellingPrice) * 100;
-  const markup = (grossProfit / totalCost) * 100;
-  const roi = (grossProfit / totalCost) * 100;
-  const totalRevenue = product.sellingPrice * product.volume;
-  const totalProfit = grossProfit * product.volume;
-  const contributionMargin = ((product.sellingPrice - product.cost) / product.sellingPrice) * 100;
+  const cost = parseFloat(product.costPrice || product.cost || 0);
+  const sellingPrice = parseFloat(product.sellingPrice || 0);
+  const packaging = parseFloat(product.packaging || 0.05);
+  const shipping = parseFloat(product.shipping || 0.15);
+  const channelFee = parseFloat(product.channelFee || 0);
+  const volume = parseInt(product.volume || product.totalStock || 0);
+
+  const totalCost = cost + packaging + shipping + channelFee;
+  const grossProfit = sellingPrice - totalCost;
+  const profitMargin = sellingPrice > 0 ? (grossProfit / sellingPrice) * 100 : 0;
+  const markup = totalCost > 0 ? (grossProfit / totalCost) * 100 : 0;
+  const roi = totalCost > 0 ? (grossProfit / totalCost) * 100 : 0;
+  const totalRevenue = sellingPrice * volume;
+  const totalProfit = grossProfit * volume;
+  const contributionMargin = sellingPrice > 0 ? ((sellingPrice - cost) / sellingPrice) * 100 : 0;
 
   // Performance score algorithm (0-100)
-  const volumeScore = Math.min((product.volume / 5000) * 30, 30);
+  const volumeScore = Math.min((volume / 5000) * 30, 30);
   const marginScore = Math.min((profitMargin / 50) * 40, 40);
   const revenueScore = Math.min((totalRevenue / 50000) * 30, 30);
   const performanceScore = volumeScore + marginScore + revenueScore;
 
   return {
     ...product,
+    cost,
+    sellingPrice,
+    packaging,
+    shipping,
+    channelFee,
+    volume,
     totalCost,
     grossProfit,
     profitMargin,
@@ -82,32 +64,81 @@ const calculateMetrics = (product: any) => {
 };
 
 export default function ChannelPricingPage() {
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Try to fetch from analytics endpoint first
+      const data = await apiService.get('/api/analytics/channels');
+      if (data && data.products && data.products.length > 0) {
+        setProducts(data.products);
+      } else {
+        // Fallback: Fetch products with channel prices
+        const productsData = await apiService.get('/api/products');
+        const inventory = await apiService.get('/api/inventory');
+
+        // Merge inventory data with products
+        const enrichedProducts = (productsData || []).map((p: any) => {
+          const inv = (inventory || []).filter((i: any) => i.productId === p.id);
+          const totalStock = inv.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0);
+          return {
+            ...p,
+            volume: totalStock,
+            channel: p.channelPrices?.[0]?.channel?.name || 'Direct',
+            channelFee: p.channelPrices?.[0]?.channel?.commissionRate || 0,
+          };
+        });
+        setProducts(enrichedProducts);
+      }
+    } catch (error) {
+      console.error('Error fetching channel data:', error);
+      message.error('Failed to fetch channel pricing data');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Calculate metrics for all products
   const productsWithMetrics = useMemo(() => {
-    return mockProducts.map(calculateMetrics);
-  }, []);
+    return products.map(calculateMetrics);
+  }, [products]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
     return productsWithMetrics.filter(p => {
       const channelMatch = selectedChannel === 'all' || p.channel === selectedChannel;
-      const brandMatch = selectedBrand === 'all' || p.brand === selectedBrand;
+      const brandMatch = selectedBrand === 'all' || p.brand?.name === selectedBrand;
       return channelMatch && brandMatch;
     });
   }, [productsWithMetrics, selectedChannel, selectedBrand]);
 
   // Get unique channels and brands
-  const channels = ['all', ...Array.from(new Set(mockProducts.map(p => p.channel)))];
-  const brands = ['all', ...Array.from(new Set(mockProducts.map(p => p.brand)))];
+  const channels = useMemo(() => {
+    const uniqueChannels = [...new Set(productsWithMetrics.map(p => p.channel).filter(Boolean))];
+    return ['all', ...uniqueChannels];
+  }, [productsWithMetrics]);
+
+  const brands = useMemo(() => {
+    const uniqueBrands = [...new Set(productsWithMetrics.map(p => p.brand?.name).filter(Boolean))];
+    return ['all', ...uniqueBrands];
+  }, [productsWithMetrics]);
 
   // Algorithm: Calculate channel-level metrics
   const channelStats = useMemo(() => {
     const stats: any = {};
     channels.filter(c => c !== 'all').forEach(channel => {
       const channelProducts = productsWithMetrics.filter(p => p.channel === channel);
+      if (channelProducts.length === 0) return;
+
       const totalRevenue = channelProducts.reduce((sum, p) => sum + p.totalRevenue, 0);
       const totalProfit = channelProducts.reduce((sum, p) => sum + p.totalProfit, 0);
       const avgMargin = channelProducts.reduce((sum, p) => sum + p.profitMargin, 0) / channelProducts.length;
@@ -157,6 +188,36 @@ export default function ChannelPricingPage() {
     return 'exception';
   };
 
+  const handleExport = () => {
+    // Create CSV content
+    const headers = ['SKU', 'Product', 'Brand', 'Channel', 'Volume', 'Price', 'Cost', 'Total Cost', 'Profit/Unit', 'Margin %', 'Total Revenue', 'Total Profit', 'Performance Score'];
+    const rows = filteredProducts.map(p => [
+      p.sku,
+      p.name,
+      p.brand?.name || '',
+      p.channel,
+      p.volume,
+      p.sellingPrice?.toFixed(2),
+      p.cost?.toFixed(2),
+      p.totalCost?.toFixed(2),
+      p.grossProfit?.toFixed(2),
+      p.profitMargin?.toFixed(1),
+      p.totalRevenue?.toFixed(0),
+      p.totalProfit?.toFixed(0),
+      p.performanceScore?.toFixed(0),
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `channel-pricing-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    message.success('Report exported successfully!');
+  };
+
   const columns = [
     {
       title: 'Product',
@@ -173,10 +234,9 @@ export default function ChannelPricingPage() {
     },
     {
       title: 'Brand',
-      dataIndex: 'brand',
       key: 'brand',
       width: 100,
-      render: (brand: string) => <Tag color="blue">{brand}</Tag>,
+      render: (_: any, record: any) => <Tag color="blue">{record.brand?.name || '-'}</Tag>,
     },
     {
       title: 'Channel',
@@ -185,7 +245,7 @@ export default function ChannelPricingPage() {
       width: 140,
       render: (channel: string) => (
         <Tag color="purple" icon={<GlobalOutlined />}>
-          {channel}
+          {channel || 'Direct'}
         </Tag>
       ),
     },
@@ -195,7 +255,7 @@ export default function ChannelPricingPage() {
       key: 'volume',
       width: 100,
       align: 'right' as const,
-      render: (vol: number) => vol.toLocaleString(),
+      render: (vol: number) => (vol || 0).toLocaleString(),
       sorter: (a: any, b: any) => b.volume - a.volume,
     },
     {
@@ -204,7 +264,7 @@ export default function ChannelPricingPage() {
       key: 'price',
       width: 90,
       align: 'right' as const,
-      render: (price: number) => `£${price.toFixed(2)}`,
+      render: (price: number) => `£${(price || 0).toFixed(2)}`,
     },
     {
       title: 'Total Cost',
@@ -212,8 +272,8 @@ export default function ChannelPricingPage() {
       width: 100,
       align: 'right' as const,
       render: (record: any) => (
-        <Tooltip title={`Product: £${record.cost.toFixed(2)} | Pack: £${record.packaging.toFixed(2)} | Ship: £${record.shipping.toFixed(2)} | Fee: £${record.channelFee.toFixed(2)}`}>
-          <span className="cursor-help">£{record.totalCost.toFixed(2)}</span>
+        <Tooltip title={`Product: £${(record.cost || 0).toFixed(2)} | Pack: £${(record.packaging || 0).toFixed(2)} | Ship: £${(record.shipping || 0).toFixed(2)} | Fee: £${(record.channelFee || 0).toFixed(2)}`}>
+          <span className="cursor-help">£{(record.totalCost || 0).toFixed(2)}</span>
         </Tooltip>
       ),
     },
@@ -223,7 +283,7 @@ export default function ChannelPricingPage() {
       width: 100,
       align: 'right' as const,
       render: (record: any) => {
-        const profit = record.grossProfit;
+        const profit = record.grossProfit || 0;
         const color = profit > 0 ? 'text-green-600' : 'text-red-600';
         const Icon = profit > 0 ? RiseOutlined : FallOutlined;
         return (
@@ -240,7 +300,7 @@ export default function ChannelPricingPage() {
       width: 100,
       align: 'center' as const,
       render: (record: any) => {
-        const margin = record.profitMargin;
+        const margin = record.profitMargin || 0;
         const color = getMarginColor(margin);
         return (
           <Tag color={color} style={{ fontSize: 14, fontWeight: 'bold' }}>
@@ -257,7 +317,7 @@ export default function ChannelPricingPage() {
       align: 'right' as const,
       render: (record: any) => (
         <span className="font-semibold text-blue-600">
-          £{record.totalRevenue.toLocaleString()}
+          £{(record.totalRevenue || 0).toLocaleString()}
         </span>
       ),
       sorter: (a: any, b: any) => b.totalRevenue - a.totalRevenue,
@@ -268,7 +328,7 @@ export default function ChannelPricingPage() {
       width: 120,
       align: 'right' as const,
       render: (record: any) => {
-        const profit = record.totalProfit;
+        const profit = record.totalProfit || 0;
         const color = profit > 0 ? 'text-green-600' : 'text-red-600';
         return (
           <span className={`${color} font-semibold`}>
@@ -291,10 +351,10 @@ export default function ChannelPricingPage() {
         <div>
           <Progress
             type="circle"
-            percent={record.performanceScore}
+            percent={record.performanceScore || 0}
             size={50}
-            status={getPerformanceColor(record.performanceScore)}
-            format={(percent) => `${percent?.toFixed(0)}`}
+            status={getPerformanceColor(record.performanceScore || 0)}
+            format={(percent) => `${(percent || 0).toFixed(0)}`}
           />
         </div>
       ),
@@ -325,14 +385,14 @@ export default function ChannelPricingPage() {
       dataIndex: 'totalVolume',
       key: 'totalVolume',
       align: 'right' as const,
-      render: (vol: number) => vol.toLocaleString(),
+      render: (vol: number) => (vol || 0).toLocaleString(),
     },
     {
       title: 'Total Revenue',
       dataIndex: 'totalRevenue',
       key: 'totalRevenue',
       align: 'right' as const,
-      render: (rev: number) => <span className="font-semibold text-blue-600">£{rev.toLocaleString()}</span>,
+      render: (rev: number) => <span className="font-semibold text-blue-600">£{(rev || 0).toLocaleString()}</span>,
       sorter: (a: any, b: any) => b.totalRevenue - a.totalRevenue,
     },
     {
@@ -341,7 +401,7 @@ export default function ChannelPricingPage() {
       key: 'totalProfit',
       align: 'right' as const,
       render: (profit: number) => (
-        <span className="font-semibold text-green-600">£{profit.toLocaleString()}</span>
+        <span className="font-semibold text-green-600">£{(profit || 0).toLocaleString()}</span>
       ),
       sorter: (a: any, b: any) => b.totalProfit - a.totalProfit,
     },
@@ -351,8 +411,8 @@ export default function ChannelPricingPage() {
       key: 'avgMargin',
       align: 'center' as const,
       render: (margin: number) => {
-        const color = getMarginColor(margin);
-        return <Tag color={color} style={{ fontSize: 16, fontWeight: 'bold' }}>{margin.toFixed(1)}%</Tag>;
+        const color = getMarginColor(margin || 0);
+        return <Tag color={color} style={{ fontSize: 16, fontWeight: 'bold' }}>{(margin || 0).toFixed(1)}%</Tag>;
       },
       sorter: (a: any, b: any) => b.avgMargin - a.avgMargin,
     },
@@ -363,26 +423,37 @@ export default function ChannelPricingPage() {
       align: 'center' as const,
       render: (score: number) => (
         <Progress
-          percent={score}
+          percent={score || 0}
           size="small"
-          status={getPerformanceColor(score)}
-          format={(percent) => `${percent?.toFixed(0)}/100`}
+          status={getPerformanceColor(score || 0)}
+          format={(percent) => `${(percent || 0).toFixed(0)}/100`}
         />
       ),
       sorter: (a: any, b: any) => b.avgPerformance - a.avgPerformance,
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Spin size="large" tip="Loading channel analytics..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Channel Pricing Analytics
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Algorithm-based pricing analysis across all sales channels with performance insights
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Channel Pricing Analytics
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Algorithm-based pricing analysis across all sales channels with performance insights
+            </p>
+          </div>
+          <Button icon={<ReloadOutlined />} onClick={fetchData}>Refresh</Button>
         </div>
 
         {/* KPI Cards */}
@@ -406,10 +477,9 @@ export default function ChannelPricingPage() {
               <Statistic
                 title="Total Profit"
                 value={totalProfit}
-                prefix="£"
+                prefix={totalProfit >= 0 ? <RiseOutlined /> : <FallOutlined />}
                 precision={0}
                 valueStyle={{ color: totalProfit >= 0 ? '#52c41a' : '#ff4d4f', fontSize: 28 }}
-                prefix={totalProfit >= 0 ? <RiseOutlined /> : <FallOutlined />}
               />
               <div className="mt-2 text-xs text-gray-500">
                 Total volume: {totalVolume.toLocaleString()} units
@@ -445,6 +515,7 @@ export default function ChannelPricingPage() {
         </Row>
 
         {/* Top Performers */}
+        {productsWithMetrics.length > 0 && (
         <Row gutter={16}>
           <Col xs={24} md={8}>
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
@@ -454,10 +525,10 @@ export default function ChannelPricingPage() {
                     <TrophyOutlined style={{ fontSize: 20 }} />
                     Highest Revenue
                   </div>
-                  <div className="font-bold text-xl">{topRevenueProduct?.name}</div>
-                  <div className="text-sm text-gray-600 mt-1">{topRevenueProduct?.channel}</div>
+                  <div className="font-bold text-xl">{topRevenueProduct?.name || 'N/A'}</div>
+                  <div className="text-sm text-gray-600 mt-1">{topRevenueProduct?.channel || 'N/A'}</div>
                   <div className="text-2xl font-bold text-blue-600 mt-2">
-                    £{topRevenueProduct?.totalRevenue.toLocaleString()}
+                    £{(topRevenueProduct?.totalRevenue || 0).toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -471,10 +542,10 @@ export default function ChannelPricingPage() {
                     <TrophyOutlined style={{ fontSize: 20 }} />
                     Highest Margin
                   </div>
-                  <div className="font-bold text-xl">{topMarginProduct?.name}</div>
-                  <div className="text-sm text-gray-600 mt-1">{topMarginProduct?.channel}</div>
+                  <div className="font-bold text-xl">{topMarginProduct?.name || 'N/A'}</div>
+                  <div className="text-sm text-gray-600 mt-1">{topMarginProduct?.channel || 'N/A'}</div>
                   <div className="text-2xl font-bold text-green-600 mt-2">
-                    {topMarginProduct?.profitMargin.toFixed(1)}%
+                    {(topMarginProduct?.profitMargin || 0).toFixed(1)}%
                   </div>
                 </div>
               </div>
@@ -488,18 +559,20 @@ export default function ChannelPricingPage() {
                     <TrophyOutlined style={{ fontSize: 20 }} />
                     Best Performance
                   </div>
-                  <div className="font-bold text-xl">{topPerformanceProduct?.name}</div>
-                  <div className="text-sm text-gray-600 mt-1">{topPerformanceProduct?.channel}</div>
+                  <div className="font-bold text-xl">{topPerformanceProduct?.name || 'N/A'}</div>
+                  <div className="text-sm text-gray-600 mt-1">{topPerformanceProduct?.channel || 'N/A'}</div>
                   <div className="text-2xl font-bold text-purple-600 mt-2">
-                    {topPerformanceProduct?.performanceScore.toFixed(0)}/100
+                    {(topPerformanceProduct?.performanceScore || 0).toFixed(0)}/100
                   </div>
                 </div>
               </div>
             </Card>
           </Col>
         </Row>
+        )}
 
         {/* Channel Summary */}
+        {channelStats.length > 0 && (
         <Card title={<span className="text-lg font-semibold"><BarChartOutlined /> Channel Performance Summary</span>} className="shadow-sm">
           <Table
             dataSource={channelStats}
@@ -508,6 +581,7 @@ export default function ChannelPricingPage() {
             pagination={false}
           />
         </Card>
+        )}
 
         {/* Filters */}
         <Card>
@@ -539,7 +613,7 @@ export default function ChannelPricingPage() {
               </Select>
             </div>
             <div className="ml-auto">
-              <Button type="primary" icon={<LineChartOutlined />}>
+              <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>
                 Export Report
               </Button>
             </div>
@@ -554,6 +628,7 @@ export default function ChannelPricingPage() {
             rowKey="id"
             pagination={{ pageSize: 15, showTotal: (total) => `Total ${total} products` }}
             scroll={{ x: 1600 }}
+            locale={{ emptyText: 'No products found. Add products with pricing information to see analytics.' }}
           />
         </Card>
       </div>

@@ -8,15 +8,13 @@ import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
 
-// Demo users (real accounts in database)
-// All passwords follow pattern: [Role]@123
+// Quick login users - Real backend accounts
 const DEMO_USERS = [
-  { email: 'admin@kiaan-wms.com', password: 'Admin@123', role: 'SUPER_ADMIN', name: 'Super Administrator', icon: <CrownOutlined />, color: 'gold' },
-  { email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', role: 'COMPANY_ADMIN', name: 'Company Admin', icon: <CrownOutlined />, color: 'blue' },
-  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MANAGER', name: 'Warehouse Manager', icon: <TeamOutlined />, color: 'green' },
-  { email: 'inventorymanager@kiaan-wms.com', password: 'Admin@123', role: 'INVENTORY_MANAGER', name: 'Inventory Manager', icon: <BoxPlotOutlined />, color: 'purple' },
-  { email: 'picker@kiaan-wms.com', password: 'Admin@123', role: 'PICKER', name: 'Picker', icon: <InboxOutlined />, color: 'orange' },
-  { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer (Read-Only)', icon: <UserOutlined />, color: 'cyan' },
+  { email: 'admin@kiaan.com', password: 'Admin123', role: 'SUPER_ADMIN', name: 'Super Admin', icon: <CrownOutlined />, color: 'gold' },
+  { email: 'picker1@kiaan.com', password: 'Admin123', role: 'PICKER', name: 'Picker (John)', icon: <InboxOutlined />, color: 'orange' },
+  { email: 'picker2@kiaan.com', password: 'Admin123', role: 'PICKER', name: 'Picker (Sarah)', icon: <InboxOutlined />, color: 'cyan' },
+  { email: 'packer1@kiaan.com', password: 'Admin123', role: 'PACKER', name: 'Packer (Mike)', icon: <ShoppingOutlined />, color: 'purple' },
+  { email: 'packer2@kiaan.com', password: 'Admin123', role: 'PACKER', name: 'Packer (Emma)', icon: <ShoppingOutlined />, color: 'magenta' },
 ];
 
 export default function LoginPage() {
@@ -155,7 +153,7 @@ export default function LoginPage() {
 
         <div className="mt-6 pt-4 border-t border-gray-200">
           <p className="text-xs text-center text-gray-500">
-            🔐 All demo users • Password: <strong>Admin@123</strong>
+            🔐 Click above to login instantly • Password: <strong>Admin123</strong>
           </p>
         </div>
       </Card>
