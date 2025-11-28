@@ -1,5 +1,4 @@
-[phases.setup]
-nixPkgs = ['nodejs-20_x', 'npm']
+# Let Nixpacks auto-detect Node.js version from package.json engines
 
 [phases.install]
 cmds = ['npm ci --legacy-peer-deps']
@@ -10,7 +9,6 @@ cmds = ['npm run build']
 [variables]
 NODE_ENV = 'production'
 NEXT_TELEMETRY_DISABLED = '1'
-NPM_CONFIG_LEGACY_PEER_DEPS = 'true'
 
 [start]
 cmd = 'npm start'
