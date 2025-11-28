@@ -97,7 +97,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'Products',
       children: [
         { key: '/products', label: <Link href="/products">All Products</Link> },
-        { key: '/products/brands', label: <Link href="/products/brands">Brands</Link> },
+        { key: '/products/categories', label: <Link href="/products/categories">Categories</Link> },
         { key: '/products/bundles', label: <Link href="/products/bundles">Bundles</Link> },
         { key: '/products/import', label: <Link href="/products/import">Import/Export</Link> },
       ],
@@ -126,11 +126,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     {
       key: '/suppliers',
       icon: <ContactsOutlined />,
-      label: 'Suppliers',
-      children: [
-        { key: '/suppliers', label: <Link href="/suppliers">All Suppliers</Link> },
-        { key: '/suppliers/categories', label: <Link href="/suppliers/categories">Categories</Link> },
-      ],
+      label: <Link href="/suppliers">Suppliers</Link>,
     },
     {
       key: 'outbound',
@@ -144,11 +140,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     {
       key: '/clients',
       icon: <UsergroupAddOutlined />,
-      label: 'Clients',
-      children: [
-        { key: '/clients', label: <Link href="/clients">All Clients</Link> },
-        { key: '/clients/segments', label: <Link href="/clients/segments">Segments</Link> },
-      ],
+      label: <Link href="/clients">Clients</Link>,
     },
     {
       key: 'fulfillment',
@@ -160,12 +152,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       ],
     },
     {
-      key: 'shipping',
+      key: '/shipments',
       icon: <CarOutlined />,
-      label: 'Shipping',
-      children: [
-        { key: '/shipments', label: <Link href="/shipments">Shipments</Link> },
-      ],
+      label: <Link href="/shipments">Shipments</Link>,
     },
     {
       key: '/returns',

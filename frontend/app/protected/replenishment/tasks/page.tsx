@@ -28,7 +28,7 @@ export default function ReplenishmentTasksPage() {
 
   const fetchProducts = async () => {
     try {
-      const data = await apiService.get('/api/products');
+      const data = await apiService.get('/products');
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -38,7 +38,7 @@ export default function ReplenishmentTasksPage() {
   const fetchLocations = async () => {
     try {
       // Fetch from inventory to get unique locations
-      const inventory = await apiService.get('/api/inventory');
+      const inventory = await apiService.get('/inventory');
       const uniqueLocations = [...new Set((inventory || []).map((i: any) => i.locationId).filter(Boolean))];
       // Add common location prefixes
       const defaultLocations = ['BULK-A1', 'BULK-A2', 'BULK-B1', 'BULK-B2', 'PICK-A1', 'PICK-A2', 'PICK-B1', 'PICK-B2', 'SHELF-01', 'SHELF-02'];
@@ -54,8 +54,8 @@ export default function ReplenishmentTasksPage() {
     setLoading(true);
     try {
       const url = statusFilter
-        ? `/api/replenishment/tasks?status=${statusFilter}`
-        : '/api/replenishment/tasks';
+        ? `/replenishment/tasks?status=${statusFilter}`
+        : '/replenishment/tasks';
       const data = await apiService.get(url);
       setTasks(data || []);
     } catch (error) {
@@ -69,7 +69,7 @@ export default function ReplenishmentTasksPage() {
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      await apiService.patch(`/api/replenishment/tasks/${taskId}`, {
+      await apiService.patch(`/replenishment/tasks/${taskId}`, {
         status: 'COMPLETED',
         completedAt: new Date().toISOString()
       });
@@ -109,7 +109,7 @@ export default function ReplenishmentTasksPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/replenishment/tasks/${taskId}`);
+          await apiService.delete(`/replenishment/tasks/${taskId}`);
           message.success('Task deleted successfully');
           fetchTasks();
         } catch (error) {
@@ -122,10 +122,10 @@ export default function ReplenishmentTasksPage() {
   const handleSubmit = async (values: any) => {
     try {
       if (isEditMode && selectedTask) {
-        await apiService.patch(`/api/replenishment/tasks/${selectedTask.id}`, values);
+        await apiService.patch(`/replenishment/tasks/${selectedTask.id}`, values);
         message.success('Task updated successfully');
       } else {
-        await apiService.post('/api/replenishment/tasks', values);
+        await apiService.post('/replenishment/tasks', values);
         message.success('Task created successfully');
       }
       setIsModalVisible(false);

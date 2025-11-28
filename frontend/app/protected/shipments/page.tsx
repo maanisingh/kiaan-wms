@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Card, Modal, Form, message, Tabs, Tooltip, Space, Divider, Alert } from 'antd';
+import { PlusOutlined, SearchOutlined, FilterOutlined, EyeOutlined, TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, ReloadOutlined, SettingOutlined, ApiOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -12,13 +12,31 @@ import apiService from '@/services/api';
 const { Search } = Input;
 const { Option } = Select;
 
+// UK-focused carrier list
+const UK_CARRIERS = [
+  { value: 'royal_mail', label: 'Royal Mail', color: 'red' },
+  { value: 'dpd', label: 'DPD UK', color: 'volcano' },
+  { value: 'evri', label: 'Evri (Hermes)', color: 'orange' },
+  { value: 'parcelforce', label: 'Parcelforce', color: 'gold' },
+  { value: 'yodel', label: 'Yodel', color: 'lime' },
+  { value: 'dhl', label: 'DHL Express', color: 'yellow' },
+  { value: 'fedex', label: 'FedEx UK', color: 'purple' },
+  { value: 'ups', label: 'UPS UK', color: 'brown' },
+  { value: 'amazon', label: 'Amazon Logistics', color: 'geekblue' },
+  { value: 'collect_plus', label: 'Collect+', color: 'cyan' },
+];
+
 export default function ShipmentManagementPage() {
   const [loading, setLoading] = useState(false);
   const [shipments, setShipments] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [carrierSettingsOpen, setCarrierSettingsOpen] = useState(false);
+  const [carrierSettings, setCarrierSettings] = useState<any[]>([]);
+  const [savingSettings, setSavingSettings] = useState(false);
   const addModal = useModal();
   const [form] = Form.useForm();
+  const [settingsForm] = Form.useForm();
   const router = useRouter();
 
   // Fetch shipments
@@ -38,7 +56,62 @@ export default function ShipmentManagementPage() {
 
   useEffect(() => {
     fetchShipments();
+    fetchCarrierSettings();
   }, []);
+
+  // Fetch carrier settings
+  const fetchCarrierSettings = async () => {
+    try {
+      const data = await apiService.get('/shipping/carriers');
+      setCarrierSettings(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // Default empty if not available
+      setCarrierSettings([]);
+    }
+  };
+
+  // Save carrier settings
+  const handleSaveCarrierSettings = async (values: any) => {
+    try {
+      setSavingSettings(true);
+      await apiService.post('/shipping/carriers', values);
+      message.success('Carrier settings saved successfully!');
+      setCarrierSettingsOpen(false);
+      settingsForm.resetFields();
+      fetchCarrierSettings();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to save carrier settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Get rate quotes from carrier
+  const handleGetRates = async (shipmentId: string) => {
+    try {
+      message.loading('Getting shipping rates...');
+      const rates = await apiService.post('/shipping/rates', { shipmentId });
+      message.success(`Found ${rates?.length || 0} shipping rates`);
+      // Could open a modal to show rates
+    } catch (err: any) {
+      message.error(err.message || 'Failed to get rates');
+    }
+  };
+
+  // Create shipping label
+  const handleCreateLabel = async (shipmentId: string, carrierId: string) => {
+    try {
+      message.loading('Creating shipping label...');
+      const label = await apiService.post('/shipping/labels', { shipmentId, carrierId });
+      message.success('Shipping label created!');
+      // Could open label preview
+      if (label?.labelUrl) {
+        window.open(label.labelUrl, '_blank');
+      }
+    } catch (err: any) {
+      message.error(err.message || 'Failed to create label');
+    }
+  };
 
   const handleSubmit = async (values: any) => {
     try {
@@ -89,13 +162,12 @@ export default function ShipmentManagementPage() {
 
   const renderFiltersAndTable = (dataSource: any[]) => (
     <>
-      <div className="flex gap-4 mb-4">
+      <div className="flex flex-wrap gap-4 mb-4">
         <Search placeholder="Search shipments..." style={{ width: 300 }} prefix={<SearchOutlined />} />
-        <Select placeholder="Carrier" style={{ width: 150 }} allowClear>
-          <Option value="FedEx">FedEx</Option>
-          <Option value="UPS">UPS</Option>
-          <Option value="DHL">DHL</Option>
-          <Option value="USPS">USPS</Option>
+        <Select placeholder="Carrier" style={{ width: 180 }} allowClear>
+          {UK_CARRIERS.map(carrier => (
+            <Option key={carrier.value} value={carrier.value}>{carrier.label}</Option>
+          ))}
         </Select>
         <Button icon={<FilterOutlined />}>More Filters</Button>
         <Button icon={<ReloadOutlined />} onClick={fetchShipments}>
@@ -148,9 +220,14 @@ export default function ShipmentManagementPage() {
             </h1>
             <p className="text-gray-600 mt-1">Track and manage outbound shipments</p>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={addModal.open}>
-            Add New
-          </Button>
+          <Space>
+            <Button icon={<SettingOutlined />} size="large" onClick={() => setCarrierSettingsOpen(true)}>
+              Carrier Settings
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} size="large" onClick={addModal.open}>
+              Create Shipment
+            </Button>
+          </Space>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -189,30 +266,111 @@ export default function ShipmentManagementPage() {
           />
         </Card>
 
+        {/* Create Shipment Modal */}
         <Modal
           title="Create Shipment"
           open={addModal.isOpen}
           onCancel={addModal.close}
           onOk={() => form.submit()}
-          width={600}
+          width={700}
         >
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item label="Carrier" name="carrier" rules={[{ required: true }]}>
-              <Select placeholder="Select carrier">
-                <Option value="FedEx">FedEx</Option>
-                <Option value="UPS">UPS</Option>
-                <Option value="DHL">DHL</Option>
-                <Option value="USPS">USPS</Option>
+            <Form.Item label="Carrier" name="carrier" rules={[{ required: true, message: 'Please select a carrier' }]}>
+              <Select placeholder="Select UK carrier">
+                {UK_CARRIERS.map(carrier => (
+                  <Option key={carrier.value} value={carrier.value}>
+                    <Tag color={carrier.color} className="mr-2">{carrier.label}</Tag>
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
-            <Form.Item label="Tracking Number" name="tracking" rules={[{ required: true }]}>
-              <Input placeholder="Enter tracking number" />
+            <Form.Item label="Tracking Number" name="tracking">
+              <Input placeholder="Enter tracking number (or leave blank to auto-generate)" />
             </Form.Item>
-            <Form.Item label="Destination" name="destination" rules={[{ required: true }]}>
-              <Input placeholder="Enter destination" />
+            <Form.Item label="Recipient Name" name="recipientName" rules={[{ required: true }]}>
+              <Input placeholder="Enter recipient name" />
+            </Form.Item>
+            <Form.Item label="Delivery Address" name="destination" rules={[{ required: true }]}>
+              <Input.TextArea placeholder="Enter full UK delivery address" rows={3} />
+            </Form.Item>
+            <Form.Item label="Postcode" name="postcode" rules={[{ required: true }]}>
+              <Input placeholder="e.g., SW1A 1AA" style={{ width: 200 }} />
+            </Form.Item>
+            <Form.Item label="Service Type" name="serviceType">
+              <Select placeholder="Select service type">
+                <Option value="standard">Standard Delivery (2-3 days)</Option>
+                <Option value="express">Express (Next Day)</Option>
+                <Option value="economy">Economy (3-5 days)</Option>
+                <Option value="tracked">Tracked & Signed</Option>
+              </Select>
             </Form.Item>
           </Form>
         </Modal>
+
+        {/* Carrier Settings Modal */}
+        <Modal
+          title={<><ApiOutlined className="mr-2" />Carrier API Settings</>}
+          open={carrierSettingsOpen}
+          onCancel={() => {
+            setCarrierSettingsOpen(false);
+            settingsForm.resetFields();
+          }}
+          onOk={() => settingsForm.submit()}
+          confirmLoading={savingSettings}
+          width={700}
+        >
+          <Alert
+            message="Configure your carrier API credentials"
+            description="Enter API keys for each carrier you want to use. These are stored securely and used for generating shipping labels and tracking."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <Form form={settingsForm} layout="vertical" onFinish={handleSaveCarrierSettings}>
+            <Form.Item label="Select Carrier" name="carrierId" rules={[{ required: true }]}>
+              <Select placeholder="Select carrier to configure">
+                {UK_CARRIERS.map(carrier => (
+                  <Option key={carrier.value} value={carrier.value}>
+                    <Tag color={carrier.color} className="mr-2">{carrier.label}</Tag>
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item label="API Key" name="apiKey" rules={[{ required: true }]}>
+              <Input.Password placeholder="Enter carrier API key" />
+            </Form.Item>
+            <Form.Item label="API Secret" name="apiSecret">
+              <Input.Password placeholder="Enter API secret (if required)" />
+            </Form.Item>
+            <Form.Item label="Account Number" name="accountNumber">
+              <Input placeholder="Enter carrier account number" />
+            </Form.Item>
+            <Form.Item label="Sandbox Mode" name="sandboxMode" valuePropName="checked">
+              <Select defaultValue={false} style={{ width: 200 }}>
+                <Option value={false}>Production (Live)</Option>
+                <Option value={true}>Sandbox (Testing)</Option>
+              </Select>
+            </Form.Item>
+            <Divider />
+            <div className="text-sm text-gray-500">
+              <p className="font-medium mb-2">Configured Carriers:</p>
+              {carrierSettings.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {carrierSettings.map((s: any) => {
+                    const carrier = UK_CARRIERS.find(c => c.value === s.carrierId);
+                    return (
+                      <Tag key={s.carrierId} color={carrier?.color || 'default'}>
+                        {carrier?.label || s.carrierId} ✓
+                      </Tag>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-400">No carriers configured yet</p>
+              )}
+            </div>
+          </Form>
+        </Modal>
       </div>
-      );
+    );
 }

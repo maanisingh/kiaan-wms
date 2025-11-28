@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Input, Select, Tag, Card, Modal, Form, Tabs, Spin, Alert, App } from 'antd';
-import { PlusOutlined, SearchOutlined, FilterOutlined, DownloadOutlined, EyeOutlined, FileTextOutlined, ShoppingOutlined, BarChartOutlined, DollarOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Input, Select, Tag, Card, Modal, Form, Tabs, Spin, Alert, App, DatePicker } from 'antd';
+import { PlusOutlined, SearchOutlined, FilterOutlined, DownloadOutlined, EyeOutlined, FileTextOutlined, ShoppingOutlined, BarChartOutlined, DollarOutlined, ReloadOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import apiService from '@/services/api';
@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/utils';
 
 const { Search } = Input;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 interface Report {
   id: string;
@@ -32,9 +33,13 @@ export default function ReportsAndAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
+  const [generateForm] = Form.useForm();
 
   // Fetch reports from API
   const fetchReports = useCallback(async () => {
@@ -55,7 +60,7 @@ export default function ReportsAndAnalyticsPage() {
     fetchReports();
   }, [fetchReports]);
 
-  // Filter reports based on search and tab
+  // Filter reports based on search, date range, and tab
   const getFilteredReports = () => {
     let filtered = reports;
 
@@ -80,7 +85,44 @@ export default function ReportsAndAnalyticsPage() {
       );
     }
 
+    // Filter by date range
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      const startDate = dateRange[0].startOf('day').toDate();
+      const endDate = dateRange[1].endOf('day').toDate();
+      filtered = filtered.filter(r => {
+        const reportDate = new Date(r.createdAt || r.lastRun || '');
+        return reportDate >= startDate && reportDate <= endDate;
+      });
+    }
+
     return filtered;
+  };
+
+  // Generate report function
+  const handleGenerateReport = async (values: any) => {
+    try {
+      setGenerating(true);
+
+      const reportData = {
+        reportName: values.reportName,
+        category: values.category,
+        format: values.format,
+        startDate: values.dateRange?.[0]?.format('YYYY-MM-DD'),
+        endDate: values.dateRange?.[1]?.format('YYYY-MM-DD'),
+        status: 'active'
+      };
+
+      await apiService.post('/reports/generate', reportData);
+      message.success('Report generated successfully!');
+      generateForm.resetFields();
+      setGenerateModalOpen(false);
+      fetchReports();
+    } catch (err: any) {
+      console.error('Failed to generate report:', err);
+      message.error(err.message || 'Failed to generate report');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleSubmit = async (values: any) => {
@@ -200,7 +242,7 @@ export default function ReportsAndAnalyticsPage() {
 
   const renderFiltersAndTable = () => (
     <>
-      <div className="flex gap-4 mb-4">
+      <div className="flex flex-wrap gap-4 mb-4">
         <Search
           placeholder="Search reports..."
           style={{ width: 300 }}
@@ -208,6 +250,11 @@ export default function ReportsAndAnalyticsPage() {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
+        />
+        <RangePicker
+          onChange={(dates) => setDateRange(dates as [any, any])}
+          placeholder={['Start Date', 'End Date']}
+          style={{ width: 280 }}
         />
         <Select placeholder="Schedule" style={{ width: 150 }} allowClear>
           <Option value="Daily">Daily</Option>
@@ -295,9 +342,14 @@ export default function ReportsAndAnalyticsPage() {
           </h1>
           <p className="text-gray-600 mt-1">Generate warehouse performance and analytics reports</p>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => setModalOpen(true)}>
-          Create Report
-        </Button>
+        <div className="flex gap-2">
+          <Button type="primary" icon={<CalendarOutlined />} size="large" onClick={() => setGenerateModalOpen(true)}>
+            Generate Report
+          </Button>
+          <Button icon={<PlusOutlined />} size="large" onClick={() => setModalOpen(true)}>
+            Create Template
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -374,6 +426,63 @@ export default function ReportsAndAnalyticsPage() {
               <Option value="One-time">One-time</Option>
             </Select>
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Generate Report Modal */}
+      <Modal
+        title="Generate Report"
+        open={generateModalOpen}
+        onCancel={() => {
+          setGenerateModalOpen(false);
+          generateForm.resetFields();
+        }}
+        onOk={() => generateForm.submit()}
+        confirmLoading={generating}
+        width={600}
+      >
+        <Form form={generateForm} layout="vertical" onFinish={handleGenerateReport}>
+          <Form.Item label="Report Type" name="category" rules={[{ required: true, message: 'Please select report type' }]}>
+            <Select placeholder="Select report type">
+              <Option value="Inventory">Inventory Report</Option>
+              <Option value="Orders">Orders Report</Option>
+              <Option value="Financial">Financial Report</Option>
+              <Option value="Performance">Performance Report</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="Report Name" name="reportName" rules={[{ required: true, message: 'Please enter report name' }]}>
+            <Input placeholder="Enter report name (e.g., Weekly Inventory Report)" />
+          </Form.Item>
+          <Form.Item
+            label="Date Range"
+            name="dateRange"
+            rules={[{ required: true, message: 'Please select date range' }]}
+          >
+            <RangePicker
+              style={{ width: '100%' }}
+              placeholder={['Start Date', 'End Date']}
+              presets={[
+                { label: 'Today', value: [require('dayjs')(), require('dayjs')()] },
+                { label: 'Last 7 Days', value: [require('dayjs')().subtract(7, 'day'), require('dayjs')()] },
+                { label: 'Last 30 Days', value: [require('dayjs')().subtract(30, 'day'), require('dayjs')()] },
+                { label: 'This Month', value: [require('dayjs')().startOf('month'), require('dayjs')()] },
+                { label: 'Last Month', value: [require('dayjs')().subtract(1, 'month').startOf('month'), require('dayjs')().subtract(1, 'month').endOf('month')] },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="Output Format" name="format" rules={[{ required: true, message: 'Please select format' }]} initialValue="PDF">
+            <Select placeholder="Select output format">
+              <Option value="PDF">PDF Document</Option>
+              <Option value="Excel">Excel Spreadsheet (.xlsx)</Option>
+              <Option value="CSV">CSV File</Option>
+            </Select>
+          </Form.Item>
+          <Alert
+            message="Report will be generated based on selected date range and category"
+            type="info"
+            showIcon
+            className="mt-2"
+          />
         </Form>
       </Modal>
     </div>

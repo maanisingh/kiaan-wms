@@ -1,65 +1,278 @@
 'use client';
 
-import React from 'react';
-
-import { Card, Descriptions, Tag, Button, Tabs, Table, Timeline } from 'antd';
-import { ArrowLeftOutlined, PrinterOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Descriptions, Tag, Button, Tabs, Table, Timeline, Spin, Alert, Form, InputNumber, Input, message, Modal, App } from 'antd';
+import { ArrowLeftOutlined, PrinterOutlined, CheckCircleOutlined, WarningOutlined, SaveOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
+import apiService from '@/services/api';
+
+interface CycleCountItem {
+  id: string;
+  productId: string;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+  };
+  expectedQuantity: number;
+  countedQuantity: number | null;
+  variance: number;
+  status: 'PENDING' | 'COUNTED' | 'DISCREPANCY' | 'VERIFIED';
+  notes?: string;
+}
+
+interface CycleCount {
+  id: string;
+  referenceNumber?: string;
+  name?: string;
+  type: string;
+  locationId?: string;
+  location?: {
+    id: string;
+    name?: string;
+    aisle: string;
+    rack: string;
+    bin: string;
+    zone?: { name: string };
+  };
+  scheduledDate?: string;
+  completedDate?: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  countedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  items?: CycleCountItem[];
+  itemsCount?: number;
+  discrepancies?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function CycleCountDetailPage({ params }: { params: { id: string } }) {
-  const [activeTab, setActiveTab] = React.useState('details');
+  const { modal, message: msg } = App.useApp();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('details');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cycleCount, setCycleCount] = useState<CycleCount | null>(null);
+  const [items, setItems] = useState<CycleCountItem[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [countForm] = Form.useForm();
 
-  const cycleCount = {
-    id: params.id,
-    date: '2024-01-15',
-    location: params.id.includes('001') ? 'A-01' : params.id.includes('002') ? 'B-02' : 'C-03',
-    itemsCount: params.id.includes('001') ? 45 : params.id.includes('002') ? 38 : 52,
-    discrepancies: params.id.includes('001') ? 2 : params.id.includes('002') ? 0 : 5,
-    status: params.id.includes('003') ? 'pending' : 'completed',
-    counter: params.id.includes('002') ? 'Jane Smith' : params.id.includes('003') ? 'Mike Johnson' : 'John Doe',
-    startTime: '2024-01-15 09:00',
-    endTime: params.id.includes('003') ? null : '2024-01-15 11:30',
-    accuracy: params.id.includes('001') ? 95.6 : params.id.includes('002') ? 100.0 : null,
+  // Fetch cycle count details
+  const fetchCycleCount = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.get(`/inventory/cycle-counts/${params.id}`);
+      setCycleCount(data);
+      setItems(data.items || []);
+    } catch (err: any) {
+      console.error('Failed to fetch cycle count:', err);
+      setError(err.message || 'Failed to load cycle count details');
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchCycleCount();
+  }, [fetchCycleCount]);
+
+  // Update item count
+  const handleUpdateCount = async (itemId: string, countedQuantity: number, notes?: string) => {
+    try {
+      setSaving(true);
+      await apiService.patch(`/inventory/cycle-counts/${params.id}/items/${itemId}`, {
+        countedQuantity,
+        notes,
+      });
+      msg.success('Count updated successfully');
+      setEditingItem(null);
+      countForm.resetFields();
+      fetchCycleCount();
+    } catch (err: any) {
+      console.error('Failed to update count:', err);
+      msg.error(err.message || 'Failed to update count');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const items = [
-    { id: '1', sku: 'PROD-001', product: 'Wireless Mouse', expected: 50, counted: params.id.includes('001') ? 48 : 50, variance: params.id.includes('001') ? -2 : 0, status: params.id.includes('001') ? 'discrepancy' : 'match' },
-    { id: '2', sku: 'PROD-002', product: 'USB Keyboard', expected: 30, counted: 30, variance: 0, status: 'match' },
-    { id: '3', sku: 'PROD-003', product: 'Laptop Stand', expected: 20, counted: params.id.includes('003') ? 15 : 20, variance: params.id.includes('003') ? -5 : 0, status: params.id.includes('003') ? 'discrepancy' : 'match' },
-  ];
+  // Complete cycle count
+  const handleComplete = async () => {
+    modal.confirm({
+      title: 'Complete Cycle Count',
+      content: 'Are you sure you want to mark this cycle count as completed? Make sure all items have been counted.',
+      okText: 'Complete',
+      okType: 'primary',
+      onOk: async () => {
+        try {
+          await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+            status: 'COMPLETED',
+            completedDate: new Date().toISOString(),
+          });
+          msg.success('Cycle count completed successfully');
+          fetchCycleCount();
+        } catch (err: any) {
+          console.error('Failed to complete cycle count:', err);
+          msg.error(err.message || 'Failed to complete cycle count');
+        }
+      },
+    });
+  };
+
+  // Start counting (change status to IN_PROGRESS)
+  const handleStartCounting = async () => {
+    try {
+      await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+        status: 'IN_PROGRESS',
+      });
+      msg.success('Cycle count started');
+      fetchCycleCount();
+    } catch (err: any) {
+      console.error('Failed to start counting:', err);
+      msg.error(err.message || 'Failed to start counting');
+    }
+  };
+
+  // Cancel cycle count
+  const handleCancel = async () => {
+    modal.confirm({
+      title: 'Cancel Cycle Count',
+      content: 'Are you sure you want to cancel this cycle count?',
+      okText: 'Cancel Count',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+            status: 'CANCELLED',
+          });
+          msg.success('Cycle count cancelled');
+          router.push('/inventory/cycle-counts');
+        } catch (err: any) {
+          console.error('Failed to cancel cycle count:', err);
+          msg.error(err.message || 'Failed to cancel cycle count');
+        }
+      },
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      COMPLETED: 'green',
+      IN_PROGRESS: 'blue',
+      PENDING: 'orange',
+      CANCELLED: 'red',
+      COUNTED: 'green',
+      DISCREPANCY: 'red',
+      VERIFIED: 'cyan',
+    };
+    return colors[status] || 'default';
+  };
 
   const itemColumns = [
-    { title: 'SKU', dataIndex: 'sku', key: 'sku', width: 120 },
-    { title: 'Product', dataIndex: 'product', key: 'product', width: 200 },
-    { title: 'Expected', dataIndex: 'expected', key: 'expected', width: 100 },
-    { title: 'Counted', dataIndex: 'counted', key: 'counted', width: 100 },
+    {
+      title: 'SKU',
+      dataIndex: ['product', 'sku'],
+      key: 'sku',
+      width: 120,
+      render: (sku: string) => <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{sku || '-'}</span>
+    },
+    {
+      title: 'Product',
+      dataIndex: ['product', 'name'],
+      key: 'product',
+      width: 200
+    },
+    {
+      title: 'Expected',
+      dataIndex: 'expectedQuantity',
+      key: 'expected',
+      width: 100,
+      render: (qty: number) => qty || 0
+    },
+    {
+      title: 'Counted',
+      dataIndex: 'countedQuantity',
+      key: 'counted',
+      width: 120,
+      render: (qty: number | null, record: CycleCountItem) => {
+        if (editingItem === record.id) {
+          return (
+            <Form form={countForm} layout="inline" onFinish={(values) => handleUpdateCount(record.id, values.countedQuantity, values.notes)}>
+              <Form.Item name="countedQuantity" initialValue={qty} rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+                <InputNumber min={0} style={{ width: 80 }} />
+              </Form.Item>
+              <Button type="primary" size="small" htmlType="submit" loading={saving} icon={<SaveOutlined />} />
+              <Button size="small" onClick={() => { setEditingItem(null); countForm.resetFields(); }}>Cancel</Button>
+            </Form>
+          );
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <span>{qty !== null ? qty : '-'}</span>
+            {cycleCount?.status !== 'COMPLETED' && cycleCount?.status !== 'CANCELLED' && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setEditingItem(record.id);
+                  countForm.setFieldsValue({ countedQuantity: qty });
+                }}
+              />
+            )}
+          </div>
+        );
+      }
+    },
     {
       title: 'Variance',
-      dataIndex: 'variance',
       key: 'variance',
       width: 100,
-      render: (val: number) => (
-        <span className={val === 0 ? 'text-green-600' : 'text-red-600 font-semibold'}>
-          {val > 0 ? `+${val}` : val}
-        </span>
-      )
+      render: (_: any, record: CycleCountItem) => {
+        if (record.countedQuantity === null) return '-';
+        const variance = record.countedQuantity - record.expectedQuantity;
+        return (
+          <span className={variance === 0 ? 'text-green-600' : 'text-red-600 font-semibold'}>
+            {variance > 0 ? `+${variance}` : variance}
+          </span>
+        );
+      }
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: string) => <Tag color={status === 'match' ? 'green' : 'red'}>{status}</Tag>
+      render: (status: string) => <Tag color={getStatusColor(status)}>{status?.replace('_', ' ') || 'PENDING'}</Tag>
+    },
+    {
+      title: 'Notes',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 150,
+      ellipsis: true,
+      render: (notes: string) => notes || '-'
     },
   ];
 
-  const history = [
-    { time: '2024-01-15 11:30', action: 'Cycle count completed', user: cycleCount.counter, status: 'Completed' },
-    { time: '2024-01-15 10:45', action: 'Discrepancies noted', user: cycleCount.counter, status: 'In Progress' },
-    { time: '2024-01-15 09:00', action: 'Cycle count started', user: cycleCount.counter, status: 'In Progress' },
-    { time: '2024-01-14 16:00', action: 'Cycle count scheduled', user: 'System', status: 'Scheduled' },
-  ];
+  // Calculate statistics
+  const totalExpected = items.reduce((sum, item) => sum + (item.expectedQuantity || 0), 0);
+  const totalCounted = items.reduce((sum, item) => sum + (item.countedQuantity || 0), 0);
+  const discrepancyCount = items.filter(item =>
+    item.countedQuantity !== null && item.countedQuantity !== item.expectedQuantity
+  ).length;
+  const accuracy = items.length > 0 && items.every(i => i.countedQuantity !== null)
+    ? ((items.length - discrepancyCount) / items.length * 100).toFixed(1)
+    : null;
 
   const tabItems = [
     {
@@ -69,28 +282,38 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
         <div className="space-y-6">
           <Card title="Cycle Count Information">
             <Descriptions column={2} bordered>
-              <Descriptions.Item label="Count ID">{cycleCount.id}</Descriptions.Item>
+              <Descriptions.Item label="Reference">{cycleCount?.referenceNumber || cycleCount?.id}</Descriptions.Item>
               <Descriptions.Item label="Status">
-                <Tag color={cycleCount.status === 'completed' ? 'green' : 'orange'}>{cycleCount.status}</Tag>
+                <Tag color={getStatusColor(cycleCount?.status || '')}>{cycleCount?.status?.replace('_', ' ')}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Location">{cycleCount.location}</Descriptions.Item>
-              <Descriptions.Item label="Counter">{cycleCount.counter}</Descriptions.Item>
-              <Descriptions.Item label="Date">{formatDate(cycleCount.date)}</Descriptions.Item>
-              <Descriptions.Item label="Items Counted">{cycleCount.itemsCount}</Descriptions.Item>
-              <Descriptions.Item label="Start Time">{cycleCount.startTime}</Descriptions.Item>
-              <Descriptions.Item label="End Time">{cycleCount.endTime || 'In Progress'}</Descriptions.Item>
+              <Descriptions.Item label="Type">{cycleCount?.type || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Location">
+                {cycleCount?.location
+                  ? `${cycleCount.location.aisle}-${cycleCount.location.rack}-${cycleCount.location.bin}`
+                  : '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Scheduled Date">{cycleCount?.scheduledDate ? formatDate(cycleCount.scheduledDate) : '-'}</Descriptions.Item>
+              <Descriptions.Item label="Completed Date">{cycleCount?.completedDate ? formatDate(cycleCount.completedDate) : 'In Progress'}</Descriptions.Item>
+              <Descriptions.Item label="Counter">{cycleCount?.countedBy?.name || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Items Count">{items.length}</Descriptions.Item>
               <Descriptions.Item label="Discrepancies">
-                {cycleCount.discrepancies > 0 ? (
-                  <Tag color="red" icon={<WarningOutlined />}>{cycleCount.discrepancies}</Tag>
+                {discrepancyCount > 0 ? (
+                  <Tag color="red" icon={<WarningOutlined />}>{discrepancyCount}</Tag>
                 ) : (
-                  <Tag color="green" icon={<CheckCircleOutlined />}>{cycleCount.discrepancies}</Tag>
+                  <Tag color="green" icon={<CheckCircleOutlined />}>{discrepancyCount}</Tag>
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Accuracy">
-                {cycleCount.accuracy ? `${cycleCount.accuracy}%` : 'Pending'}
+                {accuracy ? `${accuracy}%` : 'Pending'}
               </Descriptions.Item>
             </Descriptions>
           </Card>
+
+          {cycleCount?.notes && (
+            <Card title="Notes">
+              <p>{cycleCount.notes}</p>
+            </Card>
+          )}
 
           <Card title="Counted Items">
             <Table
@@ -98,86 +321,172 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
               columns={itemColumns}
               rowKey="id"
               pagination={false}
+              scroll={{ x: 900 }}
             />
           </Card>
         </div>
       ),
     },
     {
-      key: 'history',
-      label: 'History',
+      key: 'summary',
+      label: 'Summary',
       children: (
-        <Card title="Count History">
-          <Timeline>
-            {history.map((event, index) => (
-              <Timeline.Item
-                key={index}
-                color={event.status === 'Completed' ? 'green' : 'blue'}
-                dot={event.status === 'Completed' ? <CheckCircleOutlined style={{ fontSize: '16px' }} /> : undefined}
-              >
-                <div className="font-semibold">{event.action}</div>
-                <div className="text-sm text-gray-600">{event.time} - {event.user}</div>
-                <div className="text-sm">
-                  <Tag color={event.status === 'Completed' ? 'green' : event.status === 'Scheduled' ? 'default' : 'blue'}>{event.status}</Tag>
-                </div>
-              </Timeline.Item>
-            ))}
-          </Timeline>
-        </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Total Expected</p>
+                <p className="text-3xl font-bold text-blue-600">{totalExpected}</p>
+              </div>
+            </Card>
+            <Card>
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Total Counted</p>
+                <p className="text-3xl font-bold text-green-600">{totalCounted}</p>
+              </div>
+            </Card>
+            <Card>
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Total Variance</p>
+                <p className={`text-3xl font-bold ${totalCounted - totalExpected === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {totalCounted - totalExpected > 0 ? `+${totalCounted - totalExpected}` : totalCounted - totalExpected}
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {discrepancyCount > 0 && (
+            <Card title="Items with Discrepancies" className="border-red-200">
+              <Table
+                dataSource={items.filter(item => item.countedQuantity !== null && item.countedQuantity !== item.expectedQuantity)}
+                columns={itemColumns}
+                rowKey="id"
+                pagination={false}
+                scroll={{ x: 900 }}
+              />
+            </Card>
+          )}
+        </div>
       ),
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Spin size="large" tip="Loading cycle count details..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/inventory/cycle-counts">
+            <Button icon={<ArrowLeftOutlined />}>Back to Cycle Counts</Button>
+          </Link>
+        </div>
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          showIcon
+          action={
+            <Button size="small" onClick={fetchCycleCount}>
+              Retry
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (!cycleCount) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/inventory/cycle-counts">
+            <Button icon={<ArrowLeftOutlined />}>Back to Cycle Counts</Button>
+          </Link>
+        </div>
+        <Alert
+          message="Not Found"
+          description="Cycle count not found"
+          type="warning"
+          showIcon
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/inventory">
-              <Button icon={<ArrowLeftOutlined />}>Back to Inventory</Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold">{cycleCount.id}</h1>
-              <p className="text-gray-600 mt-1">Cycle Count - {cycleCount.location}</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button icon={<PrinterOutlined />} size="large">Print</Button>
-            {cycleCount.status !== 'completed' && (
-              <Button icon={<CheckCircleOutlined />} type="primary" size="large">Complete Count</Button>
-            )}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Link href="/inventory/cycle-counts">
+            <Button icon={<ArrowLeftOutlined />}>Back to Cycle Counts</Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">{cycleCount.name || cycleCount.referenceNumber || `Cycle Count ${cycleCount.id.slice(0, 8)}`}</h1>
+            <p className="text-gray-600 mt-1">
+              {cycleCount.location
+                ? `Location: ${cycleCount.location.aisle}-${cycleCount.location.rack}-${cycleCount.location.bin}`
+                : 'Cycle Count'}
+            </p>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Items Counted</p>
-              <p className="text-2xl font-bold text-blue-600">{cycleCount.itemsCount}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Discrepancies</p>
-              <p className="text-2xl font-bold text-red-600">{cycleCount.discrepancies}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Accuracy</p>
-              <p className="text-2xl font-bold text-green-600">{cycleCount.accuracy ? `${cycleCount.accuracy}%` : 'N/A'}</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">Status</p>
-              <p className="text-2xl font-bold text-purple-600">{cycleCount.status}</p>
-            </div>
-          </Card>
+        <div className="flex gap-2">
+          <Button icon={<ReloadOutlined />} onClick={fetchCycleCount}>Refresh</Button>
+          <Button icon={<PrinterOutlined />} size="large">Print</Button>
+          {cycleCount.status === 'PENDING' && (
+            <Button type="primary" size="large" onClick={handleStartCounting}>
+              Start Counting
+            </Button>
+          )}
+          {cycleCount.status === 'IN_PROGRESS' && (
+            <>
+              <Button danger size="large" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <Button icon={<CheckCircleOutlined />} type="primary" size="large" onClick={handleComplete}>
+                Complete Count
+              </Button>
+            </>
+          )}
         </div>
+      </div>
 
-        <Card className="shadow-sm">
-          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Items to Count</p>
+            <p className="text-2xl font-bold text-blue-600">{items.length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Items Counted</p>
+            <p className="text-2xl font-bold text-green-600">{items.filter(i => i.countedQuantity !== null).length}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Discrepancies</p>
+            <p className="text-2xl font-bold text-red-600">{discrepancyCount}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Accuracy</p>
+            <p className="text-2xl font-bold text-purple-600">{accuracy ? `${accuracy}%` : 'N/A'}</p>
+          </div>
         </Card>
       </div>
-      );
+
+      <Card className="shadow-sm">
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />
+      </Card>
+    </div>
+  );
 }

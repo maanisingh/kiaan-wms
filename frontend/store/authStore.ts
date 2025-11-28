@@ -8,13 +8,16 @@ const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.replace('/api', '') : raw
 
 // Demo users for client-side authentication (when backend is not available)
 const DEMO_USERS = [
-  { id: '1', email: 'admin@kiaan-wms.com', password: 'Admin@123', name: 'Super Administrator', role: 'super_admin', companyId: 'demo-company' },
-  { id: '2', email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', name: 'Company Admin', role: 'company_admin', companyId: 'demo-company' },
-  { id: '3', email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', name: 'Warehouse Manager', role: 'warehouse_manager', companyId: 'demo-company' },
-  { id: '4', email: 'inventorymanager@kiaan-wms.com', password: 'Admin@123', name: 'Inventory Manager', role: 'inventory_manager', companyId: 'demo-company' },
-  { id: '5', email: 'picker@kiaan-wms.com', password: 'Admin@123', name: 'Picker', role: 'picker', companyId: 'demo-company' },
-  { id: '6', email: 'viewer@kiaan-wms.com', password: 'Admin@123', name: 'Viewer', role: 'viewer', companyId: 'demo-company' },
-  { id: '7', email: 'superadmin@alexandratechlab.com', password: 'Admin123!', name: 'System Administrator', role: 'super_admin', companyId: 'demo-company' },
+  // Database users (matches backend database)
+  { id: 'super-admin-001', email: 'admin@kiaan-wms.com', password: 'Admin@123', name: 'Super Administrator', role: 'super_admin', companyId: 'demo-company' },
+  { id: 'company-admin-001', email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', name: 'Company Administrator', role: 'company_admin', companyId: 'demo-company' },
+  { id: 'picker-001', email: 'picker@kiaan-wms.com', password: 'Admin@123', name: 'Picker User', role: 'picker', companyId: 'demo-company' },
+  { id: 'viewer-001', email: 'viewer@kiaan-wms.com', password: 'Admin@123', name: 'Viewer User', role: 'viewer', companyId: 'demo-company' },
+  { id: 'warehouse-manager-001', email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', name: 'Warehouse Manager', role: 'warehouse_manager', companyId: 'demo-company' },
+  { id: 'inventory-manager-001', email: 'inventorymanager@kiaan-wms.com', password: 'Admin@123', name: 'Inventory Manager', role: 'inventory_manager', companyId: 'demo-company' },
+  // Quick demo access
+  { id: 'demo-1', email: 'demo@kiaan.com', password: 'demo123', name: 'Demo User', role: 'super_admin', companyId: 'demo-company' },
+  { id: 'demo-2', email: 'admin', password: 'admin', name: 'Quick Admin', role: 'super_admin', companyId: 'demo-company' },
 ];
 
 interface AuthState {

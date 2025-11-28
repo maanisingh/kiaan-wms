@@ -83,6 +83,8 @@ export default function InventoryMovementsPage() {
   const [batchesLoading, setBatchesLoading] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
 
   // Edit modal state
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -169,6 +171,19 @@ export default function InventoryMovementsPage() {
     }
   };
 
+  // Fetch inventory (products with available quantities)
+  const fetchInventory = async () => {
+    try {
+      setInventoryLoading(true);
+      const data = await apiService.get('/inventory');
+      setInventory(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('Fetch inventory error:', error);
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMovements();
   }, [dateRange, typeFilter]);
@@ -177,6 +192,7 @@ export default function InventoryMovementsPage() {
     fetchProducts();
     fetchBatches();
     fetchLocations();
+    fetchInventory();
   }, []);
 
   // Apply tab filters
@@ -605,21 +621,53 @@ export default function InventoryMovementsPage() {
           </Form.Item>
 
           <Form.Item
-            name="productId"
-            label="Product"
-            rules={[{ required: true, message: 'Please select a product' }]}
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}
           >
-            <Select
-              placeholder="Select a product"
-              loading={productsLoading}
-              showSearch
-              optionFilterProp="label"
-              options={products.map((product) => ({
-                key: product.id,
-                value: product.id,
-                label: `${product.name || 'Unnamed'} ${product.sku ? `(${product.sku})` : ''}`
-              }))}
-            />
+            {({ getFieldValue }) => {
+              const movementType = getFieldValue('type');
+              // For outbound movements, only show products with available inventory
+              const outboundTypes = ['PICK', 'TRANSFER', 'SHIPMENT', 'DAMAGE', 'LOSS'];
+              const isOutbound = outboundTypes.includes(movementType);
+
+              // Get products that have inventory
+              const productsWithInventory = isOutbound
+                ? products.filter(product => {
+                    const productInventory = inventory.find(inv => inv.productId === product.id);
+                    return productInventory && (productInventory.quantity > 0 || productInventory.availableQuantity > 0);
+                  })
+                : products;
+
+              return (
+                <Form.Item
+                  name="productId"
+                  label="Product"
+                  rules={[{ required: true, message: 'Please select a product' }]}
+                  extra={isOutbound && productsWithInventory.length === 0 ?
+                    <span className="text-orange-500">No products with available inventory</span> :
+                    isOutbound ? <span className="text-gray-500">Showing {productsWithInventory.length} products with available inventory</span> : null
+                  }
+                >
+                  <Select
+                    placeholder={isOutbound ? "Select a product with inventory" : "Select a product"}
+                    loading={productsLoading || inventoryLoading}
+                    showSearch
+                    optionFilterProp="label"
+                    options={productsWithInventory.map((product) => {
+                      const productInventory = inventory.find(inv => inv.productId === product.id);
+                      const availableQty = productInventory?.availableQuantity || productInventory?.quantity || 0;
+                      return {
+                        key: product.id,
+                        value: product.id,
+                        label: isOutbound
+                          ? `${product.name || 'Unnamed'} (${product.sku || 'No SKU'}) - Qty: ${availableQty}`
+                          : `${product.name || 'Unnamed'} ${product.sku ? `(${product.sku})` : ''}`
+                      };
+                    })}
+                  />
+                </Form.Item>
+              );
+            }}
           </Form.Item>
 
           <Form.Item name="batchId" label="Batch (Optional)">
