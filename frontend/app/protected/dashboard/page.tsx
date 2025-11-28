@@ -117,9 +117,37 @@ export default function DashboardPage() {
 
       try {
         const headers = { 'Authorization': `Bearer ${token}` };
-        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8056/api';
+        // Ensure API URL ends with /api
+        const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
+        const API = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 
-        // Fetch real data from multiple endpoints
+        // First try to fetch from dedicated dashboard stats endpoint
+        try {
+          const statsRes = await fetch(`${API}/dashboard/stats`, { headers });
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            // If dashboard stats endpoint works, use it directly
+            if (statsData.kpis) {
+              setDashboardData({
+                kpis: statsData.kpis,
+                salesTrend: statsData.salesTrend || demoData.salesTrend,
+                topProducts: statsData.topProducts || demoData.topProducts,
+                ordersByStatus: statsData.ordersByStatus || demoData.ordersByStatus,
+                recentOrders: statsData.recentOrders || demoData.recentOrders,
+                lowStockAlerts: statsData.lowStockAlerts || demoData.lowStockAlerts,
+                recentActivity: [
+                  { id: 1, action: 'Dashboard loaded from API', user: user?.name || 'System', entity: 'Dashboard', time: 'Just now', icon: <CheckCircleOutlined />, color: '#52c41a' },
+                ],
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (statsError) {
+          console.log('Dashboard stats endpoint not available, fetching from individual endpoints...');
+        }
+
+        // Fallback: Fetch real data from multiple endpoints
         const [productsRes, ordersRes, inventoryRes, pickingRes, warehousesRes] = await Promise.allSettled([
           fetch(`${API}/products`, { headers }),
           fetch(`${API}/orders`, { headers }),

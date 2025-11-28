@@ -478,194 +478,201 @@ export default function ScannerSettingsPage() {
           mobileSyncInterval: settings?.mobileAppConfig?.syncInterval || 30000,
         }}
       >
-        <Tabs defaultActiveKey="tc21" items={[
-          {
-            key: 'tc21',
-            label: <span><MobileOutlined /> TC21 Handheld</span>,
-            children: (
-              <Card>
-                <Alert
-                  message="Zebra TC21 Integration (Open Source)"
-                  description={
-                    <div>
-                      <p>Uses <strong>react-native-datawedge</strong> for seamless integration with Zebra DataWedge.</p>
-                      <p className="mt-2">DataWedge provides hardware-level barcode scanning with:</p>
-                      <ul className="list-disc ml-5 mt-1">
-                        <li>Physical trigger button support</li>
-                        <li>Intent-based scan delivery</li>
-                        <li>Profile-based configuration</li>
-                        <li>All major symbologies supported</li>
-                      </ul>
-                    </div>
-                  }
-                  type="info"
-                  showIcon
-                  className="mb-4"
-                />
+        {/* Show settings based on selected scanner mode */}
+        {settings?.scannerMode === 'tc21' ? (
+          // TC21 Handheld Settings
+          <Card className="mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <MobileOutlined className="text-xl text-blue-500" />
+              <h3 className="text-lg font-semibold m-0">TC21 Handheld Scanner Settings</h3>
+              <Tag color="blue">Active Mode</Tag>
+            </div>
+            <Alert
+              message="Zebra TC21 Integration (Open Source)"
+              description={
+                <div>
+                  <p>Uses <strong>react-native-datawedge</strong> for seamless integration with Zebra DataWedge.</p>
+                  <p className="mt-2">DataWedge provides hardware-level barcode scanning with:</p>
+                  <ul className="list-disc ml-5 mt-1">
+                    <li>Physical trigger button support</li>
+                    <li>Intent-based scan delivery</li>
+                    <li>Profile-based configuration</li>
+                    <li>All major symbologies supported</li>
+                  </ul>
+                </div>
+              }
+              type="info"
+              showIcon
+              className="mb-4"
+            />
 
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="tc21Enabled" label="Enable TC21 Support" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="tc21ConnectionType" label="Connection Type">
-                      <Select>
-                        <Select.Option value="usb">USB (Tethered)</Select.Option>
-                        <Select.Option value="bluetooth">Bluetooth</Select.Option>
-                        <Select.Option value="network">Network/WiFi</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="tc21AimingMode" label="Aiming Mode">
-                      <Select>
-                        <Select.Option value="trigger">Trigger (Press to Scan)</Select.Option>
-                        <Select.Option value="continuous">Continuous</Select.Option>
-                        <Select.Option value="presentation">Presentation Mode</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="tc21Timeout" label="Scan Timeout (ms)">
-                      <InputNumber min={1000} max={30000} step={1000} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="tc21Beep" label="Beep on Scan" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="tc21Vibrate" label="Vibrate on Scan" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Form.Item name="tc21Symbologies" label="Enabled Symbologies">
-                  <Checkbox.Group options={allSymbologies.map(s => ({ label: s, value: s }))} />
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="tc21Enabled" label="Enable TC21 Support" valuePropName="checked">
+                  <Switch />
                 </Form.Item>
-
-                <Divider />
-
-                <h4 className="font-semibold mb-3">DataWedge Profile Setup</h4>
-                <p className="text-gray-600 text-sm mb-3">
-                  Download the DataWedge profile configuration to import into your TC21 device.
-                  This configures the scanner to send barcodes to the Kiaan WMS app via Intent.
-                </p>
-                <Button icon={<DownloadOutlined />} onClick={downloadDataWedgeProfile}>
-                  Download DataWedge Profile
-                </Button>
-
-                <Collapse className="mt-4" items={[{
-                  key: '1',
-                  label: 'Manual DataWedge Setup Instructions',
-                  children: (
-                    <div className="text-sm">
-                      <ol className="list-decimal ml-5 space-y-2">
-                        <li>Open <strong>DataWedge</strong> app on your TC21</li>
-                        <li>Create a new profile named "KiaanWMS"</li>
-                        <li>Associate it with <code>com.kiaan.wms</code></li>
-                        <li>Enable <strong>Barcode Input</strong></li>
-                        <li>Disable <strong>Keystroke Output</strong></li>
-                        <li>Enable <strong>Intent Output</strong> with:
-                          <ul className="list-disc ml-5 mt-1">
-                            <li>Intent Action: <code>com.kiaan.wms.SCAN</code></li>
-                            <li>Intent Delivery: <code>Broadcast</code></li>
-                          </ul>
-                        </li>
-                      </ol>
-                    </div>
-                  ),
-                }]} />
-              </Card>
-            ),
-          },
-          {
-            key: 'camera',
-            label: <span><CameraOutlined /> Camera Scanning</span>,
-            children: (
-              <Card>
-                <Alert
-                  message="Camera-Based Scanning (Open Source)"
-                  description={
-                    <div>
-                      <p>Uses device camera for barcode scanning. Recommended libraries:</p>
-                      <ul className="list-disc ml-5 mt-1">
-                        <li><strong>expo-barcode-scanner</strong> - Expo managed workflow</li>
-                        <li><strong>react-native-vision-camera</strong> - Best performance, bare workflow</li>
-                        <li><strong>react-native-camera</strong> - Legacy support</li>
-                      </ul>
-                    </div>
-                  }
-                  type="info"
-                  showIcon
-                  className="mb-4"
-                />
-
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="cameraEnabled" label="Enable Camera Scanning" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="cameraPreferred" label="Preferred Camera">
-                      <Select>
-                        <Select.Option value="back">Back Camera</Select.Option>
-                        <Select.Option value="front">Front Camera</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item name="cameraTorch" label="Enable Torch" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item name="cameraZoom" label="Default Zoom">
-                      <InputNumber min={1} max={5} step={0.5} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                  <Col span={8}>
-                    <Form.Item name="cameraScanGuide" label="Show Scan Guide" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item name="cameraBeep" label="Beep on Scan" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item name="cameraVibrate" label="Vibrate on Scan" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Form.Item name="cameraSymbologies" label="Enabled Symbologies">
-                  <Checkbox.Group options={allSymbologies.map(s => ({ label: s, value: s }))} />
+              </Col>
+              <Col span={12}>
+                <Form.Item name="tc21ConnectionType" label="Connection Type">
+                  <Select>
+                    <Select.Option value="usb">USB (Tethered)</Select.Option>
+                    <Select.Option value="bluetooth">Bluetooth</Select.Option>
+                    <Select.Option value="network">Network/WiFi</Select.Option>
+                  </Select>
                 </Form.Item>
-              </Card>
-            ),
-          },
-          {
-            key: 'mobile',
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="tc21AimingMode" label="Aiming Mode">
+                  <Select>
+                    <Select.Option value="trigger">Trigger (Press to Scan)</Select.Option>
+                    <Select.Option value="continuous">Continuous</Select.Option>
+                    <Select.Option value="presentation">Presentation Mode</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="tc21Timeout" label="Scan Timeout (ms)">
+                  <InputNumber min={1000} max={30000} step={1000} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="tc21Beep" label="Beep on Scan" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="tc21Vibrate" label="Vibrate on Scan" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="tc21Symbologies" label="Enabled Symbologies">
+              <Checkbox.Group options={allSymbologies.map(s => ({ label: s, value: s }))} />
+            </Form.Item>
+
+            <Divider />
+
+            <h4 className="font-semibold mb-3">DataWedge Profile Setup</h4>
+            <p className="text-gray-600 text-sm mb-3">
+              Download the DataWedge profile configuration to import into your TC21 device.
+              This configures the scanner to send barcodes to the Kiaan WMS app via Intent.
+            </p>
+            <Button icon={<DownloadOutlined />} onClick={downloadDataWedgeProfile}>
+              Download DataWedge Profile
+            </Button>
+
+            <Collapse className="mt-4" items={[{
+              key: '1',
+              label: 'Manual DataWedge Setup Instructions',
+              children: (
+                <div className="text-sm">
+                  <ol className="list-decimal ml-5 space-y-2">
+                    <li>Open <strong>DataWedge</strong> app on your TC21</li>
+                    <li>Create a new profile named "KiaanWMS"</li>
+                    <li>Associate it with <code>com.kiaan.wms</code></li>
+                    <li>Enable <strong>Barcode Input</strong></li>
+                    <li>Disable <strong>Keystroke Output</strong></li>
+                    <li>Enable <strong>Intent Output</strong> with:
+                      <ul className="list-disc ml-5 mt-1">
+                        <li>Intent Action: <code>com.kiaan.wms.SCAN</code></li>
+                        <li>Intent Delivery: <code>Broadcast</code></li>
+                      </ul>
+                    </li>
+                  </ol>
+                </div>
+              ),
+            }]} />
+          </Card>
+        ) : (
+          // Camera Scanning Settings
+          <Card className="mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <CameraOutlined className="text-xl text-green-500" />
+              <h3 className="text-lg font-semibold m-0">Camera Scanner Settings</h3>
+              <Tag color="green">Active Mode</Tag>
+            </div>
+            <Alert
+              message="Camera-Based Scanning (Open Source)"
+              description={
+                <div>
+                  <p>Uses device camera for barcode scanning. Recommended libraries:</p>
+                  <ul className="list-disc ml-5 mt-1">
+                    <li><strong>expo-barcode-scanner</strong> - Expo managed workflow</li>
+                    <li><strong>react-native-vision-camera</strong> - Best performance, bare workflow</li>
+                    <li><strong>react-native-camera</strong> - Legacy support</li>
+                  </ul>
+                </div>
+              }
+              type="info"
+              showIcon
+              className="mb-4"
+            />
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="cameraEnabled" label="Enable Camera Scanning" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="cameraPreferred" label="Preferred Camera">
+                  <Select>
+                    <Select.Option value="back">Back Camera</Select.Option>
+                    <Select.Option value="front">Front Camera</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item name="cameraTorch" label="Enable Torch" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="cameraZoom" label="Default Zoom">
+                  <InputNumber min={1} max={5} step={0.5} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="cameraScanGuide" label="Show Scan Guide" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="cameraBeep" label="Beep on Scan" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="cameraVibrate" label="Vibrate on Scan" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="cameraSymbologies" label="Enabled Symbologies">
+              <Checkbox.Group options={allSymbologies.map(s => ({ label: s, value: s }))} />
+            </Form.Item>
+          </Card>
+        )}
+
+        {/* Mobile App Configuration - Collapsible section */}
+        <Collapse
+          className="mb-4"
+          items={[{
+            key: 'mobile-config',
             label: <span><ApiOutlined /> Mobile App Config</span>,
             children: (
               <Card>

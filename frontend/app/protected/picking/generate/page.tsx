@@ -92,7 +92,7 @@ export default function GeneratePickListPage() {
       const orderList = Array.isArray(data) ? data : [];
       // Filter to show only orders that can be picked
       const pickableOrders = orderList.filter((o: SalesOrder) =>
-        ['PENDING', 'CONFIRMED', 'PROCESSING', 'APPROVED'].includes(o.status?.toUpperCase())
+        ['PENDING', 'CONFIRMED', 'PROCESSING', 'APPROVED', 'ALLOCATED'].includes(o.status?.toUpperCase())
       );
       setOrders(pickableOrders);
     } catch (err: any) {
