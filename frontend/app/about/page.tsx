@@ -1,300 +1,198 @@
 'use client';
 
 import React from 'react';
-import { Card, Typography, Row, Col, Statistic, Timeline, Tag, Divider, Button } from 'antd';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 import {
-  RocketOutlined, SafetyOutlined, TeamOutlined, GlobalOutlined,
-  CheckCircleOutlined, ClockCircleOutlined, CodeOutlined, CloudServerOutlined,
-  ArrowLeftOutlined
+  BoxPlotOutlined,
+  ArrowLeftOutlined,
+  RocketOutlined,
+  TeamOutlined,
+  GlobalOutlined,
+  TrophyOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
-
-const { Title, Paragraph, Text } = Typography;
+import { Button } from 'antd';
 
 export default function AboutPage() {
-  const router = useRouter();
-
-  const features = [
-    {
-      icon: <SafetyOutlined style={{ fontSize: 32, color: '#1890ff' }} />,
-      title: 'Secure & Reliable',
-      description: 'Enterprise-grade security with role-based access control and encrypted data storage.'
-    },
-    {
-      icon: <CloudServerOutlined style={{ fontSize: 32, color: '#52c41a' }} />,
-      title: 'Cloud-Native',
-      description: 'Built for the cloud with automatic scaling and high availability.'
-    },
-    {
-      icon: <GlobalOutlined style={{ fontSize: 32, color: '#722ed1' }} />,
-      title: 'Multi-Location',
-      description: 'Manage inventory across multiple warehouses and locations seamlessly.'
-    },
-    {
-      icon: <CodeOutlined style={{ fontSize: 32, color: '#fa8c16' }} />,
-      title: 'Modern Technology',
-      description: 'Built with Next.js, React, and Node.js for optimal performance.'
-    },
+  const values = [
+    { icon: <RocketOutlined className="text-3xl" />, title: 'Innovation', description: 'We constantly push boundaries to deliver cutting-edge solutions' },
+    { icon: <TeamOutlined className="text-3xl" />, title: 'Collaboration', description: 'We work closely with our customers to understand their needs' },
+    { icon: <TrophyOutlined className="text-3xl" />, title: 'Excellence', description: 'We strive for excellence in everything we do' },
+    { icon: <GlobalOutlined className="text-3xl" />, title: 'Global Reach', description: 'Serving warehouses worldwide with local expertise' },
   ];
 
-  const roadmap = [
-    {
-      status: 'completed',
-      title: 'Core WMS Features',
-      description: 'Product management, inventory tracking, order processing',
-      date: 'Q4 2024'
-    },
-    {
-      status: 'completed',
-      title: 'Best-Before Date Tracking',
-      description: 'FEFO picking, expiry alerts, lot management',
-      date: 'Q4 2024'
-    },
-    {
-      status: 'in-progress',
-      title: 'Goods Receiving Module',
-      description: 'Full GRN workflow with variance tracking',
-      date: 'Q1 2025'
-    },
-    {
-      status: 'planned',
-      title: 'Mobile App',
-      description: 'Barcode scanning, mobile picking, real-time updates',
-      date: 'Q2 2025'
-    },
-    {
-      status: 'planned',
-      title: 'Advanced Analytics',
-      description: 'AI-powered demand forecasting and inventory optimization',
-      date: 'Q3 2025'
-    },
+  const milestones = [
+    { year: '2020', title: 'Founded', description: 'Kiaan WMS was born from a vision to modernize warehouse management' },
+    { year: '2021', title: 'First 100 Customers', description: 'Reached our first major milestone with customers across 15 countries' },
+    { year: '2022', title: 'Series A Funding', description: 'Secured funding to accelerate product development and expansion' },
+    { year: '2023', title: '500+ Warehouses', description: 'Now powering over 500 warehouses globally' },
+    { year: '2024', title: 'Enterprise Launch', description: 'Launched enterprise features for large-scale operations' },
   ];
 
   return (
-    <div className="p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>
-          Back
-        </Button>
-        <div>
-          <Title level={2} className="!mb-0">
-            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              About Kiaan WMS
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600">
+              <BoxPlotOutlined className="text-2xl text-white" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              Kiaan WMS
             </span>
-          </Title>
-          <Text type="secondary">Warehouse Management System</Text>
+          </Link>
+          <Link href="/">
+            <Button icon={<ArrowLeftOutlined />}>Back to Home</Button>
+          </Link>
         </div>
-      </div>
+      </nav>
 
       {/* Hero Section */}
-      <Card className="bg-gradient-to-r from-blue-50 to-cyan-50">
-        <Row gutter={[32, 32]} align="middle">
-          <Col xs={24} md={14}>
-            <Title level={3}>
-              Modern Warehouse Management for Growing Businesses
-            </Title>
-            <Paragraph className="text-lg text-gray-600">
-              Kiaan WMS is a comprehensive warehouse management solution designed to streamline
-              your inventory operations. From receiving goods to fulfilling orders, we help you
-              manage every aspect of your warehouse with precision and efficiency.
-            </Paragraph>
-            <Paragraph className="text-gray-600">
-              Built with modern technology and best practices, Kiaan WMS provides real-time
-              visibility into your inventory, supports FEFO (First-Expiry, First-Out) picking
-              for perishable goods, and integrates seamlessly with your existing business processes.
-            </Paragraph>
-          </Col>
-          <Col xs={24} md={10}>
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Card>
-                  <Statistic
-                    title="Products Managed"
-                    value={10000}
-                    prefix={<RocketOutlined />}
-                    suffix="+"
-                  />
-                </Card>
-              </Col>
-              <Col span={12}>
-                <Card>
-                  <Statistic
-                    title="Orders Processed"
-                    value={50000}
-                    prefix={<CheckCircleOutlined />}
-                    suffix="+"
-                  />
-                </Card>
-              </Col>
-              <Col span={12}>
-                <Card>
-                  <Statistic
-                    title="Warehouses"
-                    value={100}
-                    prefix={<GlobalOutlined />}
-                    suffix="+"
-                  />
-                </Card>
-              </Col>
-              <Col span={12}>
-                <Card>
-                  <Statistic
-                    title="Users"
-                    value={1000}
-                    prefix={<TeamOutlined />}
-                    suffix="+"
-                  />
-                </Card>
-              </Col>
-            </Row>
-          </Col>
-        </Row>
-      </Card>
+      <section className="py-20 px-6">
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              About Kiaan WMS
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              We're on a mission to revolutionize warehouse management with intelligent,
+              role-based solutions that empower teams at every level.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Story Section */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl font-bold mb-6 text-gray-800">Our Story</h2>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Founded by logistics industry veterans and technology innovators, Kiaan WMS
+              was created to address the real challenges faced by modern warehouses.
+              We understood that one-size-fits-all solutions don't work - different roles
+              have different needs. That's why we built a platform that adapts to each
+              user, from pickers on the floor to executives in the boardroom.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Values Section */}
+      <section className="py-16 px-6">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Values</h2>
+          <div className="grid md:grid-cols-4 gap-8">
+            {values.map((value, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white rounded-2xl p-6 shadow-lg text-center"
+              >
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white mx-auto mb-4">
+                  {value.icon}
+                </div>
+                <h3 className="text-xl font-bold mb-2 text-gray-800">{value.title}</h3>
+                <p className="text-gray-600">{value.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline Section */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">Our Journey</h2>
+          <div className="space-y-8">
+            {milestones.map((milestone, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="flex gap-6 items-start"
+              >
+                <div className="w-20 flex-shrink-0">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold text-center">
+                    {milestone.year}
+                  </div>
+                </div>
+                <div className="flex-1 bg-gray-50 rounded-xl p-4">
+                  <h3 className="font-bold text-gray-800 mb-1">{milestone.title}</h3>
+                  <p className="text-gray-600">{milestone.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Features Section */}
-      <div>
-        <Title level={3} className="text-center mb-6">Key Features</Title>
-        <Row gutter={[24, 24]}>
-          {features.map((feature, index) => (
-            <Col xs={24} sm={12} md={6} key={index}>
-              <Card className="h-full text-center hover:shadow-lg transition-shadow">
-                <div className="mb-4">{feature.icon}</div>
-                <Title level={5}>{feature.title}</Title>
-                <Text type="secondary">{feature.description}</Text>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </div>
-
-      {/* Capabilities Section */}
-      <Card>
-        <Title level={3}>What You Can Do</Title>
-        <Row gutter={[32, 16]}>
-          <Col xs={24} md={12}>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Manage products with full details including SKU, barcode, pricing</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Track inventory across multiple warehouses and locations</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Process goods receiving with lot numbers and best-before dates</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Create and manage sales orders with picking workflows</span>
-              </li>
-            </ul>
-          </Col>
-          <Col xs={24} md={12}>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Set up product bundles and kits for efficient order fulfillment</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Monitor expiring stock with FEFO picking recommendations</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Generate reports and analytics for inventory insights</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircleOutlined className="text-green-500 mt-1" />
-                <span>Import/export data via Excel for bulk operations</span>
-              </li>
-            </ul>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Roadmap Section */}
-      <Card>
-        <Title level={3}>Product Roadmap</Title>
-        <Timeline
-          mode="left"
-          items={roadmap.map(item => ({
-            color: item.status === 'completed' ? 'green' : item.status === 'in-progress' ? 'blue' : 'gray',
-            children: (
-              <div className="pb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Text strong>{item.title}</Text>
-                  <Tag color={
-                    item.status === 'completed' ? 'green' :
-                    item.status === 'in-progress' ? 'blue' : 'default'
-                  }>
-                    {item.status === 'completed' ? 'Completed' :
-                     item.status === 'in-progress' ? 'In Progress' : 'Planned'}
-                  </Tag>
+      <section className="py-16 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white"
+          >
+            <h2 className="text-3xl font-bold mb-6 text-center">What Sets Us Apart</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                'Role-based dashboards for every team member',
+                'Real-time inventory tracking across warehouses',
+                'Advanced wave picking and packing workflows',
+                'Seamless e-commerce integrations',
+                'Comprehensive analytics and reporting',
+                'Enterprise-grade security and compliance',
+              ].map((feature, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <CheckCircleOutlined className="text-green-300" />
+                  <span>{feature}</span>
                 </div>
-                <Text type="secondary">{item.description}</Text>
-                <div className="mt-1">
-                  <Text type="secondary" className="text-xs">{item.date}</Text>
-                </div>
-              </div>
-            ),
-          }))}
-        />
-      </Card>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
-      {/* Tech Stack Section */}
-      <Card>
-        <Title level={3}>Technology Stack</Title>
-        <Row gutter={[16, 16]}>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>Next.js 14</Text>
-              <div><Text type="secondary">Frontend</Text></div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>React 18</Text>
-              <div><Text type="secondary">UI Library</Text></div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>Node.js</Text>
-              <div><Text type="secondary">Backend</Text></div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>PostgreSQL</Text>
-              <div><Text type="secondary">Database</Text></div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>Prisma</Text>
-              <div><Text type="secondary">ORM</Text></div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Card size="small" className="text-center">
-              <Text strong>Railway</Text>
-              <div><Text type="secondary">Hosting</Text></div>
-            </Card>
-          </Col>
-        </Row>
-      </Card>
+      {/* CTA Section */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl font-bold mb-4 text-gray-800">Ready to Transform Your Warehouse?</h2>
+          <p className="text-xl text-gray-600 mb-8">
+            Join hundreds of warehouses already using Kiaan WMS
+          </p>
+          <Link href="/auth/login">
+            <Button size="large" type="primary" className="h-14 px-8 text-lg bg-gradient-to-r from-blue-600 to-purple-600 border-none">
+              Get Started Today
+            </Button>
+          </Link>
+        </div>
+      </section>
 
       {/* Footer */}
-      <Card className="text-center bg-gray-50">
-        <Title level={4}>Need Help?</Title>
-        <Paragraph type="secondary">
-          Contact our support team or check out the documentation for assistance.
-        </Paragraph>
-        <Text type="secondary">Version 1.0.0 | Built with love by the Kiaan Team</Text>
-      </Card>
+      <footer className="bg-gray-900 text-white py-8 px-6">
+        <div className="max-w-7xl mx-auto text-center text-gray-400">
+          <p>&copy; 2024 Kiaan WMS. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

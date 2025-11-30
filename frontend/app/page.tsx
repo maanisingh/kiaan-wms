@@ -123,8 +123,8 @@ export default function MarketingPage() {
     },
     {
       icon: <ThunderboltOutlined className="text-4xl" />,
-      title: 'Barcode & QR Scanning',
-      description: 'Built-in barcode scanning for products, batches, and locations. Generate and print labels instantly.'
+      title: 'Lightning Fast Performance',
+      description: 'Built with Next.js 16 and optimized for speed, delivering sub-second page loads.'
     },
     {
       icon: <DashboardOutlined className="text-4xl" />,
@@ -138,13 +138,13 @@ export default function MarketingPage() {
     },
     {
       icon: <BarChartOutlined className="text-4xl" />,
-      title: 'Invoicing & Payments',
-      description: 'Generate professional invoices, accept Stripe payments, and track all billing in one place.'
+      title: 'Advanced Analytics',
+      description: 'Comprehensive reports and charts to make data-driven warehouse decisions.'
     },
     {
       icon: <ApiOutlined className="text-4xl" />,
-      title: '80+ Shipping Carriers',
-      description: 'Connect with UPS, FedEx, DHL, Royal Mail, and 80+ carriers. Real-time rates & label printing.'
+      title: 'Seamless Integrations',
+      description: 'Connect with Amazon, Shopify, eBay and more through our powerful API.'
     },
   ];
 
@@ -766,45 +766,15 @@ export default function MarketingPage() {
             </p>
           </motion.div>
 
-          {/* Shipping Carriers Section */}
-          <div className="mb-12">
-            <h3 className="text-2xl font-bold text-center mb-6 text-gray-700">🚚 80+ Shipping Carriers</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-              {[
-                { name: 'Royal Mail', emoji: '👑' },
-                { name: 'DHL Express', emoji: '✈️' },
-                { name: 'UPS', emoji: '📦' },
-                { name: 'FedEx', emoji: '🚀' },
-                { name: 'DPD UK', emoji: '🚛' },
-                { name: 'Evri', emoji: '📫' },
-                { name: 'USPS', emoji: '📬' },
-                { name: 'Parcelforce', emoji: '🇬🇧' },
-              ].map((carrier, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white rounded-xl p-4 text-center shadow-md hover:shadow-lg transition-all"
-                >
-                  <div className="text-3xl mb-2">{carrier.emoji}</div>
-                  <div className="text-sm font-semibold text-gray-700">{carrier.name}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Main Integrations Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { name: 'Amazon', icon: <AmazonOutlined />, color: 'from-orange-500 to-yellow-500', desc: 'FBA & FBM Integration' },
               { name: 'Shopify', icon: <ShoppingCartOutlined />, color: 'from-green-500 to-emerald-600', desc: 'Order Sync' },
               { name: 'eBay', icon: <TagsOutlined />, color: 'from-blue-500 to-cyan-500', desc: 'Marketplace Sync' },
-              { name: 'Stripe', icon: <ThunderboltOutlined />, color: 'from-purple-600 to-indigo-600', desc: 'Payment Processing' },
-              { name: 'DocuSign', icon: <SafetyOutlined />, color: 'from-blue-600 to-cyan-600', desc: 'Digital Signatures' },
+              { name: 'WooCommerce', icon: <GlobalOutlined />, color: 'from-purple-500 to-indigo-500', desc: 'Real-time Updates' },
+              { name: 'FedEx', icon: <CarOutlined />, color: 'from-purple-600 to-blue-600', desc: 'Shipping Labels' },
+              { name: 'UPS', icon: <CarOutlined />, color: 'from-yellow-600 to-amber-700', desc: 'Tracking API' },
               { name: 'QuickBooks', icon: <BarChartOutlined />, color: 'from-green-600 to-teal-600', desc: 'Accounting Sync' },
-              { name: 'Xero', icon: <LineChartOutlined />, color: 'from-cyan-500 to-blue-500', desc: 'Financial Reports' },
               { name: 'Slack', icon: <MailOutlined />, color: 'from-pink-500 to-rose-600', desc: 'Notifications' },
             ].map((integration, index) => (
               <motion.div
@@ -825,25 +795,6 @@ export default function MarketingPage() {
             ))}
           </div>
 
-          {/* Key Features Grid */}
-          <div className="mt-12 grid md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-              <div className="text-4xl mb-3">📊</div>
-              <h4 className="text-xl font-bold text-gray-800 mb-2">Barcode Scanning</h4>
-              <p className="text-gray-600">Built-in scanner for products, batches & locations. Generate and print labels instantly.</p>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
-              <div className="text-4xl mb-3">💳</div>
-              <h4 className="text-xl font-bold text-gray-800 mb-2">Invoicing & Payments</h4>
-              <p className="text-gray-600">Professional invoices with Stripe integration. Accept payments directly in the system.</p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200">
-              <div className="text-4xl mb-3">✍️</div>
-              <h4 className="text-xl font-bold text-gray-800 mb-2">DocuSign Integration</h4>
-              <p className="text-gray-600">Digital signatures for POs, contracts, and delivery confirmations. Paperless operations.</p>
-            </div>
-          </div>
-
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -851,7 +802,7 @@ export default function MarketingPage() {
             className="mt-12 text-center"
           >
             <div className="inline-block bg-white rounded-2xl px-8 py-4 shadow-lg">
-              <p className="text-gray-600 mb-2">Plus 100+ more integrations via</p>
+              <p className="text-gray-600 mb-2">Plus 50+ more integrations via</p>
               <div className="flex items-center gap-3 justify-center">
                 <ApiOutlined className="text-3xl text-blue-600" />
                 <span className="text-xl font-bold text-gray-800">REST API & Webhooks</span>
@@ -932,127 +883,6 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="py-20 px-6 bg-gradient-to-br from-indigo-50 to-purple-50">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Choose the plan that fits your warehouse operations
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: 'Starter',
-                price: '$499',
-                period: '/month',
-                description: 'Perfect for small warehouses',
-                features: [
-                  'Up to 5 users',
-                  '1 warehouse location',
-                  '10,000 orders/month',
-                  'Basic integrations',
-                  'Email support',
-                  'Role-based access',
-                ],
-                color: 'from-blue-500 to-cyan-500',
-                popular: false,
-              },
-              {
-                name: 'Professional',
-                price: '$1,299',
-                period: '/month',
-                description: 'Most popular for growing businesses',
-                features: [
-                  'Up to 25 users',
-                  '3 warehouse locations',
-                  '50,000 orders/month',
-                  'Advanced integrations',
-                  'Priority support',
-                  'Advanced analytics',
-                  'Custom reports',
-                ],
-                color: 'from-purple-500 to-pink-500',
-                popular: true,
-              },
-              {
-                name: 'Enterprise',
-                price: 'Custom',
-                period: '',
-                description: 'For large-scale operations',
-                features: [
-                  'Unlimited users',
-                  'Unlimited warehouses',
-                  'Unlimited orders',
-                  'All integrations',
-                  '24/7 dedicated support',
-                  'Custom development',
-                  'SLA guarantee',
-                  'White-label option',
-                ],
-                color: 'from-indigo-600 to-blue-600',
-                popular: false,
-              },
-            ].map((plan, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
-                className={`relative bg-white rounded-3xl p-8 shadow-xl ${plan.popular ? 'ring-4 ring-purple-500' : ''}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-full text-sm font-bold">
-                      MOST POPULAR
-                    </div>
-                  </div>
-                )}
-                <div className={`w-16 h-16 bg-gradient-to-br ${plan.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-6`}>
-                  <RocketOutlined />
-                </div>
-                <h3 className="text-3xl font-bold mb-2 text-gray-800">{plan.name}</h3>
-                <p className="text-gray-600 mb-6">{plan.description}</p>
-                <div className="mb-6">
-                  <span className="text-5xl font-bold text-gray-900">{plan.price}</span>
-                  <span className="text-gray-600">{plan.period}</span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-center gap-3 text-gray-700">
-                      <CheckCircleOutlined className="text-green-500" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/auth/login">
-                  <Button
-                    size="large"
-                    className={`w-full h-12 text-lg font-semibold ${
-                      plan.popular
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                    }`}
-                  >
-                    {plan.name === 'Enterprise' ? 'Contact Sales' : 'Start Free Trial'}
-                  </Button>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Security & Compliance Section */}
       <section className="py-20 px-6 bg-gray-900 text-white">
@@ -1114,9 +944,6 @@ export default function MarketingPage() {
                   Get Started <RocketOutlined />
                 </Button>
               </Link>
-              <Button size="large" className="h-14 px-8 text-lg bg-blue-700 text-white hover:bg-blue-800">
-                Schedule a Call
-              </Button>
             </div>
           </motion.div>
         </div>
@@ -1144,17 +971,17 @@ export default function MarketingPage() {
             <div>
               <h4 className="font-bold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">About Us</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-                <li><a href="#" className="hover:text-white">Careers</a></li>
+                <li><Link href="/about" className="hover:text-white">About Us</Link></li>
+                <li><Link href="/contact" className="hover:text-white">Contact</Link></li>
+                <li><Link href="/careers" className="hover:text-white">Careers</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
-                <li><a href="#" className="hover:text-white">Security</a></li>
+                <li><Link href="/privacy" className="hover:text-white">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-white">Terms</Link></li>
+                <li><Link href="/security" className="hover:text-white">Security</Link></li>
               </ul>
             </div>
           </div>
