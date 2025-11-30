@@ -11,7 +11,7 @@ import {
   CloudOutlined,
   GlobalOutlined,
   CheckCircleOutlined,
-  ShieldFilled
+  SafetyCertificateOutlined
 } from '@ant-design/icons';
 import { Button } from 'antd';
 
@@ -80,7 +80,7 @@ export default function SecurityPage() {
             transition={{ duration: 0.5 }}
           >
             <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full mb-8">
-              <ShieldFilled className="text-5xl text-white" />
+              <SafetyCertificateOutlined className="text-5xl text-white" />
             </div>
             <h1 className="text-5xl font-bold mb-4 text-white">
               Enterprise-Grade Security
