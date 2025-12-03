@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download WMS Development Report - Kiaan WMS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    .container {
+      background: white;
+      padding: 60px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      text-align: center;
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .emoji {
+      font-size: 72px;
+      margin-bottom: 20px;
+      animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    h1 {
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #333;
+      font-weight: 700;
+    }
+    .description {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+    .features {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+    .features strong {
+      color: #667eea;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .features ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .features li {
+      padding: 5px 0;
+    }
+    .features li:before {
+      content: "✓ ";
+      color: #28a745;
+      font-weight: bold;
+    }
+    .download-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 18px 50px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    .download-btn:active {
+      transform: translateY(0);
+    }
+    .meta {
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid #e9ecef;
+    }
+    .meta p {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+    .meta code {
+      background: #f1f3f5;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+    }
+    .back-link {
+      margin-top: 30px;
+    }
+    .back-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .back-link a:hover {
+      color: #764ba2;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin: 30px 0;
+    }
+    .stat-box {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 3px solid #667eea;
+    }
+    .stat-box .number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+    .stat-box .label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="emoji">📄</div>
+    <h1>WMS Development Report</h1>
+    <p class="description">
+      Comprehensive documentation of marketplace integrations,
+      UK shipping carriers, and platform enhancements.
+    </p>
+
+    <div class="stats">
+      <div class="stat-box">
+        <span class="number">11</span>
+        <span class="label">New Files</span>
+      </div>
+      <div class="stat-box">
+        <span class="number">4,350+</span>
+        <span class="label">Lines Added</span>
+      </div>
+      <div class="stat-box">
+        <span class="number">242 KB</span>
+        <span class="label">File Size</span>
+      </div>
+    </div>
+
+    <div class="features">
+      <strong>Report Contents:</strong>
+      <ul>
+        <li>Executive Summary with Key Metrics</li>
+        <li>Marketplace Integrations (eBay, TikTok Shop)</li>
+        <li>UK Shipping Carriers (Royal Mail, DPD, ParcelForce)</li>
+        <li>Infrastructure Services (Encryption, Queue)</li>
+        <li>API Endpoint Documentation (12+ endpoints)</li>
+        <li>Security Features Overview</li>
+        <li>Deployment Information</li>
+        <li>Platform Statistics & Status</li>
+      </ul>
+    </div>
+
+    <a href="/wms-development-report.pdf" download class="download-btn">
+      📥 Download Report (242 KB)
+    </a>
+
+    <div class="meta">
+      <p><strong>Generated:</strong> December 3, 2025</p>
+      <p><strong>Latest Commit:</strong> <code>b5b48f8</code></p>
+      <p><strong>Repository:</strong> github.com/maanisingh/kiaan-wms</p>
+    </div>
+
+    <div class="back-link">
+      <a href="/">← Back to Dashboard</a>
+    </div>
+  </div>
+
+  <script>
+    // Track download
+    document.querySelector('.download-btn').addEventListener('click', function() {
+      console.log('PDF download initiated');
+      // You can add analytics tracking here
+    });
+  </script>
+</body>
+</html>
