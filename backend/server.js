@@ -6675,6 +6675,1143 @@ app.delete('/api/inventory/batches/:id', verifyToken, async (req, res) => {
   }
 });
 
+// ===================================
+// MARKETPLACE INTEGRATIONS API
+// ===================================
+
+const IntegrationClientFactory = require('./lib/integrations/clientFactory');
+const encryptionService = require('./lib/encryption');
+const JobQueueProcessor = require('./lib/queue');
+
+// GET all integrations for company
+app.get('/api/integrations', verifyToken, async (req, res) => {
+  try {
+    const integrations = await prisma.integration.findMany({
+      where: { companyId: req.user.companyId },
+      include: {
+        _count: {
+          select: {
+            mappings: true,
+            syncLogs: true,
+            orderImports: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Don't send raw credentials back to frontend
+    const sanitized = integrations.map(int => ({
+      ...int,
+      credentials: '***ENCRYPTED***',
+      _count: int._count
+    }));
+
+    res.json(sanitized);
+  } catch (error) {
+    console.error('Get integrations error:', error);
+    res.status(500).json({ error: 'Failed to fetch integrations' });
+  }
+});
+
+// GET single integration by ID
+app.get('/api/integrations/:id', verifyToken, async (req, res) => {
+  try {
+    const integration = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      },
+      include: {
+        mappings: {
+          include: { integration: true },
+          take: 100
+        },
+        syncLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 20
+        },
+        _count: {
+          select: {
+            mappings: true,
+            orderImports: true
+          }
+        }
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    // Don't send raw credentials
+    const sanitized = {
+      ...integration,
+      credentials: '***ENCRYPTED***'
+    };
+
+    res.json(sanitized);
+  } catch (error) {
+    console.error('Get integration error:', error);
+    res.status(500).json({ error: 'Failed to fetch integration' });
+  }
+});
+
+// POST create new integration
+app.post('/api/integrations', verifyToken, async (req, res) => {
+  try {
+    const { platform, credentials, syncFrequency } = req.body;
+
+    if (!platform || !credentials) {
+      return res.status(400).json({ error: 'Platform and credentials are required' });
+    }
+
+    // Validate credentials for platform
+    const validation = IntegrationClientFactory.validateCredentials(platform, credentials);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.errors.join(', ') });
+    }
+
+    // Encrypt credentials before storing
+    const credentialsJson = JSON.stringify(credentials);
+    const encrypted = encryptionService.encrypt(credentialsJson);
+    const encryptedStr = JSON.stringify(encrypted);
+
+    // Create integration record
+    const integration = await prisma.integration.create({
+      data: {
+        companyId: req.user.companyId,
+        platform,
+        credentials: encryptedStr,
+        isActive: true,
+        syncFrequency: syncFrequency || 'HOURLY'
+      }
+    });
+
+    // Test connection
+    const testResult = await IntegrationClientFactory.testConnection(integration);
+
+    if (!testResult.success) {
+      // Delete integration if connection test fails
+      await prisma.integration.delete({ where: { id: integration.id } });
+      return res.status(400).json({
+        error: 'Connection test failed',
+        details: testResult.message
+      });
+    }
+
+    res.status(201).json({
+      ...integration,
+      credentials: '***ENCRYPTED***',
+      testResult
+    });
+  } catch (error) {
+    console.error('Create integration error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create integration' });
+  }
+});
+
+// PUT update integration
+app.put('/api/integrations/:id', verifyToken, async (req, res) => {
+  try {
+    const existing = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    const { credentials, isActive, syncFrequency } = req.body;
+    const updateData = {};
+
+    if (credentials) {
+      // Validate and encrypt new credentials
+      const validation = IntegrationClientFactory.validateCredentials(existing.platform, credentials);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.errors.join(', ') });
+      }
+
+      const credentialsJson = JSON.stringify(credentials);
+      const encrypted = encryptionService.encrypt(credentialsJson);
+      updateData.credentials = JSON.stringify(encrypted);
+    }
+
+    if (typeof isActive !== 'undefined') {
+      updateData.isActive = isActive;
+    }
+
+    if (syncFrequency) {
+      updateData.syncFrequency = syncFrequency;
+    }
+
+    const updated = await prisma.integration.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+
+    res.json({
+      ...updated,
+      credentials: '***ENCRYPTED***'
+    });
+  } catch (error) {
+    console.error('Update integration error:', error);
+    res.status(500).json({ error: 'Failed to update integration' });
+  }
+});
+
+// DELETE integration
+app.delete('/api/integrations/:id', verifyToken, async (req, res) => {
+  try {
+    const existing = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    // Delete will cascade to mappings, sync logs, order imports
+    await prisma.integration.delete({ where: { id: req.params.id } });
+
+    res.json({ message: 'Integration deleted successfully' });
+  } catch (error) {
+    console.error('Delete integration error:', error);
+    res.status(500).json({ error: 'Failed to delete integration' });
+  }
+});
+
+// POST manual sync trigger
+app.post('/api/integrations/:id/sync', verifyToken, async (req, res) => {
+  try {
+    const { syncType } = req.body; // 'ORDERS' or 'INVENTORY'
+
+    const integration = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    if (!integration.isActive) {
+      return res.status(400).json({ error: 'Integration is not active' });
+    }
+
+    // Create job in queue
+    const job = await prisma.jobQueue.create({
+      data: {
+        type: syncType === 'INVENTORY' ? 'SYNC_INVENTORY' : 'SYNC_ORDERS',
+        payload: JSON.stringify({
+          integrationId: integration.id,
+          triggeredBy: req.user.id
+        }),
+        status: 'PENDING',
+        processAt: new Date()
+      }
+    });
+
+    // Process job immediately (in production, this would be handled by background worker)
+    const processor = new JobQueueProcessor();
+    processor.processNextJob();
+
+    res.json({
+      message: 'Sync started',
+      jobId: job.id,
+      type: syncType
+    });
+  } catch (error) {
+    console.error('Manual sync error:', error);
+    res.status(500).json({ error: 'Failed to start sync' });
+  }
+});
+
+// GET sync logs for integration
+app.get('/api/integrations/:id/logs', verifyToken, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, syncType } = req.query;
+
+    const where = {
+      integrationId: req.params.id,
+      integration: { companyId: req.user.companyId }
+    };
+
+    if (syncType) {
+      where.syncType = syncType;
+    }
+
+    const logs = await prisma.syncLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit),
+      skip: parseInt(offset)
+    });
+
+    const total = await prisma.syncLog.count({ where });
+
+    res.json({
+      logs,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Get sync logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch sync logs' });
+  }
+});
+
+// GET integration mappings (SKU mappings)
+app.get('/api/integrations/:id/mappings', verifyToken, async (req, res) => {
+  try {
+    const mappings = await prisma.integrationMapping.findMany({
+      where: {
+        integrationId: req.params.id,
+        integration: { companyId: req.user.companyId }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(mappings);
+  } catch (error) {
+    console.error('Get mappings error:', error);
+    res.status(500).json({ error: 'Failed to fetch mappings' });
+  }
+});
+
+// POST create SKU mapping
+app.post('/api/integrations/:id/mappings', verifyToken, async (req, res) => {
+  try {
+    const { internalSku, externalSku, externalProductId } = req.body;
+
+    if (!internalSku || !externalSku) {
+      return res.status(400).json({ error: 'Internal and external SKU are required' });
+    }
+
+    const integration = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    // Check if internal SKU exists
+    const product = await prisma.product.findFirst({
+      where: { sku: internalSku }
+    });
+
+    if (!product) {
+      return res.status(400).json({ error: 'Internal SKU not found in products' });
+    }
+
+    const mapping = await prisma.integrationMapping.create({
+      data: {
+        integrationId: req.params.id,
+        internalSku,
+        externalSku,
+        externalProductId
+      }
+    });
+
+    res.status(201).json(mapping);
+  } catch (error) {
+    console.error('Create mapping error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Mapping already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create mapping' });
+  }
+});
+
+// DELETE mapping
+app.delete('/api/integrations/:integrationId/mappings/:mappingId', verifyToken, async (req, res) => {
+  try {
+    const mapping = await prisma.integrationMapping.findFirst({
+      where: {
+        id: req.params.mappingId,
+        integrationId: req.params.integrationId,
+        integration: { companyId: req.user.companyId }
+      }
+    });
+
+    if (!mapping) {
+      return res.status(404).json({ error: 'Mapping not found' });
+    }
+
+    await prisma.integrationMapping.delete({
+      where: { id: req.params.mappingId }
+    });
+
+    res.json({ message: 'Mapping deleted successfully' });
+  } catch (error) {
+    console.error('Delete mapping error:', error);
+    res.status(500).json({ error: 'Failed to delete mapping' });
+  }
+});
+
+// GET supported platforms
+app.get('/api/integrations/platforms/supported', verifyToken, async (req, res) => {
+  try {
+    const platforms = IntegrationClientFactory.getSupportedPlatforms();
+    res.json(platforms);
+  } catch (error) {
+    console.error('Get supported platforms error:', error);
+    res.status(500).json({ error: 'Failed to fetch supported platforms' });
+  }
+});
+
+// POST test connection
+app.post('/api/integrations/:id/test-connection', verifyToken, async (req, res) => {
+  try {
+    const integration = await prisma.integration.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    const result = await IntegrationClientFactory.testConnection(integration);
+    res.json(result);
+  } catch (error) {
+    console.error('Test connection error:', error);
+    res.status(500).json({ error: 'Failed to test connection' });
+  }
+});
+
+// ===================================
+// WEBHOOK RECEIVERS
+// ===================================
+
+// Shopify webhook receiver
+app.post('/api/webhooks/shopify', async (req, res) => {
+  try {
+    const topic = req.headers['x-shopify-topic'];
+    const shop = req.headers['x-shopify-shop-domain'];
+
+    // Find integration by shop domain
+    const integration = await prisma.integration.findFirst({
+      where: {
+        platform: 'SHOPIFY',
+        isActive: true
+      }
+    });
+
+    if (!integration) {
+      console.warn(`No active Shopify integration found for shop: ${shop}`);
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    // Create client and handle webhook
+    const client = IntegrationClientFactory.createClient(integration);
+    await client.handleWebhook(topic, req.body);
+
+    res.status(200).json({ message: 'Webhook processed' });
+  } catch (error) {
+    console.error('Shopify webhook error:', error);
+    res.status(500).json({ error: 'Failed to process webhook' });
+  }
+});
+
+// TikTok Shop webhook receiver
+app.post('/api/webhooks/tiktok', async (req, res) => {
+  try {
+    const { type, shop_id, data } = req.body;
+
+    // Find integration by shop_id
+    const integration = await prisma.integration.findFirst({
+      where: {
+        platform: 'TIKTOK',
+        isActive: true
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+
+    // Handle webhook based on type
+    if (type === 'ORDER_STATUS_CHANGE' || type === 'NEW_ORDER') {
+      const client = IntegrationClientFactory.createClient(integration);
+      const orderDetail = await client.makeRequest('/api/orders/detail/query', 'POST', {
+        shop_id,
+        order_id_list: [data.order_id]
+      });
+
+      if (orderDetail.order_list?.[0]) {
+        await client.importOrder(orderDetail.order_list[0]);
+      }
+    }
+
+    res.status(200).json({ message: 'Webhook processed' });
+  } catch (error) {
+    console.error('TikTok webhook error:', error);
+    res.status(500).json({ error: 'Failed to process webhook' });
+  }
+});
+
+// =============================================================================
+// PHASE 5: SHIPPING INTEGRATIONS API
+// =============================================================================
+
+const ShippingCarrierFactory = require('./lib/shipping/carrierFactory');
+
+// Get supported shipping carriers (metadata)
+app.get('/api/shipping/carriers/supported', async (req, res) => {
+  try {
+    const carriers = ShippingCarrierFactory.getSupportedCarriers();
+    res.json(carriers);
+  } catch (error) {
+    console.error('Failed to get supported carriers:', error);
+    res.status(500).json({ error: 'Failed to get supported carriers' });
+  }
+});
+
+// List configured shipping carriers
+app.get('/api/shipping/carriers', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    const carriers = await prisma.shippingCarrier.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        name: true,
+        carrierCode: true,
+        country: true,
+        isActive: true,
+        isDefault: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(carriers);
+  } catch (error) {
+    console.error('Failed to list carriers:', error);
+    res.status(500).json({ error: 'Failed to list carriers' });
+  }
+});
+
+// Get single carrier details
+app.get('/api/shipping/carriers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id, companyId },
+      select: {
+        id: true,
+        name: true,
+        carrierCode: true,
+        country: true,
+        isActive: true,
+        isDefault: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    // Get carrier metadata
+    const metadata = ShippingCarrierFactory.getSupportedCarriers().find(
+      c => c.carrierCode === carrier.carrierCode
+    );
+
+    res.json({ ...carrier, metadata });
+  } catch (error) {
+    console.error('Failed to get carrier:', error);
+    res.status(500).json({ error: 'Failed to get carrier' });
+  }
+});
+
+// Create new shipping carrier
+app.post('/api/shipping/carriers', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { name, carrierCode, credentials, isDefault = false } = req.body;
+
+    // Validate credentials
+    const validation = ShippingCarrierFactory.validateCredentials(carrierCode, credentials);
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Invalid credentials',
+        details: validation.errors
+      });
+    }
+
+    // Encrypt credentials
+    const encryptedCredentials = encryptionService.encrypt(JSON.stringify(credentials));
+
+    // Get carrier metadata
+    const carrierConfig = ShippingCarrierFactory.getSupportedCarriers().find(
+      c => c.carrierCode === carrierCode
+    );
+
+    if (!carrierConfig) {
+      return res.status(400).json({ error: 'Unsupported carrier' });
+    }
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      await prisma.shippingCarrier.updateMany({
+        where: { companyId, isDefault: true },
+        data: { isDefault: false }
+      });
+    }
+
+    // Create carrier
+    const carrier = await prisma.shippingCarrier.create({
+      data: {
+        companyId,
+        name: name || carrierConfig.name,
+        carrierCode,
+        country: carrierConfig.country,
+        credentials: JSON.stringify(encryptedCredentials),
+        isActive: false, // Start inactive until connection test passes
+        isDefault
+      }
+    });
+
+    // Test connection
+    try {
+      const testResult = await ShippingCarrierFactory.testConnection(carrier);
+
+      if (testResult.success) {
+        // Activate carrier if test passes
+        await prisma.shippingCarrier.update({
+          where: { id: carrier.id },
+          data: { isActive: true }
+        });
+
+        res.status(201).json({
+          ...carrier,
+          credentials: undefined, // Don't return credentials
+          connectionTest: testResult
+        });
+      } else {
+        res.status(201).json({
+          ...carrier,
+          credentials: undefined,
+          connectionTest: testResult,
+          warning: 'Carrier created but connection test failed. Please verify credentials.'
+        });
+      }
+    } catch (testError) {
+      console.error('Connection test failed:', testError);
+      res.status(201).json({
+        ...carrier,
+        credentials: undefined,
+        connectionTest: { success: false, message: testError.message },
+        warning: 'Carrier created but connection test failed.'
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create carrier:', error);
+    res.status(500).json({ error: 'Failed to create carrier' });
+  }
+});
+
+// Update carrier
+app.put('/api/shipping/carriers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+    const { name, credentials, isActive, isDefault } = req.body;
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    const updateData = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    if (credentials) {
+      // Validate new credentials
+      const validation = ShippingCarrierFactory.validateCredentials(
+        carrier.carrierCode,
+        credentials
+      );
+
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: 'Invalid credentials',
+          details: validation.errors
+        });
+      }
+
+      // Encrypt credentials
+      const encryptedCredentials = encryptionService.encrypt(JSON.stringify(credentials));
+      updateData.credentials = JSON.stringify(encryptedCredentials);
+    }
+
+    if (isDefault === true) {
+      // Unset other defaults
+      await prisma.shippingCarrier.updateMany({
+        where: { companyId, isDefault: true, id: { not: id } },
+        data: { isDefault: false }
+      });
+      updateData.isDefault = true;
+    } else if (isDefault === false) {
+      updateData.isDefault = false;
+    }
+
+    const updated = await prisma.shippingCarrier.update({
+      where: { id },
+      data: updateData
+    });
+
+    res.json({
+      ...updated,
+      credentials: undefined
+    });
+  } catch (error) {
+    console.error('Failed to update carrier:', error);
+    res.status(500).json({ error: 'Failed to update carrier' });
+  }
+});
+
+// Delete carrier
+app.delete('/api/shipping/carriers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    // Check for existing shipments
+    const shipmentsCount = await prisma.shipment.count({
+      where: { carrierId: id }
+    });
+
+    if (shipmentsCount > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete carrier with existing shipments',
+        shipmentsCount
+      });
+    }
+
+    await prisma.shippingCarrier.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Carrier deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete carrier:', error);
+    res.status(500).json({ error: 'Failed to delete carrier' });
+  }
+});
+
+// Test carrier connection
+app.post('/api/shipping/carriers/:id/test', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    const result = await ShippingCarrierFactory.testConnection(carrier);
+    res.json(result);
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Get available services for a carrier
+app.get('/api/shipping/carriers/:id/services', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found' });
+    }
+
+    const services = ShippingCarrierFactory.getCarrierServices(carrier.carrierCode);
+    res.json(services);
+  } catch (error) {
+    console.error('Failed to get services:', error);
+    res.status(500).json({ error: 'Failed to get services' });
+  }
+});
+
+// Compare shipping rates across carriers
+app.post('/api/shipping/compare-rates', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { fromAddress, toAddress, parcelDetails, carrierCodes } = req.body;
+
+    if (!fromAddress || !toAddress || !parcelDetails) {
+      return res.status(400).json({
+        error: 'Missing required fields: fromAddress, toAddress, parcelDetails'
+      });
+    }
+
+    // Filter by company's carriers
+    const whereClause = { companyId, isActive: true };
+    if (carrierCodes && carrierCodes.length > 0) {
+      whereClause.carrierCode = { in: carrierCodes };
+    }
+
+    const carriers = await prisma.shippingCarrier.findMany({
+      where: whereClause
+    });
+
+    if (carriers.length === 0) {
+      return res.status(404).json({ error: 'No active carriers found' });
+    }
+
+    const rates = [];
+
+    for (const carrier of carriers) {
+      try {
+        const client = ShippingCarrierFactory.createClient(carrier);
+        const services = await client.getServices(fromAddress, toAddress, parcelDetails);
+
+        for (const service of services) {
+          rates.push({
+            carrier: {
+              id: carrier.id,
+              code: carrier.carrierCode,
+              name: carrier.name
+            },
+            service: {
+              code: service.serviceCode,
+              name: service.serviceName,
+              description: service.description
+            },
+            price: service.price,
+            currency: service.currency,
+            estimatedDeliveryDays: service.estimatedDeliveryDays,
+            estimatedDeliveryDate: service.estimatedDeliveryDate,
+            features: {
+              tracked: service.tracked,
+              signed: service.signed,
+              compensation: service.compensation
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to get rates from ${carrier.carrierCode}:`, error.message);
+        // Continue with other carriers
+      }
+    }
+
+    // Sort by price (cheapest first)
+    rates.sort((a, b) => (a.price || 999999) - (b.price || 999999));
+
+    res.json({
+      rates,
+      fromAddress,
+      toAddress,
+      parcelDetails,
+      comparedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Failed to compare rates:', error);
+    res.status(500).json({ error: 'Failed to compare rates' });
+  }
+});
+
+// Create shipment
+app.post('/api/shipping/shipments', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { carrierId, orderId, serviceCode, ...orderDetails } = req.body;
+
+    if (!carrierId || !orderId || !serviceCode) {
+      return res.status(400).json({
+        error: 'Missing required fields: carrierId, orderId, serviceCode'
+      });
+    }
+
+    const carrier = await prisma.shippingCarrier.findFirst({
+      where: { id: carrierId, companyId, isActive: true }
+    });
+
+    if (!carrier) {
+      return res.status(404).json({ error: 'Carrier not found or inactive' });
+    }
+
+    // Create client and shipment
+    const client = ShippingCarrierFactory.createClient(carrier);
+    const result = await client.createShipment({
+      orderId,
+      serviceCode,
+      ...orderDetails
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Failed to create shipment:', error);
+    res.status(500).json({ error: error.message || 'Failed to create shipment' });
+  }
+});
+
+// List shipments
+app.get('/api/shipping/shipments', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { orderId, status, carrierId, limit = 50, offset = 0 } = req.query;
+
+    const where = {
+      carrier: { companyId }
+    };
+
+    if (orderId) where.orderId = orderId;
+    if (status) where.status = status;
+    if (carrierId) where.carrierId = carrierId;
+
+    const [shipments, total] = await Promise.all([
+      prisma.shipment.findMany({
+        where,
+        include: {
+          carrier: {
+            select: {
+              id: true,
+              name: true,
+              carrierCode: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      }),
+      prisma.shipment.count({ where })
+    ]);
+
+    res.json({
+      shipments,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Failed to list shipments:', error);
+    res.status(500).json({ error: 'Failed to list shipments' });
+  }
+});
+
+// Get shipment details
+app.get('/api/shipping/shipments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const shipment = await prisma.shipment.findFirst({
+      where: {
+        id,
+        carrier: { companyId }
+      },
+      include: {
+        carrier: {
+          select: {
+            id: true,
+            name: true,
+            carrierCode: true
+          }
+        }
+      }
+    });
+
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    res.json(shipment);
+  } catch (error) {
+    console.error('Failed to get shipment:', error);
+    res.status(500).json({ error: 'Failed to get shipment' });
+  }
+});
+
+// Track shipment
+app.get('/api/shipping/shipments/:id/track', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const shipment = await prisma.shipment.findFirst({
+      where: {
+        id,
+        carrier: { companyId }
+      },
+      include: { carrier: true }
+    });
+
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    const client = ShippingCarrierFactory.createClient(shipment.carrier);
+    const trackingInfo = await client.trackShipment(shipment.trackingNumber);
+
+    res.json(trackingInfo);
+  } catch (error) {
+    console.error('Failed to track shipment:', error);
+    res.status(500).json({ error: error.message || 'Failed to track shipment' });
+  }
+});
+
+// Cancel shipment
+app.post('/api/shipping/shipments/:id/cancel', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const shipment = await prisma.shipment.findFirst({
+      where: {
+        id,
+        carrier: { companyId }
+      },
+      include: { carrier: true }
+    });
+
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    if (shipment.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Shipment already cancelled' });
+    }
+
+    if (['DELIVERED', 'RETURNED'].includes(shipment.status)) {
+      return res.status(400).json({
+        error: `Cannot cancel shipment with status: ${shipment.status}`
+      });
+    }
+
+    const client = ShippingCarrierFactory.createClient(shipment.carrier);
+    const result = await client.cancelShipment(shipment.carrierShipmentId);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to cancel shipment:', error);
+    res.status(500).json({ error: error.message || 'Failed to cancel shipment' });
+  }
+});
+
+// Get/print shipping label
+app.get('/api/shipping/shipments/:id/label', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    const shipment = await prisma.shipment.findFirst({
+      where: {
+        id,
+        carrier: { companyId }
+      },
+      include: { carrier: true }
+    });
+
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+
+    const client = ShippingCarrierFactory.createClient(shipment.carrier);
+    const label = await client.printLabel(id);
+
+    res.json(label);
+  } catch (error) {
+    console.error('Failed to get label:', error);
+    res.status(500).json({ error: error.message || 'Failed to get label' });
+  }
+});
+
+// Get shipping logs
+app.get('/api/shipping/logs', async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { carrierId, operation, status, limit = 100, offset = 0 } = req.query;
+
+    const where = {
+      carrier: { companyId }
+    };
+
+    if (carrierId) where.carrierId = carrierId;
+    if (operation) where.operation = operation;
+    if (status) where.status = status;
+
+    const [logs, total] = await Promise.all([
+      prisma.shippingLog.findMany({
+        where,
+        include: {
+          carrier: {
+            select: {
+              id: true,
+              name: true,
+              carrierCode: true
+            }
+          }
+        },
+        orderBy: { timestamp: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      }),
+      prisma.shippingLog.count({ where })
+    ]);
+
+    res.json({
+      logs,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Failed to get logs:', error);
+    res.status(500).json({ error: 'Failed to get logs' });
+  }
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
