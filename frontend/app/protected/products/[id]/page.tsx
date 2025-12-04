@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Spin, Alert,
-  Timeline, Empty, Progress, message
+  Timeline, Empty, Progress, message, Modal, Form, Input, Select, Switch
 } from 'antd';
 import {
   ArrowLeftOutlined, EditOutlined, PrinterOutlined, BarChartOutlined,
   HistoryOutlined, InboxOutlined, CalendarOutlined, WarningOutlined, ReloadOutlined,
-  BarcodeOutlined, SwapOutlined, ShoppingCartOutlined, ArrowUpOutlined, ArrowDownOutlined
+  BarcodeOutlined, SwapOutlined, ShoppingCartOutlined, ArrowUpOutlined, ArrowDownOutlined,
+  GlobalOutlined, PlusOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
@@ -103,6 +104,17 @@ interface BarcodeHistory {
   }>;
 }
 
+interface AlternativeSKU {
+  id: string;
+  channelType: string;
+  channelSKU: string;
+  skuType?: string;
+  isActive: boolean;
+  isPrimary: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -110,9 +122,13 @@ export default function ProductDetailPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [barcodeData, setBarcodeData] = useState<BarcodeHistory | null>(null);
+  const [alternativeSKUs, setAlternativeSKUs] = useState<AlternativeSKU[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
+  const [showAltSKUModal, setShowAltSKUModal] = useState(false);
+  const [editingAltSKU, setEditingAltSKU] = useState<AlternativeSKU | null>(null);
+  const [altSKUForm] = Form.useForm();
 
   const fetchProduct = async () => {
     try {
@@ -155,12 +171,61 @@ export default function ProductDetailPage() {
     }
   };
 
+  const fetchAlternativeSKUs = async () => {
+    try {
+      const data = await apiService.get(`/products/${params.id}/alternative-skus`);
+      setAlternativeSKUs(data.alternativeSKUs || []);
+    } catch (err) {
+      console.error('Failed to fetch alternative SKUs:', err);
+      setAlternativeSKUs([]);
+    }
+  };
+
+  const handleAddAltSKU = () => {
+    setEditingAltSKU(null);
+    altSKUForm.resetFields();
+    setShowAltSKUModal(true);
+  };
+
+  const handleEditAltSKU = (sku: AlternativeSKU) => {
+    setEditingAltSKU(sku);
+    altSKUForm.setFieldsValue(sku);
+    setShowAltSKUModal(true);
+  };
+
+  const handleDeleteAltSKU = async (id: string) => {
+    try {
+      await apiService.delete(`/products/${params.id}/alternative-skus/${id}`);
+      message.success('Alternative SKU deleted');
+      fetchAlternativeSKUs();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to delete alternative SKU');
+    }
+  };
+
+  const handleSaveAltSKU = async (values: any) => {
+    try {
+      if (editingAltSKU) {
+        await apiService.put(`/products/${params.id}/alternative-skus/${editingAltSKU.id}`, values);
+        message.success('Alternative SKU updated');
+      } else {
+        await apiService.post(`/products/${params.id}/alternative-skus`, values);
+        message.success('Alternative SKU added');
+      }
+      setShowAltSKUModal(false);
+      fetchAlternativeSKUs();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to save alternative SKU');
+    }
+  };
+
   useEffect(() => {
     if (params.id) {
       fetchProduct();
       fetchHistory();
       fetchAnalytics();
       fetchBarcodeHistory();
+      fetchAlternativeSKUs();
     }
   }, [params.id]);
 
@@ -788,9 +853,217 @@ export default function ProductDetailPage() {
                 </div>
               ),
             },
+            {
+              key: 'alternative-skus',
+              label: (
+                <span>
+                  <GlobalOutlined /> Alternative SKUs ({alternativeSKUs.length})
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Marketplace & Channel SKUs</h3>
+                      <p className="text-sm text-gray-500">
+                        Manage alternative SKUs for different sales channels (Amazon, Shopify, eBay, etc.)
+                      </p>
+                    </div>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={handleAddAltSKU}
+                    >
+                      Add Alternative SKU
+                    </Button>
+                  </div>
+
+                  {alternativeSKUs.length > 0 ? (
+                    <Table
+                      dataSource={alternativeSKUs}
+                      rowKey="id"
+                      pagination={false}
+                      columns={[
+                        {
+                          title: 'Channel',
+                          dataIndex: 'channelType',
+                          key: 'channel',
+                          render: (type: string) => (
+                            <Tag color="purple" icon={<GlobalOutlined />}>
+                              {type}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Alternative SKU',
+                          dataIndex: 'channelSKU',
+                          key: 'sku',
+                          render: (sku: string) => (
+                            <span className="font-mono font-semibold text-blue-600">{sku}</span>
+                          ),
+                        },
+                        {
+                          title: 'SKU Type',
+                          dataIndex: 'skuType',
+                          key: 'type',
+                          render: (type: string) => {
+                            if (!type) return '-';
+                            const colors: Record<string, string> = {
+                              'NORMAL': 'blue',
+                              'BB_ROTATION': 'orange',
+                              'MFN': 'green',
+                            };
+                            return <Tag color={colors[type] || 'default'}>{type}</Tag>;
+                          },
+                        },
+                        {
+                          title: 'Primary',
+                          dataIndex: 'isPrimary',
+                          key: 'primary',
+                          render: (isPrimary: boolean) =>
+                            isPrimary ? <Tag color="gold">Primary</Tag> : '-',
+                        },
+                        {
+                          title: 'Status',
+                          dataIndex: 'isActive',
+                          key: 'status',
+                          render: (isActive: boolean) => (
+                            <Tag color={isActive ? 'green' : 'red'}>
+                              {isActive ? 'Active' : 'Inactive'}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Notes',
+                          dataIndex: 'notes',
+                          key: 'notes',
+                          ellipsis: true,
+                          render: (notes: string) => notes || '-',
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_: any, record: AlternativeSKU) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                onClick={() => handleEditAltSKU(record)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => {
+                                  Modal.confirm({
+                                    title: 'Delete Alternative SKU',
+                                    content: `Are you sure you want to delete ${record.channelSKU}?`,
+                                    onOk: () => handleDeleteAltSKU(record.id),
+                                  });
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <Empty
+                      description="No alternative SKUs configured"
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    >
+                      <Button type="primary" icon={<PlusOutlined />} onClick={handleAddAltSKU}>
+                        Add First Alternative SKU
+                      </Button>
+                    </Empty>
+                  )}
+
+                  {/* Example Amazon 3-SKU System Info */}
+                  <Card size="small" className="bg-blue-50 border-blue-200">
+                    <div className="text-sm">
+                      <strong>Amazon 3-SKU System Example:</strong>
+                      <ul className="mt-2 ml-4 list-disc text-gray-700">
+                        <li><strong>Normal SKU:</strong> OL_SEL_10_PR (main listing)</li>
+                        <li><strong>BB Rotation:</strong> OL_SEL_10_PR_BB (for stock rotation with different best-before dates)</li>
+                        <li><strong>MFN:</strong> OL_SEL_10_PR_M (merchant fulfilled network - backup when FBA stock runs out)</li>
+                      </ul>
+                    </div>
+                  </Card>
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
+
+      {/* Alternative SKU Modal */}
+      <Modal
+        title={editingAltSKU ? 'Edit Alternative SKU' : 'Add Alternative SKU'}
+        open={showAltSKUModal}
+        onCancel={() => setShowAltSKUModal(false)}
+        onOk={() => altSKUForm.submit()}
+        width={600}
+      >
+        <Form
+          form={altSKUForm}
+          layout="vertical"
+          onFinish={handleSaveAltSKU}
+          initialValues={{ isActive: true, isPrimary: false }}
+        >
+          <Form.Item
+            label="Channel Type"
+            name="channelType"
+            rules={[{ required: true, message: 'Please select a channel' }]}
+          >
+            <Select placeholder="Select marketplace/channel">
+              <Select.Option value="Amazon UK">Amazon UK</Select.Option>
+              <Select.Option value="Amazon EU">Amazon EU</Select.Option>
+              <Select.Option value="Amazon US">Amazon US</Select.Option>
+              <Select.Option value="Shopify">Shopify</Select.Option>
+              <Select.Option value="eBay">eBay</Select.Option>
+              <Select.Option value="TikTok Shop">TikTok Shop</Select.Option>
+              <Select.Option value="Temu">Temu</Select.Option>
+              <Select.Option value="Direct">Direct Sales</Select.Option>
+              <Select.Option value="Other">Other</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Alternative SKU"
+            name="channelSKU"
+            rules={[{ required: true, message: 'Please enter the alternative SKU' }]}
+          >
+            <Input placeholder="e.g., OL_SEL_10_PR or FFD_OL_SEL_10_PR" />
+          </Form.Item>
+
+          <Form.Item
+            label="SKU Type (for Amazon)"
+            name="skuType"
+            tooltip="Use for Amazon's 3-SKU system: Normal, BB Rotation, or MFN"
+          >
+            <Select placeholder="Optional - select if Amazon SKU" allowClear>
+              <Select.Option value="NORMAL">Normal (main listing)</Select.Option>
+              <Select.Option value="BB_ROTATION">BB Rotation (_BB suffix)</Select.Option>
+              <Select.Option value="MFN">MFN (_M suffix)</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item label="Primary SKU for this channel" name="isPrimary" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+
+          <Form.Item label="Active" name="isActive" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+
+          <Form.Item label="Notes" name="notes">
+            <Input.TextArea rows={3} placeholder="Optional notes about this SKU..." />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
