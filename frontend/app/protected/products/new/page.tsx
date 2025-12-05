@@ -95,6 +95,7 @@ export default function NewProductPage() {
         reorderPoint: values.reorderPoint ? parseInt(values.reorderPoint) : null,
         maxStockLevel: values.maxStockLevel ? parseInt(values.maxStockLevel) : null,
         brandId: values.brandId || null,
+        primarySupplierId: values.primarySupplierId || null,
       };
 
       await apiService.post('/products', productData);

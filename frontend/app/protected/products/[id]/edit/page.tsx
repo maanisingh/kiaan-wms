@@ -33,6 +33,22 @@ interface Product {
   maxStockLevel?: number;
   brandId?: string;
   brand?: { id: string; name: string };
+  primarySupplierId?: string;
+  vatRate?: number;
+  vatCode?: string;
+  isHeatSensitive?: boolean;
+  isPerishable?: boolean;
+  requiresBatch?: boolean;
+  shelfLifeDays?: number;
+  cartonSizes?: number;
+  ffdSku?: string;
+  ffdSaleSku?: string;
+  wsSku?: string;
+  amzSku?: string;
+  amzSkuBb?: string;
+  amzSkuM?: string;
+  amzSkuEu?: string;
+  onBuySku?: string;
 }
 
 interface Brand {
@@ -41,12 +57,19 @@ interface Brand {
   code: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 export default function ProductEditPage() {
   const router = useRouter();
   const params = useParams();
   const [form] = Form.useForm();
   const [product, setProduct] = useState<Product | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +102,22 @@ export default function ProductEditPage() {
         reorderPoint: data.reorderPoint,
         maxStockLevel: data.maxStockLevel,
         brandId: data.brandId || data.brand?.id,
+        primarySupplierId: data.primarySupplierId,
+        vatRate: data.vatRate || 20.0,
+        vatCode: data.vatCode,
+        isHeatSensitive: data.isHeatSensitive || false,
+        isPerishable: data.isPerishable || false,
+        requiresBatch: data.requiresBatch || false,
+        shelfLifeDays: data.shelfLifeDays,
+        cartonSizes: data.cartonSizes,
+        ffdSku: data.ffdSku,
+        ffdSaleSku: data.ffdSaleSku,
+        wsSku: data.wsSku,
+        amzSku: data.amzSku,
+        amzSkuBb: data.amzSkuBb,
+        amzSkuM: data.amzSkuM,
+        amzSkuEu: data.amzSkuEu,
+        onBuySku: data.onBuySku,
       });
     } catch (err: any) {
       console.error('Failed to fetch product:', err);
@@ -88,7 +127,7 @@ export default function ProductEditPage() {
     }
   };
 
-  // Fetch brands
+  // Fetch brands and suppliers
   const fetchBrands = async () => {
     try {
       const data = await apiService.get('/brands');
@@ -98,10 +137,20 @@ export default function ProductEditPage() {
     }
   };
 
+  const fetchSuppliers = async () => {
+    try {
+      const data = await apiService.get('/suppliers');
+      setSuppliers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch suppliers:', err);
+    }
+  };
+
   useEffect(() => {
     if (params.id) {
       fetchProduct();
       fetchBrands();
+      fetchSuppliers();
     }
   }, [params.id]);
 
@@ -127,6 +176,22 @@ export default function ProductEditPage() {
         reorderPoint: values.reorderPoint ? parseInt(values.reorderPoint) : null,
         maxStockLevel: values.maxStockLevel ? parseInt(values.maxStockLevel) : null,
         brandId: values.brandId || null,
+        primarySupplierId: values.primarySupplierId || null,
+        vatRate: values.vatRate !== undefined ? parseFloat(values.vatRate) : 20.0,
+        vatCode: values.vatCode || null,
+        isHeatSensitive: values.isHeatSensitive || false,
+        isPerishable: values.isPerishable || false,
+        requiresBatch: values.requiresBatch || false,
+        shelfLifeDays: values.shelfLifeDays ? parseInt(values.shelfLifeDays) : null,
+        cartonSizes: values.cartonSizes ? parseInt(values.cartonSizes) : null,
+        ffdSku: values.ffdSku || null,
+        ffdSaleSku: values.ffdSaleSku || null,
+        wsSku: values.wsSku || null,
+        amzSku: values.amzSku || null,
+        amzSkuBb: values.amzSkuBb || null,
+        amzSkuM: values.amzSkuM || null,
+        amzSkuEu: values.amzSkuEu || null,
+        onBuySku: values.onBuySku || null,
       };
 
       await apiService.put(`/products/${params.id}`, updateData);
@@ -264,6 +329,16 @@ export default function ProductEditPage() {
                       </Select>
                     </Form.Item>
 
+                    <Form.Item label="Primary Supplier" name="primarySupplierId" tooltip="Main supplier for this product">
+                      <Select size="large" placeholder="Select primary supplier" allowClear showSearch optionFilterProp="label">
+                        {suppliers.map((supplier) => (
+                          <Option key={supplier.id} value={supplier.id} label={supplier.name}>
+                            {supplier.name}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+
                     <Form.Item label="Type" name="type" rules={[{ required: true }]}>
                       <Select size="large" placeholder="Select type">
                         <Option value="SIMPLE">Simple</Option>
@@ -276,6 +351,43 @@ export default function ProductEditPage() {
                         <Option value="ACTIVE">Active</Option>
                         <Option value="INACTIVE">Inactive</Option>
                         <Option value="DISCONTINUED">Discontinued</Option>
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item label="VAT Rate (%)" name="vatRate" tooltip="UK standard VAT rate is 20%, food items may be 0%">
+                      <InputNumber size="large" style={{ width: '100%' }} min={0} max={100} step={0.5} suffix="%" placeholder="20.0" />
+                    </Form.Item>
+
+                    <Form.Item label="VAT Code" name="vatCode" tooltip="VAT category code (e.g., A_FOOD_PLAINBISCUIT)">
+                      <Input size="large" placeholder="e.g., A_FOOD_PLAINBISCUIT" />
+                    </Form.Item>
+
+                    <Form.Item label="Carton Sizes" name="cartonSizes" tooltip="Units per carton/case">
+                      <InputNumber size="large" style={{ width: '100%' }} min={1} placeholder="e.g., 12" />
+                    </Form.Item>
+
+                    <Form.Item label="Shelf Life (Days)" name="shelfLifeDays">
+                      <InputNumber size="large" style={{ width: '100%' }} min={0} placeholder="e.g., 365" />
+                    </Form.Item>
+
+                    <Form.Item label="Heat Sensitive" name="isHeatSensitive" tooltip="Requires temperature control">
+                      <Select size="large">
+                        <Option value={false}>No</Option>
+                        <Option value={true}>Yes</Option>
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item label="Perishable" name="isPerishable" tooltip="Has expiry/best before date">
+                      <Select size="large">
+                        <Option value={false}>No</Option>
+                        <Option value={true}>Yes</Option>
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item label="Requires Batch Tracking" name="requiresBatch">
+                      <Select size="large">
+                        <Option value={false}>No</Option>
+                        <Option value={true}>Yes</Option>
                       </Select>
                     </Form.Item>
 
@@ -415,6 +527,49 @@ export default function ProductEditPage() {
                         placeholder="0"
                       />
                     </Form.Item>
+                  </div>
+                ),
+              },
+              {
+                key: 'marketplace',
+                label: 'Marketplace SKUs',
+                children: (
+                  <div className="space-y-4">
+                    <p className="text-gray-600 mb-4">Map this product to different sales channels with their specific SKUs</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Form.Item label="FFD SKU" name="ffdSku" tooltip="FFD marketplace SKU">
+                        <Input size="large" placeholder="e.g., FFD_789_B_1_CH" />
+                      </Form.Item>
+
+                      <Form.Item label="FFD Sale SKU" name="ffdSaleSku" tooltip="FFD sale SKU">
+                        <Input size="large" placeholder="e.g., FFD_789_B_1_CH_SALE" />
+                      </Form.Item>
+
+                      <Form.Item label="Wholesale SKU" name="wsSku" tooltip="Wholesale channel SKU">
+                        <Input size="large" placeholder="e.g., WS_789_B_1_CH" />
+                      </Form.Item>
+
+                      <Form.Item label="OnBuy SKU" name="onBuySku" tooltip="OnBuy marketplace SKU">
+                        <Input size="large" placeholder="e.g., ONBUY_789_B_1_CH" />
+                      </Form.Item>
+
+                      <Form.Item label="Amazon SKU" name="amzSku" tooltip="Amazon standard SKU (usually matches database SKU)">
+                        <Input size="large" placeholder="e.g., OL_SEL_10_PR" />
+                      </Form.Item>
+
+                      <Form.Item label="Amazon SKU (Best Before)" name="amzSkuBb" tooltip="Amazon SKU for Best Before rotation (_BB suffix)">
+                        <Input size="large" placeholder="e.g., OL_SEL_10_PR_BB" />
+                      </Form.Item>
+
+                      <Form.Item label="Amazon MFN SKU" name="amzSkuM" tooltip="Amazon Merchant Fulfilled Network SKU (_M suffix)">
+                        <Input size="large" placeholder="e.g., OL_SEL_10_PR_M" />
+                      </Form.Item>
+
+                      <Form.Item label="Amazon EU SKU" name="amzSkuEu" tooltip="Amazon EU marketplace SKU">
+                        <Input size="large" placeholder="e.g., OL_SEL_10_PR_EU" />
+                      </Form.Item>
+                    </div>
                   </div>
                 ),
               },
