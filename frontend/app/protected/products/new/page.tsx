@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Form, Input, Select, Button, Row, Col, message, InputNumber,
-  Upload, Space, Spin
+  Upload, Space, Spin, Switch
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, UploadOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -57,6 +57,11 @@ export default function NewProductPage() {
         status: (values.status || 'ACTIVE').toUpperCase(),
         sellingPrice: parseFloat(values.sellingPrice) || 0,
         costPrice: parseFloat(values.costPrice) || 0,
+        vatRate: values.vatRate !== undefined ? parseFloat(values.vatRate) : 20.0,
+        isHeatSensitive: values.isHeatSensitive || false,
+        isPerishable: values.isPerishable || false,
+        requiresBatch: values.requiresBatch || false,
+        shelfLifeDays: values.shelfLifeDays ? parseInt(values.shelfLifeDays) : null,
         weight: values.weight ? parseFloat(values.weight) : null,
         length: values.dimensions?.length ? parseFloat(values.dimensions.length) : null,
         width: values.dimensions?.width ? parseFloat(values.dimensions.width) : null,
@@ -128,6 +133,10 @@ export default function NewProductPage() {
             unitOfMeasure: 'ea',
             dimensionUnit: 'cm',
             weightUnit: 'kg',
+            vatRate: 20.0,
+            isHeatSensitive: false,
+            isPerishable: false,
+            requiresBatch: false,
           }}
         >
           <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
@@ -262,6 +271,69 @@ export default function NewProductPage() {
                     </div>
                   );
                 }}
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="VAT Rate (%)"
+                name="vatRate"
+                initialValue={20.0}
+                tooltip="UK standard VAT rate is 20%, food items may be 0%"
+              >
+                <InputNumber
+                  placeholder="20.0"
+                  size="large"
+                  style={{ width: '100%' }}
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  suffix="%"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Product Attributes</h3>
+
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item label="Heat Sensitive" name="isHeatSensitive" valuePropName="checked">
+                <Select size="large">
+                  <Option value={false}>No</Option>
+                  <Option value={true}>Yes - Requires temperature control</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Perishable" name="isPerishable" valuePropName="checked">
+                <Select size="large">
+                  <Option value={false}>No</Option>
+                  <Option value={true}>Yes - Has expiry date</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Requires Batch Tracking" name="requiresBatch" valuePropName="checked">
+                <Select size="large">
+                  <Option value={false}>No</Option>
+                  <Option value={true}>Yes</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Shelf Life (Days)" name="shelfLifeDays">
+                <InputNumber
+                  placeholder="e.g., 365"
+                  size="large"
+                  style={{ width: '100%' }}
+                  min={0}
+                />
               </Form.Item>
             </Col>
           </Row>
