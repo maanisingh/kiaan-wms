@@ -20,27 +20,40 @@ interface Brand {
   code: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(true);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
-  // Fetch brands on load
+  // Fetch brands and suppliers on load
   useEffect(() => {
-    const fetchBrands = async () => {
+    const fetchData = async () => {
       try {
-        const data = await apiService.get('/brands');
-        setBrands(Array.isArray(data) ? data : []);
+        const [brandsData, suppliersData] = await Promise.all([
+          apiService.get('/brands'),
+          apiService.get('/suppliers')
+        ]);
+        setBrands(Array.isArray(brandsData) ? brandsData : []);
+        setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       } catch (err) {
-        console.error('Failed to fetch brands:', err);
+        console.error('Failed to fetch data:', err);
       } finally {
         setLoadingBrands(false);
+        setLoadingSuppliers(false);
       }
     };
-    fetchBrands();
+    fetchData();
   }, []);
 
   const handleSubmit = async (values: any) => {
@@ -202,6 +215,25 @@ export default function NewProductPage() {
                   options={brands.map((brand) => ({
                     value: brand.id,
                     label: brand.name,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Primary Supplier" name="primarySupplierId" tooltip="Main supplier for this product">
+                <Select
+                  size="large"
+                  placeholder="Select primary supplier"
+                  allowClear
+                  loading={loadingSuppliers}
+                  showSearch
+                  optionFilterProp="label"
+                  options={suppliers.map((supplier) => ({
+                    value: supplier.id,
+                    label: supplier.name,
                   }))}
                 />
               </Form.Item>
