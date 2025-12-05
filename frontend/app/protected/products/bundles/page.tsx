@@ -43,6 +43,7 @@ interface Product {
   name: string;
   sku: string;
   sellingPrice?: number;
+  costPrice?: number;
 }
 
 export default function BundlesPage() {
@@ -443,8 +444,16 @@ export default function BundlesPage() {
           </Form.Item>
 
           <div className="grid grid-cols-3 gap-4">
-            <Form.Item label="Cost Price" name="costPrice" rules={[{ required: true, message: 'Required' }]}>
-              <InputNumber style={{ width: '100%' }} prefix="£" placeholder="0.00" min={0} step={0.01} />
+            <Form.Item label="Cost Price (Auto-Calculated)" name="costPrice" tooltip="Automatically calculated from component costs">
+              <InputNumber
+                style={{ width: '100%' }}
+                prefix="£"
+                placeholder="Auto-calculated"
+                min={0}
+                step={0.01}
+                disabled
+                className="bg-gray-50"
+              />
             </Form.Item>
 
             <Form.Item label="Selling Price" name="sellingPrice" rules={[{ required: true, message: 'Required' }]}>
@@ -458,6 +467,61 @@ export default function BundlesPage() {
               </Select>
             </Form.Item>
           </div>
+
+          {/* Cost Breakdown Display */}
+          <Form.Item noStyle shouldUpdate={(prevValues, currentValues) =>
+            prevValues.bundleItems !== currentValues.bundleItems
+          }>
+            {({ getFieldValue }) => {
+              const bundleItems = getFieldValue('bundleItems') || [];
+              let totalCost = 0;
+              const breakdown: any[] = [];
+
+              bundleItems.forEach((item: any) => {
+                if (item && item.productId && item.quantity) {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (product && product.costPrice) {
+                    const itemCost = product.costPrice * item.quantity;
+                    totalCost += itemCost;
+                    breakdown.push({
+                      name: product.name,
+                      sku: product.sku,
+                      quantity: item.quantity,
+                      unitCost: product.costPrice,
+                      totalCost: itemCost,
+                    });
+                  }
+                }
+              });
+
+              // Auto-update cost price field
+              if (totalCost > 0) {
+                const currentCost = getFieldValue('costPrice');
+                if (currentCost !== totalCost) {
+                  form.setFieldValue('costPrice', totalCost);
+                }
+              }
+
+              if (breakdown.length > 0) {
+                return (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <h5 className="font-semibold text-sm mb-2 text-blue-900">Cost Breakdown:</h5>
+                    {breakdown.map((item, idx) => (
+                      <div key={idx} className="text-xs text-blue-800 flex justify-between mb-1">
+                        <span>{item.quantity}× {item.name} ({item.sku})</span>
+                        <span>£{item.unitCost.toFixed(2)} × {item.quantity} = £{item.totalCost.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-blue-300 mt-2 pt-2 flex justify-between font-semibold text-sm text-blue-900">
+                      <span>Total Bundle Cost:</span>
+                      <span>£{totalCost.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          </Form.Item>
 
           <div className="border-t pt-4 mt-4">
             <h4 className="font-semibold mb-3">Bundle Components</h4>

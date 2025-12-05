@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 
-import { Table, Button, Input, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
+import { Table, Button, Input, InputNumber, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -113,6 +113,10 @@ export default function WarehouseLocationsPage() {
               rack: values.rack || null,
               shelf: values.shelf || null,
               bin: values.bin || null,
+              locationType: values.locationType || 'PICK',
+              pickSequence: values.pickSequence || null,
+              maxWeight: values.maxWeight || null,
+              isHeatSensitive: values.isHeatSensitive || false,
               updatedAt: new Date().toISOString(),
             },
           },
@@ -133,6 +137,10 @@ export default function WarehouseLocationsPage() {
               rack: values.rack || null,
               shelf: values.shelf || null,
               bin: values.bin || null,
+              locationType: values.locationType || 'PICK',
+              pickSequence: values.pickSequence || null,
+              maxWeight: values.maxWeight || null,
+              isHeatSensitive: values.isHeatSensitive || false,
               updatedAt: new Date().toISOString(),
             },
           },
@@ -153,6 +161,10 @@ export default function WarehouseLocationsPage() {
       rack: record.rack,
       shelf: record.shelf,
       bin: record.bin,
+      locationType: record.locationType || 'PICK',
+      pickSequence: record.pickSequence,
+      maxWeight: record.maxWeight,
+      isHeatSensitive: record.isHeatSensitive || false,
     });
     editModal.open();
   };
@@ -237,6 +249,37 @@ export default function WarehouseLocationsPage() {
       key: 'bin',
       width: 100,
       render: (text: string) => text || <span className="text-gray-400">-</span>,
+    },
+    {
+      title: 'Type',
+      dataIndex: 'locationType',
+      key: 'locationType',
+      width: 100,
+      render: (type: string) => {
+        const colors: any = { PICK: 'green', BULK: 'blue', BULK_LW: 'orange' };
+        return <Tag color={colors[type] || 'green'}>{type || 'PICK'}</Tag>;
+      },
+    },
+    {
+      title: 'Pick Seq',
+      dataIndex: 'pickSequence',
+      key: 'pickSequence',
+      width: 90,
+      render: (seq: number) => seq ? <Tag color="purple">{seq}</Tag> : <span className="text-gray-400">-</span>,
+    },
+    {
+      title: 'Max Weight',
+      dataIndex: 'maxWeight',
+      key: 'maxWeight',
+      width: 100,
+      render: (weight: number) => weight ? `${weight}kg` : <span className="text-gray-400">-</span>,
+    },
+    {
+      title: 'Heat',
+      dataIndex: 'isHeatSensitive',
+      key: 'isHeatSensitive',
+      width: 80,
+      render: (isHot: boolean) => isHot ? <Tag color="red">Hot</Tag> : <Tag color="default">Normal</Tag>,
     },
     {
       title: 'Actions',
@@ -403,6 +446,32 @@ export default function WarehouseLocationsPage() {
                 <Input placeholder="e.g., B4" />
               </Form.Item>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item label="Location Type" name="locationType" initialValue="PICK">
+                <Select>
+                  <Option value="PICK">PICK - Active Picking</Option>
+                  <Option value="BULK">BULK - Bulk Storage</Option>
+                  <Option value="BULK_LW">BULK_LW - Bulk Light Weight (200kg max)</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item label="Pick Sequence" name="pickSequence" tooltip="Order for picking routes (lower = pick first)">
+                <InputNumber min={1} placeholder="e.g., 1" style={{ width: '100%' }} />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item label="Max Weight (kg)" name="maxWeight" tooltip="Maximum weight capacity">
+                <InputNumber min={0} step={0.1} placeholder="e.g., 200" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label="Heat Sensitive Location" name="isHeatSensitive" initialValue={false} tooltip="Near heat sources (roof, hot areas)">
+                <Select>
+                  <Option value={false}>No - Normal</Option>
+                  <Option value={true}>Yes - Hot Location</Option>
+                </Select>
+              </Form.Item>
+            </div>
+
             <p className="text-xs text-gray-500">
               Location code will be auto-generated (e.g., LOC-123456).
               Aisle, Rack, Shelf, and Bin are optional fields for detailed organization.
@@ -454,6 +523,31 @@ export default function WarehouseLocationsPage() {
               </Form.Item>
               <Form.Item label="Bin" name="bin">
                 <Input placeholder="e.g., B4" />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item label="Location Type" name="locationType">
+                <Select>
+                  <Option value="PICK">PICK - Active Picking</Option>
+                  <Option value="BULK">BULK - Bulk Storage</Option>
+                  <Option value="BULK_LW">BULK_LW - Bulk Light Weight (200kg max)</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item label="Pick Sequence" name="pickSequence" tooltip="Order for picking routes (lower = pick first)">
+                <InputNumber min={1} placeholder="e.g., 1" style={{ width: '100%' }} />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item label="Max Weight (kg)" name="maxWeight" tooltip="Maximum weight capacity">
+                <InputNumber min={0} step={0.1} placeholder="e.g., 200" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label="Heat Sensitive Location" name="isHeatSensitive" tooltip="Near heat sources (roof, hot areas)">
+                <Select>
+                  <Option value={false}>No - Normal</Option>
+                  <Option value={true}>Yes - Hot Location</Option>
+                </Select>
               </Form.Item>
             </div>
           </Form>
