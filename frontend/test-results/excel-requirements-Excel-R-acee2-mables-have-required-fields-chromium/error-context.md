@@ -1,0 +1,75 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img "box-plot" [ref=e9]:
+        - img [ref=e10]
+      - heading "Kiaan WMS" [level=2] [ref=e12]
+      - paragraph [ref=e13]: Sign in to your account to continue
+    - generic [ref=e14]:
+      - generic [ref=e16]:
+        - generic "Email" [ref=e18]: "* Email"
+        - generic [ref=e22]:
+          - img "user" [ref=e24]:
+            - img [ref=e25]
+          - textbox "* Email" [ref=e27]:
+            - /placeholder: admin@example.com
+            - text: test@kiaan-wms.com
+      - generic [ref=e29]:
+        - generic "Password" [ref=e31]: "* Password"
+        - generic [ref=e35]:
+          - img "lock" [ref=e37]:
+            - img [ref=e38]
+          - textbox "* Password" [ref=e40]:
+            - /placeholder: Enter your password
+            - text: Test123456!
+          - img "eye-invisible" [ref=e42] [cursor=pointer]:
+            - img [ref=e43]
+      - generic [ref=e46]:
+        - generic [ref=e47] [cursor=pointer]:
+          - checkbox "Remember me" [checked] [ref=e49]
+          - generic [ref=e51]: Remember me
+        - link "Forgot password?" [ref=e52] [cursor=pointer]:
+          - /url: /auth/forgot-password
+      - button "Sign In" [active] [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]: Sign In
+      - generic [ref=e60]:
+        - text: Don't have an account?
+        - link "Register here" [ref=e61] [cursor=pointer]:
+          - /url: /auth/register
+    - separator [ref=e62]:
+      - generic [ref=e63]: Quick Login (Demo)
+    - generic [ref=e64]:
+      - paragraph [ref=e65]: "Click any role to auto-login:"
+      - button "crown Super Admin SUPER ADMIN" [ref=e66] [cursor=pointer]:
+        - img "crown" [ref=e68]:
+          - img [ref=e69]
+        - generic [ref=e71]: Super Admin
+        - generic [ref=e72]: SUPER ADMIN
+      - button "team Company Admin COMPANY ADMIN" [ref=e73] [cursor=pointer]:
+        - img "team" [ref=e75]:
+          - img [ref=e76]
+        - generic [ref=e78]: Company Admin
+        - generic [ref=e79]: COMPANY ADMIN
+      - button "box-plot Warehouse Manager WAREHOUSE MGR" [ref=e80] [cursor=pointer]:
+        - img "box-plot" [ref=e82]:
+          - img [ref=e83]
+        - generic [ref=e85]: Warehouse Manager
+        - generic [ref=e86]: WAREHOUSE MGR
+      - button "inbox Picker PICKER" [ref=e87] [cursor=pointer]:
+        - img "inbox" [ref=e89]:
+          - img [ref=e90]
+        - generic [ref=e92]: Picker
+        - generic [ref=e93]: PICKER
+      - button "shopping Viewer VIEWER" [ref=e94] [cursor=pointer]:
+        - img "shopping" [ref=e96]:
+          - img [ref=e97]
+        - generic [ref=e99]: Viewer
+        - generic [ref=e100]: VIEWER
+    - paragraph [ref=e102]:
+      - text: "🔐 Click above to login instantly • Password:"
+      - strong [ref=e103]: Admin@123
+  - alert [ref=e104]
+```

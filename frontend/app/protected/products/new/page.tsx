@@ -58,10 +58,21 @@ export default function NewProductPage() {
         sellingPrice: parseFloat(values.sellingPrice) || 0,
         costPrice: parseFloat(values.costPrice) || 0,
         vatRate: values.vatRate !== undefined ? parseFloat(values.vatRate) : 20.0,
+        vatCode: values.vatCode || null,
         isHeatSensitive: values.isHeatSensitive || false,
         isPerishable: values.isPerishable || false,
         requiresBatch: values.requiresBatch || false,
         shelfLifeDays: values.shelfLifeDays ? parseInt(values.shelfLifeDays) : null,
+        cartonSizes: values.cartonSizes ? parseInt(values.cartonSizes) : null,
+        // Marketplace-specific SKUs
+        ffdSku: values.ffdSku || null,
+        ffdSaleSku: values.ffdSaleSku || null,
+        wsSku: values.wsSku || null,
+        amzSku: values.amzSku || null,
+        amzSkuBb: values.amzSkuBb || null,
+        amzSkuM: values.amzSkuM || null,
+        amzSkuEu: values.amzSkuEu || null,
+        onBuySku: values.onBuySku || null,
         weight: values.weight ? parseFloat(values.weight) : null,
         length: values.dimensions?.length ? parseFloat(values.dimensions.length) : null,
         width: values.dimensions?.width ? parseFloat(values.dimensions.width) : null,
@@ -292,6 +303,71 @@ export default function NewProductPage() {
                   step={0.5}
                   suffix="%"
                 />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="VAT Code" name="vatCode" tooltip="VAT category code (e.g., A_FOOD_PLAINBISCUIT)">
+                <Input placeholder="e.g., A_FOOD_PLAINBISCUIT" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Carton Sizes" name="cartonSizes" tooltip="Units per carton/case">
+                <InputNumber placeholder="e.g., 12" size="large" style={{ width: '100%' }} min={1} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <h3 className="text-lg font-semibold mb-4 mt-6">Marketplace SKUs</h3>
+          <p className="text-gray-600 mb-4">Map this product to different sales channels with their specific SKUs</p>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="FFD SKU" name="ffdSku" tooltip="FFD marketplace SKU">
+                <Input placeholder="e.g., FFD_789_B_1_CH" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="FFD Sale SKU" name="ffdSaleSku" tooltip="FFD sale SKU">
+                <Input placeholder="e.g., FFD_789_B_1_CH_SALE" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Wholesale SKU" name="wsSku" tooltip="Wholesale channel SKU">
+                <Input placeholder="e.g., WS_789_B_1_CH" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="OnBuy SKU" name="onBuySku" tooltip="OnBuy marketplace SKU">
+                <Input placeholder="e.g., ONBUY_789_B_1_CH" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Amazon SKU" name="amzSku" tooltip="Amazon standard SKU (usually matches database SKU)">
+                <Input placeholder="e.g., OL_SEL_10_PR" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="Amazon SKU (Best Before)" name="amzSkuBb" tooltip="Amazon SKU for Best Before rotation (_BB suffix)">
+                <Input placeholder="e.g., OL_SEL_10_PR_BB" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Amazon MFN SKU" name="amzSkuM" tooltip="Amazon Merchant Fulfilled Network SKU (_M suffix)">
+                <Input placeholder="e.g., OL_SEL_10_PR_M" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item label="Amazon EU SKU" name="amzSkuEu" tooltip="Amazon EU marketplace SKU">
+                <Input placeholder="e.g., OL_SEL_10_PR_EU" size="large" />
               </Form.Item>
             </Col>
           </Row>
