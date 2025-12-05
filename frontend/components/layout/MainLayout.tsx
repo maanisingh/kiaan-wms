@@ -108,6 +108,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: 'Inventory',
       children: [
         { key: '/inventory', label: <Link href="/inventory">Overview</Link> },
+        { key: '/inventory/by-best-before-date', label: <Link href="/inventory/by-best-before-date">By Best Before Date</Link> },
+        { key: '/inventory/by-location', label: <Link href="/inventory/by-location">By Location</Link> },
         { key: '/inventory/adjustments', label: <Link href="/inventory/adjustments">Adjustments</Link> },
         { key: '/inventory/cycle-counts', label: <Link href="/inventory/cycle-counts">Cycle Counts</Link> },
         { key: '/inventory/batches', label: <Link href="/inventory/batches">Batches</Link> },
@@ -193,6 +195,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       icon: <BarChartOutlined />,
       label: 'Analytics & Revenue',
       children: [
+        { key: '/analytics/pricing-calculator', label: <Link href="/analytics/pricing-calculator">Pricing Calculator</Link> },
         { key: '/analytics/channels', label: <Link href="/analytics/channels">Channel Pricing</Link> },
         { key: '/analytics/optimizer', label: <Link href="/analytics/optimizer">Price Optimizer</Link> },
         { key: '/analytics/margins', label: <Link href="/analytics/margins">Margin Analysis</Link> },
