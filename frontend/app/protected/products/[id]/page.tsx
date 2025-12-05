@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Button, Tag, Descriptions, Table, Space, Tabs, Row, Col, Statistic, Spin, Alert,
-  Timeline, Empty, Progress, message, Modal, Form, Input, Select, Switch
+  Timeline, Empty, Progress, message, Modal, Form, Input, Select, Switch, Badge, InputNumber
 } from 'antd';
 import {
   ArrowLeftOutlined, EditOutlined, PrinterOutlined, BarChartOutlined,
   HistoryOutlined, InboxOutlined, CalendarOutlined, WarningOutlined, ReloadOutlined,
   BarcodeOutlined, SwapOutlined, ShoppingCartOutlined, ArrowUpOutlined, ArrowDownOutlined,
-  GlobalOutlined, PlusOutlined, DeleteOutlined
+  GlobalOutlined, PlusOutlined, DeleteOutlined, TeamOutlined
 } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
@@ -38,6 +38,21 @@ interface Product {
   maxStockLevel?: number;
   createdAt?: string;
   brand?: { id: string; name: string };
+  // Marketplace SKUs
+  vatRate?: number;
+  vatCode?: string;
+  cartonSizes?: number;
+  ffdSku?: string;
+  ffdSaleSku?: string;
+  wsSku?: string;
+  amzSku?: string;
+  amzSkuBb?: string;
+  amzSkuM?: string;
+  amzSkuEu?: string;
+  onBuySku?: string;
+  isHeatSensitive?: boolean;
+  isPerishable?: boolean;
+  primarySupplierId?: string;
   inventory?: Array<{
     id: string;
     quantity: number;
@@ -115,6 +130,19 @@ interface AlternativeSKU {
   createdAt: string;
 }
 
+interface SupplierProduct {
+  id: string;
+  supplierId: string;
+  supplierSku: string;
+  supplierName?: string;
+  caseSize: number;
+  caseCost?: number;
+  unitCost?: number;
+  isPrimary: boolean;
+  leadTimeDays?: number;
+  moq?: number;
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -123,12 +151,16 @@ export default function ProductDetailPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [barcodeData, setBarcodeData] = useState<BarcodeHistory | null>(null);
   const [alternativeSKUs, setAlternativeSKUs] = useState<AlternativeSKU[]>([]);
+  const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
   const [showAltSKUModal, setShowAltSKUModal] = useState(false);
   const [editingAltSKU, setEditingAltSKU] = useState<AlternativeSKU | null>(null);
   const [altSKUForm] = Form.useForm();
+  const [showSupplierProductModal, setShowSupplierProductModal] = useState(false);
+  const [editingSupplierProduct, setEditingSupplierProduct] = useState<SupplierProduct | null>(null);
+  const [supplierProductForm] = Form.useForm();
 
   const fetchProduct = async () => {
     try {
@@ -171,8 +203,17 @@ export default function ProductDetailPage() {
     }
   };
 
-  const fetchAlternativeSKUs = async () => {
+  const fetchSupplierProducts = async () => {
     try {
+      const data = await apiService.get(`/products/${params.id}/supplier-products`);
+      setSupplierProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch supplier products:', err);
+    }
+  };
+
+  const fetchAlternativeSKUs = async () => {
+    try{
       const data = await apiService.get(`/products/${params.id}/alternative-skus`);
       setAlternativeSKUs(data.alternativeSKUs || []);
     } catch (err) {
@@ -219,6 +260,38 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleEditSupplierProduct = (supplierProduct: SupplierProduct) => {
+    setEditingSupplierProduct(supplierProduct);
+    supplierProductForm.setFieldsValue(supplierProduct);
+    setShowSupplierProductModal(true);
+  };
+
+  const handleDeleteSupplierProduct = async (id: string) => {
+    try {
+      await apiService.delete(`/products/${params.id}/supplier-products/${id}`);
+      message.success('Supplier product deleted');
+      fetchSupplierProducts();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to delete supplier product');
+    }
+  };
+
+  const handleSaveSupplierProduct = async (values: any) => {
+    try {
+      if (editingSupplierProduct) {
+        await apiService.put(`/products/${params.id}/supplier-products/${editingSupplierProduct.id}`, values);
+        message.success('Supplier product updated');
+      } else {
+        await apiService.post(`/products/${params.id}/supplier-products`, values);
+        message.success('Supplier product added');
+      }
+      setShowSupplierProductModal(false);
+      fetchSupplierProducts();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to save supplier product');
+    }
+  };
+
   useEffect(() => {
     if (params.id) {
       fetchProduct();
@@ -228,6 +301,12 @@ export default function ProductDetailPage() {
       fetchAlternativeSKUs();
     }
   }, [params.id]);
+
+  useEffect(() => {
+    if (params.id && activeTab === 'supplier-products') {
+      fetchSupplierProducts();
+    }
+  }, [params.id, activeTab]);
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
@@ -541,6 +620,51 @@ export default function ProductDetailPage() {
                   <Descriptions.Item label="Max Stock Level">
                     {product.maxStockLevel || '-'}
                   </Descriptions.Item>
+                  <Descriptions.Item label="VAT Rate">
+                    {product.vatRate !== undefined ? `${product.vatRate}%` : '20%'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="VAT Code">
+                    {product.vatCode || '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Carton Sizes">
+                    {product.cartonSizes ? `${product.cartonSizes} units/case` : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Heat Sensitive">
+                    {product.isHeatSensitive ? <Tag color="orange">Yes</Tag> : <Tag color="blue">No</Tag>}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Perishable">
+                    {product.isPerishable ? <Tag color="red">Yes</Tag> : <Tag color="green">No</Tag>}
+                  </Descriptions.Item>
+
+                  {/* Marketplace SKUs Section */}
+                  {(product.ffdSku || product.wsSku || product.amzSku || product.amzSkuBb || product.amzSkuM || product.amzSkuEu || product.onBuySku || product.ffdSaleSku) && (
+                    <>
+                      <Descriptions.Item label="FFD SKU" span={2}>
+                        <span className="font-mono text-blue-600">{product.ffdSku || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="FFD Sale SKU" span={2}>
+                        <span className="font-mono text-blue-600">{product.ffdSaleSku || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Wholesale SKU" span={2}>
+                        <span className="font-mono text-blue-600">{product.wsSku || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Amazon SKU">
+                        <span className="font-mono text-purple-600">{product.amzSku || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Amazon BB Rotation">
+                        <span className="font-mono text-orange-600">{product.amzSkuBb || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Amazon MFN">
+                        <span className="font-mono text-green-600">{product.amzSkuM || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Amazon EU">
+                        <span className="font-mono text-indigo-600">{product.amzSkuEu || '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="OnBuy SKU" span={2}>
+                        <span className="font-mono text-cyan-600">{product.onBuySku || '-'}</span>
+                      </Descriptions.Item>
+                    </>
+                  )}
                 </Descriptions>
               ),
             },
@@ -634,6 +758,161 @@ export default function ProductDetailPage() {
                     ) : (
                       <Empty description="No expiry tracking data available" />
                     )}
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              key: 'locations',
+              label: (
+                <span>
+                  <InboxOutlined /> By Location
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <Card title="Inventory Grouped by Location" className="shadow-sm">
+                    {product.inventory && product.inventory.length > 0 ? (
+                      (() => {
+                        // Group inventory by location
+                        const locationGroups = product.inventory.reduce((acc: any, inv: any) => {
+                          const locKey = inv.location?.id || 'unassigned';
+                          if (!acc[locKey]) {
+                            acc[locKey] = {
+                              location: inv.location || { code: 'Unassigned', zone: '-' },
+                              items: [],
+                              totalQuantity: 0,
+                              totalAvailable: 0,
+                              totalReserved: 0,
+                            };
+                          }
+                          acc[locKey].items.push(inv);
+                          acc[locKey].totalQuantity += inv.quantity || 0;
+                          acc[locKey].totalAvailable += inv.availableQuantity || 0;
+                          acc[locKey].totalReserved += inv.reservedQuantity || 0;
+                          return acc;
+                        }, {});
+
+                        const locationData = Object.values(locationGroups);
+
+                        return (
+                          <Table
+                            dataSource={locationData}
+                            rowKey={(record: any) => record.location.id || 'unassigned'}
+                            pagination={false}
+                            expandable={{
+                              expandedRowRender: (record: any) => (
+                                <Table
+                                  dataSource={record.items}
+                                  rowKey="id"
+                                  size="small"
+                                  pagination={false}
+                                  columns={[
+                                    {
+                                      title: 'Batch',
+                                      dataIndex: 'batchNumber',
+                                      render: (batch: string) => batch || '-',
+                                    },
+                                    {
+                                      title: 'Best Before',
+                                      dataIndex: 'bestBeforeDate',
+                                      render: (date: string) => date ? formatDate(date) : '-',
+                                    },
+                                    {
+                                      title: 'Quantity',
+                                      dataIndex: 'quantity',
+                                    },
+                                    {
+                                      title: 'Available',
+                                      dataIndex: 'availableQuantity',
+                                      render: (val: number) => <Tag color="green">{val}</Tag>,
+                                    },
+                                    {
+                                      title: 'Reserved',
+                                      dataIndex: 'reservedQuantity',
+                                      render: (val: number) => val > 0 ? <Tag color="orange">{val}</Tag> : <Tag>0</Tag>,
+                                    },
+                                  ]}
+                                />
+                              ),
+                            }}
+                            columns={[
+                              {
+                                title: 'Location',
+                                key: 'location',
+                                render: (_: any, record: any) => (
+                                  <div>
+                                    <div className="font-semibold text-blue-600">
+                                      {record.location.code}
+                                    </div>
+                                    {record.location.zone && (
+                                      <div className="text-xs text-gray-500">
+                                        Zone: {record.location.zone}
+                                      </div>
+                                    )}
+                                  </div>
+                                ),
+                              },
+                              {
+                                title: 'Type',
+                                key: 'type',
+                                render: (_: any, record: any) => {
+                                  const type = record.location.type || 'PICK';
+                                  const colors: Record<string, string> = {
+                                    PICK: 'green',
+                                    BULK: 'blue',
+                                    BULK_LW: 'orange',
+                                  };
+                                  return <Tag color={colors[type]}>{type}</Tag>;
+                                },
+                              },
+                              {
+                                title: 'Batches',
+                                key: 'batches',
+                                render: (_: any, record: any) => (
+                                  <Tag color="purple">{record.items.length}</Tag>
+                                ),
+                              },
+                              {
+                                title: 'Total Quantity',
+                                dataIndex: 'totalQuantity',
+                                render: (val: number) => (
+                                  <span className="font-semibold">{val}</span>
+                                ),
+                              },
+                              {
+                                title: 'Available',
+                                dataIndex: 'totalAvailable',
+                                render: (val: number) => (
+                                  <Tag color="green" className="font-semibold">{val}</Tag>
+                                ),
+                              },
+                              {
+                                title: 'Reserved',
+                                dataIndex: 'totalReserved',
+                                render: (val: number) => (
+                                  val > 0 ? <Tag color="orange" className="font-semibold">{val}</Tag> : <Tag>0</Tag>
+                                ),
+                              },
+                            ]}
+                          />
+                        );
+                      })()
+                    ) : (
+                      <Empty description="No inventory records found" />
+                    )}
+                  </Card>
+
+                  {/* Location Info Card */}
+                  <Card size="small" className="bg-blue-50 border-blue-200">
+                    <div className="text-sm">
+                      <strong>📍 Location Types:</strong>
+                      <ul className="mt-2 ml-4 list-disc text-gray-700">
+                        <li><strong>PICK:</strong> Front-line picking locations for order fulfillment</li>
+                        <li><strong>BULK:</strong> Reserve storage for bulk inventory</li>
+                        <li><strong>BULK_LW:</strong> Bulk storage with 200kg weight limit (for LightWeight items)</li>
+                      </ul>
+                    </div>
                   </Card>
                 </div>
               ),
@@ -995,6 +1274,161 @@ export default function ProductDetailPage() {
                 </div>
               ),
             },
+            {
+              key: 'supplier-products',
+              label: (
+                <span>
+                  <TeamOutlined /> Supplier Products
+                  {supplierProducts.length > 0 && (
+                    <Badge count={supplierProducts.length} style={{ marginLeft: 8 }} />
+                  )}
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Supplier Products</h3>
+                      <p className="text-gray-600">
+                        Manage supplier relationships, SKUs, and pricing for this product
+                      </p>
+                    </div>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        setEditingSupplierProduct(null);
+                        setShowSupplierProductModal(true);
+                      }}
+                    >
+                      Add Supplier Product
+                    </Button>
+                  </div>
+
+                  {supplierProducts.length > 0 ? (
+                    <Table
+                      dataSource={supplierProducts}
+                      rowKey="id"
+                      pagination={false}
+                      size="middle"
+                      columns={[
+                        {
+                          title: 'Supplier',
+                          dataIndex: 'supplierName',
+                          key: 'supplier',
+                          render: (name: string, record: SupplierProduct) => (
+                            <div>
+                              <div className="font-semibold">{name || 'Unknown Supplier'}</div>
+                              {record.isPrimary && <Tag color="gold">Primary</Tag>}
+                            </div>
+                          ),
+                        },
+                        {
+                          title: 'Supplier SKU',
+                          dataIndex: 'supplierSku',
+                          key: 'supplierSku',
+                          render: (sku: string) => (
+                            <span className="font-mono text-blue-600">{sku}</span>
+                          ),
+                        },
+                        {
+                          title: 'Case Size',
+                          dataIndex: 'caseSize',
+                          key: 'caseSize',
+                          render: (size: number) => `${size} units`,
+                        },
+                        {
+                          title: 'Case Cost',
+                          dataIndex: 'caseCost',
+                          key: 'caseCost',
+                          render: (cost: number) => cost ? `£${cost.toFixed(2)}` : '-',
+                        },
+                        {
+                          title: 'Unit Cost',
+                          dataIndex: 'unitCost',
+                          key: 'unitCost',
+                          render: (cost: number, record: SupplierProduct) => {
+                            const calculated = record.caseCost && record.caseSize
+                              ? record.caseCost / record.caseSize
+                              : cost;
+                            return calculated ? `£${calculated.toFixed(4)}` : '-';
+                          },
+                        },
+                        {
+                          title: 'Lead Time',
+                          dataIndex: 'leadTimeDays',
+                          key: 'leadTime',
+                          render: (days: number) => days ? `${days} days` : '-',
+                        },
+                        {
+                          title: 'MOQ',
+                          dataIndex: 'moq',
+                          key: 'moq',
+                          render: (moq: number) => moq ? `${moq} units` : '-',
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_: any, record: SupplierProduct) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                onClick={() => handleEditSupplierProduct(record)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => {
+                                  Modal.confirm({
+                                    title: 'Delete Supplier Product',
+                                    content: `Are you sure you want to remove ${record.supplierName || 'this supplier'}?`,
+                                    onOk: () => handleDeleteSupplierProduct(record.id),
+                                  });
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <Empty
+                      description="No supplier products configured"
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    >
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                          setEditingSupplierProduct(null);
+                          setShowSupplierProductModal(true);
+                        }}
+                      >
+                        Add First Supplier Product
+                      </Button>
+                    </Empty>
+                  )}
+
+                  {/* Info Card */}
+                  <Card size="small" className="bg-green-50 border-green-200">
+                    <div className="text-sm">
+                      <strong>💡 Supplier Products Help:</strong>
+                      <ul className="mt-2 ml-4 list-disc text-gray-700">
+                        <li>Link this product to multiple suppliers with their specific SKUs</li>
+                        <li>Track case sizes and costs from each supplier</li>
+                        <li>Set one supplier as "Primary" for default ordering</li>
+                        <li>Monitor lead times and minimum order quantities (MOQ)</li>
+                      </ul>
+                    </div>
+                  </Card>
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
@@ -1061,6 +1495,116 @@ export default function ProductDetailPage() {
 
           <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={3} placeholder="Optional notes about this SKU..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Supplier Product Modal */}
+      <Modal
+        title={editingSupplierProduct ? 'Edit Supplier Product' : 'Add Supplier Product'}
+        open={showSupplierProductModal}
+        onCancel={() => setShowSupplierProductModal(false)}
+        onOk={() => supplierProductForm.submit()}
+        width={700}
+      >
+        <Form
+          form={supplierProductForm}
+          layout="vertical"
+          onFinish={handleSaveSupplierProduct}
+          initialValues={{ isPrimary: false }}
+        >
+          <Form.Item
+            label="Supplier"
+            name="supplierId"
+            rules={[{ required: true, message: 'Please select a supplier' }]}
+          >
+            <Select
+              placeholder="Select supplier"
+              showSearch
+              optionFilterProp="label"
+            >
+              {/* Suppliers will be loaded dynamically */}
+              <Select.Option value="supplier-1">Supplier 1</Select.Option>
+              <Select.Option value="supplier-2">Supplier 2</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Supplier SKU"
+            name="supplierSku"
+            rules={[{ required: true, message: 'Please enter the supplier SKU' }]}
+          >
+            <Input placeholder="e.g., SUP_12345" />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Case Size"
+                name="caseSize"
+                rules={[{ required: true, message: 'Please enter case size' }]}
+                tooltip="Number of units per case/carton"
+              >
+                <InputNumber
+                  min={1}
+                  style={{ width: '100%' }}
+                  placeholder="e.g., 24"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Case Cost (£)"
+                name="caseCost"
+                tooltip="Cost per case from this supplier"
+              >
+                <InputNumber
+                  min={0}
+                  step={0.01}
+                  style={{ width: '100%' }}
+                  placeholder="e.g., 120.00"
+                  prefix="£"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Lead Time (days)"
+                name="leadTimeDays"
+                tooltip="Delivery lead time from order to arrival"
+              >
+                <InputNumber
+                  min={0}
+                  style={{ width: '100%' }}
+                  placeholder="e.g., 7"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="MOQ (Minimum Order Quantity)"
+                name="moq"
+                tooltip="Minimum order quantity in units"
+              >
+                <InputNumber
+                  min={0}
+                  style={{ width: '100%' }}
+                  placeholder="e.g., 100"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label="Primary Supplier"
+            name="isPrimary"
+            valuePropName="checked"
+            tooltip="Set as the default supplier for this product"
+          >
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>
