@@ -11,6 +11,8 @@ const prisma = require('./lib/prisma');
 const supplierProductsRouter = require('./routes/supplierProducts');
 const alternativeSKUsRouter = require('./routes/alternativeSKUs');
 const bundlesRouter = require('./routes/bundles');
+const integrationHealthRouter = require('./routes/integrationHealth');
+const { getMonitor } = require('./lib/monitoring/integrationMonitor');
 
 
 // Load environment variables
@@ -7802,6 +7804,21 @@ app.get('/api/shipping/logs', async (req, res) => {
         take: parseInt(limit),
         skip: parseInt(offset)
       }),
+      prisma.shippingLog.count({ where })
+    ]);
+
+    res.json({
+      logs,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Failed to get shipping logs:', error);
+    res.status(500).json({ error: 'Failed to get shipping logs' });
+  }
+});
+
 // ===================================
 // NEW FEATURES - Supplier Products, Alternative SKUs, Bundles
 // ===================================
@@ -7814,15 +7831,6 @@ app.use('/api/alternative-skus', verifyToken, alternativeSKUsRouter);
 
 // Bundle Management (cost calculation, stock by BBD)
 app.use('/api/bundles', verifyToken, bundlesRouter);
-
-      prisma.shippingLog.count({ where })
-    ]);
-
-    res.json({
-      logs,
-      total,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
 
 // ===================================
 // INVENTORY VIEWS BY BBD AND LOCATION
@@ -8013,12 +8021,12 @@ app.get('/api/consumables/stock-value', verifyToken, async (req, res) => {
   }
 });
 
-    });
-  } catch (error) {
-    console.error('Failed to get logs:', error);
-    res.status(500).json({ error: 'Failed to get logs' });
-  }
-});
+// ===================================
+// INTEGRATION HEALTH & MONITORING
+// ===================================
+
+// Integration health check routes (public for monitoring systems)
+app.use('/api/health', integrationHealthRouter);
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -8034,6 +8042,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n✅ API Endpoints:`);
   console.log(`   - Health: GET /health`);
+  console.log(`   - Integration Health: GET /api/health/integrations`);
   console.log(`   - Auth: POST /api/auth/login`);
   console.log(`   - Brands: GET /api/brands`);
   console.log(`   - Products: GET /api/products`);
@@ -8042,17 +8051,36 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   - Replenishment: GET /api/replenishment/tasks`);
   console.log(`   - FBA Transfers: GET /api/transfers`);
   console.log(`   - Analytics: GET /api/analytics/channel-prices`);
+
+  // Start integration monitoring (only in production or if explicitly enabled)
+  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_MONITORING === 'true') {
+    try {
+      const monitor = getMonitor();
+      monitor.start();
+      console.log(`\n🔍 Integration monitoring started`);
+    } catch (error) {
+      console.error('Failed to start integration monitor:', error.message);
+    }
+  }
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
+  try {
+    const monitor = getMonitor();
+    monitor.stop();
+  } catch (e) { /* ignore */ }
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
+  try {
+    const monitor = getMonitor();
+    monitor.stop();
+  } catch (e) { /* ignore */ }
   await prisma.$disconnect();
   process.exit(0);
 });

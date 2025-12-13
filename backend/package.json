@@ -11,25 +11,41 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "test": "jest --config tests/jest.config.js",
+    "test:integration": "jest --config tests/jest.config.js --runInBand",
+    "test:integration:watch": "jest --config tests/jest.config.js --watch",
+    "test:contracts": "jest --config tests/jest.config.js --testPathPattern=contracts",
+    "test:health": "node tests/scripts/runHealthChecks.js"
   },
   "dependencies": {
     "@faker-js/faker": "^8.3.1",
     "@prisma/client": "^5.7.1",
+    "@shopify/shopify-api": "^12.2.0",
+    "amazon-sp-api": "^1.2.0",
+    "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "ebay-api": "^9.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.11",
     "pg": "^8.11.3",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "jest": "^30.2.0",
+    "jest-html-reporter": "^4.3.0",
+    "jest-junit": "^16.0.0",
     "nodemon": "^3.0.2",
-    "prisma": "^5.7.1"
+    "prisma": "^5.7.1",
+    "supertest": "^7.1.4"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
