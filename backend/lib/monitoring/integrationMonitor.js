@@ -86,7 +86,7 @@ class IntegrationMonitor {
     console.log('[IntegrationMonitor] Running quick health check...');
 
     try {
-      const integrations = await prisma.integration.findMany({
+      const integrations = await prisma.marketplaceConnection.findMany({
         where: { isActive: true }
       });
 
@@ -112,7 +112,7 @@ class IntegrationMonitor {
     console.log('[IntegrationMonitor] Running full health check...');
 
     try {
-      const integrations = await prisma.integration.findMany({
+      const integrations = await prisma.marketplaceConnection.findMany({
         where: { isActive: true }
       });
 
@@ -149,7 +149,7 @@ class IntegrationMonitor {
     console.log('[IntegrationMonitor] Running deep health check...');
 
     try {
-      const integrations = await prisma.integration.findMany({
+      const integrations = await prisma.marketplaceConnection.findMany({
         where: { isActive: true }
       });
 
@@ -158,7 +158,7 @@ class IntegrationMonitor {
           const client = IntegrationClientFactory.createClient(integration);
 
           // Attempt a lightweight operation based on platform
-          switch (integration.platform) {
+          switch (integration.marketplace) {
             case 'SHOPIFY':
               await client.makeRequest('/shop.json', 'GET');
               break;
@@ -174,22 +174,21 @@ class IntegrationMonitor {
           }
 
           // Update health status
-          await prisma.integration.update({
+          await prisma.marketplaceConnection.update({
             where: { id: integration.id },
             data: {
-              lastHealthCheck: new Date(),
-              lastHealthStatus: 'HEALTHY'
+              lastSyncAt: new Date(),
+              lastSyncError: null
             }
           });
         } catch (error) {
-          console.error(`[IntegrationMonitor] Deep check failed for ${integration.platform}:`, error.message);
+          console.error(`[IntegrationMonitor] Deep check failed for ${integration.marketplace}:`, error.message);
 
-          await prisma.integration.update({
+          await prisma.marketplaceConnection.update({
             where: { id: integration.id },
             data: {
-              lastHealthCheck: new Date(),
-              lastHealthStatus: 'UNHEALTHY',
-              lastHealthError: error.message
+              lastSyncAt: new Date(),
+              lastSyncError: error.message
             }
           });
         }
@@ -211,7 +210,7 @@ class IntegrationMonitor {
     const criticalDays = 1;
 
     try {
-      const integrations = await prisma.integration.findMany({
+      const integrations = await prisma.marketplaceConnection.findMany({
         where: {
           isActive: true,
           tokenExpiresAt: { not: null }
@@ -224,14 +223,14 @@ class IntegrationMonitor {
 
         if (daysUntilExpiry <= criticalDays) {
           await this.alertService.sendAlert('TOKEN_EXPIRY_CRITICAL', {
-            integration: integration.platform,
+            integration: integration.marketplace,
             integrationId: integration.id,
             expiresAt: expiresAt.toISOString(),
             daysRemaining: Math.max(0, Math.floor(daysUntilExpiry))
           }, 'critical');
         } else if (daysUntilExpiry <= warningDays) {
           await this.alertService.sendAlert('TOKEN_EXPIRY_WARNING', {
-            integration: integration.platform,
+            integration: integration.marketplace,
             integrationId: integration.id,
             expiresAt: expiresAt.toISOString(),
             daysRemaining: Math.floor(daysUntilExpiry)
@@ -258,7 +257,7 @@ class IntegrationMonitor {
 
       return {
         integrationId: integration.id,
-        platform: integration.platform,
+        platform: integration.marketplace,
         healthy: result.success,
         latencyMs: Date.now() - startTime,
         error: result.success ? null : result.message
@@ -266,7 +265,7 @@ class IntegrationMonitor {
     } catch (error) {
       return {
         integrationId: integration.id,
-        platform: integration.platform,
+        platform: integration.marketplace,
         healthy: false,
         latencyMs: Date.now() - startTime,
         error: error.message
@@ -283,7 +282,7 @@ class IntegrationMonitor {
     const startTime = Date.now();
     const result = {
       integrationId: integration.id,
-      platform: integration.platform,
+      platform: integration.marketplace,
       healthy: false,
       latencyMs: 0,
       checks: {},
@@ -299,14 +298,14 @@ class IntegrationMonitor {
       };
 
       // Check recent sync logs
-      const recentSyncs = await prisma.syncLog.findMany({
+      const recentSyncs = await prisma.marketplaceOrderSync.findMany({
         where: {
-          integrationId: integration.id,
-          startedAt: {
+          connectionId: integration.id,
+          syncedAt: {
             gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
           }
         },
-        orderBy: { startedAt: 'desc' },
+        orderBy: { syncedAt: 'desc' },
         take: 10
       });
 
@@ -356,7 +355,7 @@ class IntegrationMonitor {
 
     if (allFailed) {
       await this.alertService.sendAlert('INTEGRATION_DOWN', {
-        integration: integration.platform,
+        integration: integration.marketplace,
         integrationId: integration.id,
         consecutiveFailures: this.failureThreshold,
         lastError: result.error
@@ -366,19 +365,18 @@ class IntegrationMonitor {
     // Check for high latency
     if (result.latencyMs > 5000) {
       await this.alertService.sendAlert('HIGH_LATENCY', {
-        integration: integration.platform,
+        integration: integration.marketplace,
         integrationId: integration.id,
         latencyMs: result.latencyMs
       }, 'warning');
     }
 
-    // Update database
-    await prisma.integration.update({
+    // Update database - use existing fields
+    await prisma.marketplaceConnection.update({
       where: { id: integration.id },
       data: {
-        lastHealthCheck: new Date(),
-        lastHealthStatus: result.healthy ? 'HEALTHY' : 'UNHEALTHY',
-        lastHealthError: result.error || null
+        lastSyncAt: new Date(),
+        lastSyncError: result.error || null
       }
     });
   }
@@ -397,14 +395,14 @@ class IntegrationMonitor {
    * @returns {Object} - Status summary
    */
   async getStatus() {
-    const integrations = await prisma.integration.findMany({
+    const integrations = await prisma.marketplaceConnection.findMany({
       where: { isActive: true },
       select: {
         id: true,
-        platform: true,
-        lastHealthCheck: true,
-        lastHealthStatus: true,
-        lastHealthError: true
+        marketplace: true,
+        accountName: true,
+        lastSyncAt: true,
+        lastSyncError: true
       }
     });
 
@@ -424,7 +422,7 @@ class IntegrationMonitor {
    * @returns {Object} - Check result
    */
   async checkSingleIntegration(integrationId) {
-    const integration = await prisma.integration.findUnique({
+    const integration = await prisma.marketplaceConnection.findUnique({
       where: { id: integrationId }
     });
 

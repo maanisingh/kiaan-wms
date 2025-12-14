@@ -53,6 +53,67 @@ enum Role {
   MANAGER
 }
 
+// Zoltan's Customizations: Location Types
+enum LocationType {
+  PICK      // Fast-moving pick locations
+  BULK      // Bulk storage (pallets)
+  BULK_LW   // Bulk storage with 200kg weight limit
+}
+
+// Zoltan's Customizations: Marketplace Types
+enum MarketplaceType {
+  AMAZON_FBA
+  AMAZON_MFN
+  SHOPIFY
+  EBAY
+  TIKTOK
+  TEMU
+  OTHER
+}
+
+// Zoltan's Customizations: Consumable Categories
+enum ConsumableCategory {
+  PACKAGING
+  LABEL
+  PACKING_MATERIAL
+  TAPE
+  STATIONERY
+  OTHER
+}
+
+// Zoltan's Customizations: Sync Status
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+// Zoltan's Customizations: Courier Types
+enum CourierType {
+  AMAZON_BUY_SHIPPING
+  ROYAL_MAIL
+  PARCELFORCE
+  DPD_UK
+  EVRI
+  YODEL
+  UPS
+  FEDEX
+  DHL
+  OTHER
+}
+
+// Zoltan's Customizations: Shipment Status
+enum ShipmentStatus {
+  PENDING
+  LABEL_CREATED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
 model Company {
   id          String   @id @default(uuid())
   name        String
@@ -87,9 +148,7 @@ model Company {
   customers   Customer[]
   suppliers   Supplier[]
   brands      Brand[]
-  consumables Consumable[]
-  marketplaceIntegrations MarketplaceIntegration[]
-  shippingCarriers ShippingCarrier[]
+  clients     Client[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -180,11 +239,15 @@ model Location {
   shelf       String?
   bin         String?
 
-  // NEW: Location type and restrictions
-  locationType    LocationType @default(BULK)
-  isHeatSensitive Boolean      @default(false)
-  maxWeight       Float?       // Max weight in kg (for BULK_LW)
-  pickSequence    Int?         // Sequence number for optimized picking route
+  // Zoltan's Customizations: Location Type & Weight Management
+  locationType    LocationType @default(PICK)
+  weightLimit     Float?       // Max weight in kg (200kg for BULK_LW)
+  currentWeight   Float        @default(0)
+  pickSequence    Int?         // Optimal picking order (1, 2, 3...)
+  isHeatSensitive Boolean      @default(false) // Temperature controlled location
+  isPrimaryPick   Boolean      @default(false) // Primary pick location for a product
+  minStockLevel   Int?         // Minimum stock before replenishment
+  maxStockLevel   Int?         // Maximum stock capacity
 
   inventory   Inventory[]
   pickItems   PickItem[]
@@ -202,12 +265,7 @@ model Location {
   @@index([zoneId])
   @@index([locationType])
   @@index([pickSequence])
-}
-
-enum LocationType {
-  PICK      // Active picking locations
-  BULK      // Main storage (unlimited weight)
-  BULK_LW   // Light weight bulk storage (max 200kg)
+  @@index([isPrimaryPick])
 }
 
 // ===================================
@@ -257,20 +315,36 @@ model Product {
   sellingPrice    Float?
   currency        String      @default("GBP")
 
+  // Zoltan's Customizations: VAT & Heat Sensitivity
+  vatRate         Float       @default(20.0)  // UK VAT rate 20%
+  vatCode         String?     // VAT category code (e.g., A_FOOD_PLAINBISCUIT)
+  isHeatSensitive Boolean     @default(false) // Requires temperature control
+  primarySupplierId String?   // Primary supplier for this product
+  cartonSizes     Int?        // Units per carton/case
+
+  // Marketplace-specific SKUs (Client requirement from Excel)
+  ffdSku          String?     // FFD marketplace SKU
+  ffdSaleSku      String?     // FFD sale SKU
+  wsSku           String?     // Wholesale SKU
+  amzSku          String?     // Amazon standard SKU
+  amzSkuBb        String?     // Amazon Best Before rotation SKU
+  amzSkuM         String?     // Amazon MFN SKU
+  amzSkuEu        String?     // Amazon EU SKU
+  onBuySku        String?     // OnBuy marketplace SKU
+
   // Food-specific
   isPerishable    Boolean     @default(false)
   requiresBatch   Boolean     @default(false)
   requiresSerial  Boolean     @default(false)
   shelfLifeDays   Int?        // Expected shelf life in days
 
-  // NEW: VAT and heat sensitivity
-  vatCodeId       String?
-  vatCode         VATCode?    @relation("ProductVATCode", fields: [vatCodeId], references: [id])
-  isHeatSensitive Boolean     @default(false) // Don't place in hot locations
-
   // Bundle support
   bundleItems     BundleItem[] @relation("ParentBundle")
   partOfBundles   BundleItem[] @relation("ChildProduct")
+
+  // Zoltan's Customizations: Multi-Channel SKU Mapping & Supplier Products
+  alternativeSkus AlternativeSku[]
+  supplierProducts SupplierProduct[]
 
   // Inventory
   inventory       Inventory[]
@@ -293,10 +367,6 @@ model Product {
   // Cycle counts
   cycleCountItems CycleCountItem[]
 
-  // NEW: Alternative SKUs and Supplier products
-  alternativeSKUs AlternativeSKU[]
-  supplierProducts SupplierProduct[]
-
   images          String[]
 
   createdAt       DateTime @default(now())
@@ -307,7 +377,8 @@ model Product {
   @@index([sku])
   @@index([type])
   @@index([status])
-  @@index([vatCodeId])
+  @@index([isHeatSensitive])
+  @@index([primarySupplierId])
 }
 
 enum ProductType {
@@ -329,6 +400,9 @@ model BundleItem {
   childId     String
   child       Product  @relation("ChildProduct", fields: [childId], references: [id])
   quantity    Int      // How many child items in bundle
+
+  // Zoltan's Customizations: Auto-Costing from Components
+  componentCost Float?  // Auto-calculated: child.costPrice * quantity
 
   createdAt   DateTime @default(now())
 
@@ -354,6 +428,7 @@ model Inventory {
   lotNumber         String?  // Unique lot identifier
   batchNumber       String?  // Batch identifier
   serialNumber      String?  // For serialized items
+  batchBarcode      String?  // Barcode for this specific batch/lot
 
   // Best-Before Date (Critical for food)
   bestBeforeDate    DateTime?
@@ -378,6 +453,7 @@ model Inventory {
   @@index([locationId])
   @@index([bestBeforeDate])
   @@index([lotNumber])
+  @@index([batchBarcode])
 }
 
 enum InventoryStatus {
@@ -887,6 +963,36 @@ model TransferItem {
 }
 
 // ===================================
+// 3PL CLIENTS (3PL Client Companies)
+// ===================================
+
+model Client {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  email       String?
+  phone       String?
+  address     String?
+  contactName String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  status      ClientStatus @default(ACTIVE)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([code])
+  @@index([status])
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ===================================
 // SUPPLIERS
 // ===================================
 
@@ -900,15 +1006,189 @@ model Supplier {
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
 
-  // NEW: Relations
-  supplierProducts SupplierProduct[]
-  consumables      Consumable[]
+  purchaseOrders PurchaseOrder[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([companyId])
   @@index([code])
+}
+
+// ===================================
+// PURCHASE ORDERS
+// ===================================
+
+model PurchaseOrder {
+  id              String   @id @default(uuid())
+  poNumber        String   @unique
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+
+  status          PurchaseOrderStatus @default(DRAFT)
+
+  // Items
+  items           PurchaseOrderItem[]
+
+  // Goods Receipts
+  goodsReceipts   GoodsReceipt[]
+
+  // Financials
+  subtotal        Float    @default(0)
+  taxAmount       Float    @default(0)
+  shippingCost    Float    @default(0)
+  totalAmount     Float    @default(0)
+
+  // Dates
+  orderDate       DateTime @default(now())
+  expectedDelivery DateTime?
+  receivedDate    DateTime?
+
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([poNumber])
+  @@index([orderDate])
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  productId       String
+  productName     String      // Denormalized for quick access
+  productSku      String      // Denormalized for quick access
+
+  quantity        Int
+  receivedQty     Int         @default(0)
+  unitPrice       Float
+  totalPrice      Float
+
+  // For bundles
+  isBundle        Boolean     @default(false)
+  bundleQty       Int?        // Quantity per bundle if it's a bundle
+
+  notes           String?
+
+  // Goods receipt items
+  goodsReceiptItems GoodsReceiptItem[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+// ===================================
+// GOODS RECEIVING
+// ===================================
+
+model GoodsReceipt {
+  id              String   @id @default(uuid())
+  grNumber        String   @unique
+
+  // Link to Purchase Order
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  status          GoodsReceiptStatus @default(PENDING)
+
+  // Items received
+  items           GoodsReceiptItem[]
+
+  // Receiving details
+  receivedBy      String?
+  receivedDate    DateTime?
+
+  // Quality check
+  qualityStatus   String?     // PASSED, FAILED, PARTIAL
+  qualityNotes    String?
+
+  // Totals
+  totalExpected   Int         @default(0)
+  totalReceived   Int         @default(0)
+  totalDamaged    Int         @default(0)
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([grNumber])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+enum GoodsReceiptStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model GoodsReceiptItem {
+  id                  String   @id @default(uuid())
+  goodsReceiptId      String
+  goodsReceipt        GoodsReceipt @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+
+  // Link to PO Item
+  purchaseOrderItemId String
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+
+  // Product info (denormalized)
+  productId           String
+  productName         String
+  productSku          String
+
+  // Quantities
+  expectedQty         Int
+  receivedQty         Int         @default(0)
+  damagedQty          Int         @default(0)
+
+  // Batch/Lot tracking
+  batchNumber         String?
+  lotNumber           String?
+  bestBeforeDate      DateTime?
+
+  // Location where items are put away
+  locationId          String?
+
+  // Quality
+  qualityStatus       String?     // GOOD, DAMAGED, REJECTED
+  qualityNotes        String?
+
+  notes               String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderItemId])
+  @@index([productId])
 }
 
 // ===================================
@@ -960,6 +1240,12 @@ model ChannelPrice {
   // Pricing
   sellingPrice    Float
 
+  // Zoltan's Customizations: VAT Calculations
+  vatRate         Float?   // VAT rate for this channel (defaults to product.vatRate)
+  priceExVat      Float?   // Price excluding VAT
+  vatAmount       Float?   // VAT amount
+  priceIncVat     Float?   // Total price including VAT
+
   // Cost breakdown
   productCost     Float?   // From product.costPrice
   laborCost       Float?   // Picking, packing labor
@@ -982,231 +1268,268 @@ model ChannelPrice {
 }
 
 // ===================================
-// ALTERNATIVE SKU MAPPING (Amazon 3-SKU System, Marketplace SKUs)
+// ZOLTAN'S CUSTOMIZATIONS
 // ===================================
 
-model AlternativeSKU {
+// Alternative SKU Mapping for Multi-Channel Sales
+model AlternativeSku {
   id          String   @id @default(uuid())
   productId   String
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  channelType String   // "Amazon", "Shopify", "eBay", "TikTok", "Temu"
-  channelSKU  String   // The alternative SKU for this channel
-  skuType     String?  // "NORMAL", "BB_ROTATION", "MFN" (for Amazon)
-
+  channel     MarketplaceType
+  sku         String   // Alternative SKU for this channel
+  skuSuffix   String?  // "_BB" for rotation, "_M" for MFN
+  fnsku       String?  // Amazon FNSKU
+  asin        String?  // Amazon ASIN
   isActive    Boolean  @default(true)
-  isPrimary   Boolean  @default(false) // Is this the main SKU for this channel?
-
-  notes       String?
+  companyId   String
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([productId, channelType, channelSKU])
+  @@unique([productId, channel, sku])
   @@index([productId])
-  @@index([channelType])
-  @@index([channelSKU])
+  @@index([channel])
+  @@index([sku])
+  @@index([fnsku])
+  @@index([asin])
+  @@index([companyId])
 }
 
-// ===================================
-// SUPPLIER-PRODUCT ASSOCIATION
-// ===================================
-
+// Supplier Product Database with Case Sizes
 model SupplierProduct {
-  id            String   @id @default(uuid())
-  supplierId    String
-  supplier      Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  supplierId      String
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierSku     String   // Supplier's SKU
+  supplierName    String?  // Product name at supplier
+  caseSize        Int      // Units per case
+  caseCost        Float?   // Cost per case
+  unitCost        Float?   // Auto-calculated: caseCost / caseSize
+  isPrimary       Boolean  @default(false)
+  leadTimeDays    Int?     // Lead time in days
+  moq             Int?     // Minimum order quantity
+  companyId       String
 
-  supplierSKU   String   // Supplier's SKU for this product
-  caseSize      Int?     // How many units per case
-  minOrderQty   Int?     // Minimum order quantity
-  leadTimeDays  Int?     // Lead time in days
-  costPrice     Float?   // Supplier's price
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  isPreferred   Boolean  @default(false) // Preferred supplier for this product
-  isActive      Boolean  @default(true)
-
-  notes         String?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([supplierId, productId])
-  @@index([supplierId])
+  @@unique([supplierId, supplierSku])
   @@index([productId])
-  @@index([supplierSKU])
+  @@index([supplierId])
+  @@index([isPrimary])
+  @@index([companyId])
 }
 
-// ===================================
-// CONSUMABLES (Packaging Materials)
-// ===================================
-
+// Consumables Module for Packaging Materials
 model Consumable {
   id              String   @id @default(uuid())
   sku             String   @unique
   name            String
-  description     String?
-  category        String   @default("Packaging") // Cardboard, Tape, Labels, etc.
+  category        ConsumableCategory @default(PACKAGING)
+  currentStock    Int      @default(0)
+  minStockLevel   Int      @default(10)
+  unitCost        Float
   companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
 
-  // Pricing
-  costPriceEach   Float?   // Cost per individual item
-  unitPerPack     Int?     // How many units in a pack
-  costPricePack   Float?   // Total cost per pack
-
-  // Inventory
-  onStock         Int      @default(0)
-  reorderLevel    Int?
-
-  // Physical dimensions
-  weight          Float?
-  length          Float?
-  height          Float?
-  depth           Float?
-  dimensionUnit   String?  @default("cm")
-
-  // Links
-  supplierId      String?
-  supplier        Supplier? @relation(fields: [supplierId], references: [id])
-
-  isActive        Boolean  @default(true)
+  // Usage tracking
+  usage           ConsumableUsage[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@index([companyId])
+  @@index([sku])
   @@index([category])
-  @@index([supplierId])
+  @@index([companyId])
 }
 
-// ===================================
-// VAT RATES (Multi-Country Support)
-// ===================================
+model ConsumableUsage {
+  id              String   @id @default(uuid())
+  consumableId    String
+  consumable      Consumable @relation(fields: [consumableId], references: [id])
+  quantity        Int
+  usedBy          String?  // User ID or process
+  orderId         String?  // Link to order if used for order fulfillment
+  reason          String?  // Usage reason
+  companyId       String
 
-model VATCode {
-  id          String   @id @default(uuid())
-  code        String   @unique  // e.g., "A_FOOD_GEN", "A_FOOD_CNDY"
-  description String   // What this VAT code covers
+  createdAt       DateTime @default(now())
 
-  rates       VATRate[]
-  products    Product[] @relation("ProductVATCode")
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([code])
+  @@index([consumableId])
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([companyId])
 }
 
-model VATRate {
-  id          String   @id @default(uuid())
-  vatCodeId   String
-  vatCode     VATCode  @relation(fields: [vatCodeId], references: [id], onDelete: Cascade)
-
-  countryCode String   // "GB", "DE", "FR", "AT", etc.
-  countryName String   // "United Kingdom", "Germany", etc.
-  rate        Float    // Decimal rate (e.g., 0.20 for 20%)
-
-  isActive    Boolean  @default(true)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([vatCodeId, countryCode])
-  @@index([vatCodeId])
-  @@index([countryCode])
-}
-
-// ===================================
-// MARKETPLACE INTEGRATIONS
-// ===================================
-
-model MarketplaceIntegration {
+// Marketplace Integrations
+model MarketplaceConnection {
   id              String   @id @default(uuid())
   companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
+  marketplace     MarketplaceType
+  accountName     String
 
-  platform        MarketplacePlatform
-  displayName     String   // User-friendly name (e.g., "Amazon UK FBA")
-
-  // Credentials (encrypted in production)
+  // Generic API credentials
   apiKey          String?
   apiSecret       String?
   accessToken     String?
   refreshToken    String?
-  merchantId      String?
+  tokenExpiresAt  DateTime?
 
-  // Settings
-  isActive        Boolean  @default(true)
-  syncOrders      Boolean  @default(true)
-  syncInventory   Boolean  @default(true)
-  syncFrequency   Int      @default(60) // Minutes
+  // Amazon SP-API specific fields
+  sellerId        String?       // Amazon Merchant Token
+  clientId        String?       // Amazon SP-API Client ID
+  clientSecret    String?       // Amazon SP-API Client Secret
+  awsAccessKeyId  String?       // AWS access key for Amazon SP-API
+  awsSecretKey    String?       // AWS secret key for Amazon SP-API
+  region          String?       // AWS region (eu-west-1 for UK)
 
+  // Shopify specific fields
+  shopUrl         String?       // Shopify store URL (e.g., free-from-direct.myshopify.com)
+  shopifyApiKey   String?       // Shopify API Key
+  shopifyApiSecret String?      // Shopify API Secret
+  shopifyAccessToken String?    // Shopify Admin API access token
+
+  // eBay specific fields
+  ebayAppId       String?       // eBay App ID (Client ID)
+  ebayDevId       String?       // eBay Dev ID
+  ebayCertId      String?       // eBay Cert ID (Client Secret)
+  ebayAuthToken   String?       // eBay OAuth token
+  ebayRefreshToken String?      // eBay refresh token
+  ebayEnvironment String?       // 'sandbox' or 'production'
+
+  // Generic store ID for other platforms
+  storeId         String?       // For TikTok, Temu, etc.
+
+  // Sync settings
+  autoSyncOrders  Boolean  @default(true)
+  autoSyncStock   Boolean  @default(true)
+  syncFrequency   Int?     @default(30) // Minutes between syncs
   lastSyncAt      DateTime?
-  lastErrorAt     DateTime?
-  lastError       String?
+  lastSyncError   String?
+  isActive        Boolean  @default(true)
+
+  // Sync logs
+  orderSyncs      MarketplaceOrderSync[]
+  stockSyncs      MarketplaceStockSync[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([companyId, marketplace, accountName])
   @@index([companyId])
-  @@index([platform])
+  @@index([marketplace])
+  @@index([isActive])
 }
 
-enum MarketplacePlatform {
-  SHOPIFY
-  EBAY
-  TIKTOK
-  TEMU
-  AMAZON_UK_FBA
-  AMAZON_UK_MFN
-  AMAZON_EU_FBA
-  AMAZON_US_FBA
-  CUSTOM
+model MarketplaceOrderSync {
+  id              String   @id @default(uuid())
+  connectionId    String
+  connection      MarketplaceConnection @relation(fields: [connectionId], references: [id])
+  orderId         String?  // WMS order ID created
+  externalOrderId String   // Order ID from marketplace
+  status          SyncStatus @default(PENDING)
+  errorMessage    String?
+  orderData       Json?    // Full order data from marketplace
+
+  syncedAt        DateTime @default(now())
+
+  @@unique([connectionId, externalOrderId])
+  @@index([connectionId])
+  @@index([status])
+  @@index([syncedAt])
 }
 
-// ===================================
-// SHIPPING CARRIERS
-// ===================================
+model MarketplaceStockSync {
+  id              String   @id @default(uuid())
+  connectionId    String
+  connection      MarketplaceConnection @relation(fields: [connectionId], references: [id])
+  productId       String
+  sku             String
+  quantitySynced  Int
+  status          SyncStatus @default(COMPLETED)
+  errorMessage    String?
 
-model ShippingCarrier {
+  syncedAt        DateTime @default(now())
+
+  @@index([connectionId])
+  @@index([productId])
+  @@index([status])
+  @@index([syncedAt])
+}
+
+// UK Courier Integrations
+model CourierConnection {
   id              String   @id @default(uuid())
   companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
+  courier         CourierType
+  accountName     String
 
-  carrier         CarrierType
-  displayName     String
+  // Generic API credentials
+  apiKey          String?           // Main API key/authorization key
+  apiSecret       String?           // API secret if required
+  accountNumber   String?           // Courier account number
+  username        String?           // Account username
+  password        String?           // Account password (encrypted)
 
-  // Credentials
-  apiKey          String?
-  apiSecret       String?
-  accountNumber   String?
+  // Royal Mail / Parcelforce specific
+  royalMailApiKey       String?     // Royal Mail Click & Drop API key
+  royalMailPostingLocation String?  // Posting location ID
+  parcelforceContractNumber String? // Parcelforce contract number
+
+  // DPD specific
+  dpdGeoSession   String?           // DPD GeoSession token
+  dpdAccountCode  String?           // DPD account code
+
+  // Generic OAuth fields for carriers that use OAuth
+  accessToken     String?
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
 
   // Settings
-  isActive        Boolean  @default(true)
   isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  testMode        Boolean  @default(false) // Use sandbox/test environment
 
-  // Services offered
-  servicesOffered Json?    // Array of service types
+  // Service options
+  defaultService  String?           // Default service code
+  serviceOptions  Json?             // Available services for this carrier
 
-  testMode        Boolean  @default(true)
+  // Shipments
+  shipments       CourierShipment[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([companyId, courier, accountName])
   @@index([companyId])
-  @@index([carrier])
+  @@index([courier])
+  @@index([isActive])
+  @@index([isDefault])
 }
 
-enum CarrierType {
-  AMAZON_BUY_SHIPPING
-  ROYAL_MAIL
-  PARCELFORCE
-  DPD_UK
-  DHL
-  UPS
-  FEDEX
-  CUSTOM
+model CourierShipment {
+  id              String   @id @default(uuid())
+  connectionId    String
+  connection      CourierConnection @relation(fields: [connectionId], references: [id])
+  orderId         String?  // Link to WMS order
+  trackingNumber  String
+  labelUrl        String?  // URL to shipping label PDF
+  serviceCode     String?  // e.g., 'ROYAL_MAIL_24', 'DPD_NEXT_DAY'
+  weight          Float?   // Package weight
+  cost            Float?   // Shipping cost
+  status          ShipmentStatus @default(PENDING)
+  estimatedDelivery DateTime?
+  actualDelivery  DateTime?
+  companyId       String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([trackingNumber])
+  @@index([connectionId])
+  @@index([orderId])
+  @@index([status])
+  @@index([trackingNumber])
+  @@index([companyId])
 }
