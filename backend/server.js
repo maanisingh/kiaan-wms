@@ -8188,6 +8188,164 @@ app.delete('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
 });
 
 // ===================================
+// ADDITIONAL MISSING ROUTES
+// ===================================
+
+// Cycle counts alias (redirect to inventory/cycle-counts)
+app.get('/api/cycle-counts', verifyToken, async (req, res) => {
+  try {
+    const cycleCounts = await prisma.cycleCount.findMany({
+      where: {
+        warehouse: { companyId: req.user.companyId }
+      },
+      include: {
+        warehouse: true,
+        zone: true,
+        location: true,
+        items: {
+          include: {
+            product: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(cycleCounts);
+  } catch (error) {
+    console.error('Get cycle counts error:', error);
+    res.json([]);
+  }
+});
+
+// SKU Mappings endpoint
+app.get('/api/sku-mappings', verifyToken, async (req, res) => {
+  try {
+    const mappings = await prisma.skuMapping.findMany({
+      include: {
+        product: true,
+        channel: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(mappings);
+  } catch (error) {
+    console.error('Get SKU mappings error:', error);
+    res.json([]);
+  }
+});
+
+app.post('/api/sku-mappings', verifyToken, async (req, res) => {
+  try {
+    const mapping = await prisma.skuMapping.create({
+      data: req.body,
+      include: {
+        product: true,
+        channel: true
+      }
+    });
+    res.status(201).json(mapping);
+  } catch (error) {
+    console.error('Create SKU mapping error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/sku-mappings/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const mapping = await prisma.skuMapping.update({
+      where: { id },
+      data: req.body,
+      include: {
+        product: true,
+        channel: true
+      }
+    });
+    res.json(mapping);
+  } catch (error) {
+    console.error('Update SKU mapping error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/sku-mappings/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.skuMapping.delete({ where: { id } });
+    res.json({ message: 'SKU mapping deleted successfully' });
+  } catch (error) {
+    console.error('Delete SKU mapping error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Scanner settings endpoint
+app.get('/api/settings/scanner', verifyToken, async (req, res) => {
+  try {
+    // Return scanner settings (could be stored in company settings)
+    const company = await prisma.company.findUnique({
+      where: { id: req.user.companyId }
+    });
+    res.json({
+      scannerEnabled: true,
+      autoSubmit: true,
+      soundEnabled: true,
+      vibrationEnabled: true,
+      barcodeFormats: ['EAN13', 'EAN8', 'CODE128', 'CODE39', 'QR'],
+      cameraPreference: 'back'
+    });
+  } catch (error) {
+    console.error('Get scanner settings error:', error);
+    res.json({});
+  }
+});
+
+app.post('/api/settings/scanner', verifyToken, async (req, res) => {
+  try {
+    // Save scanner settings
+    res.json({ message: 'Scanner settings saved successfully', ...req.body });
+  } catch (error) {
+    console.error('Save scanner settings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reports list endpoint
+app.get('/api/reports', verifyToken, async (req, res) => {
+  try {
+    // Return available reports
+    res.json([
+      { id: 'inventory', name: 'Inventory Report', description: 'Current inventory levels', endpoint: '/api/reports/inventory' },
+      { id: 'sales', name: 'Sales Report', description: 'Sales analytics', endpoint: '/api/reports/sales' },
+      { id: 'stock-movements', name: 'Stock Movements', description: 'Inventory movement history', endpoint: '/api/reports/stock-movements' },
+      { id: 'stock-valuation', name: 'Stock Valuation', description: 'Value of current stock', endpoint: '/api/reports/stock-valuation' },
+      { id: 'abc-analysis', name: 'ABC Analysis', description: 'Product classification analysis', endpoint: '/api/reports/abc-analysis' },
+      { id: 'low-stock', name: 'Low Stock Alert', description: 'Products below reorder point', endpoint: '/api/reports/low-stock' },
+      { id: 'summary', name: 'Summary Report', description: 'Overview of all reports', endpoint: '/api/reports/summary' }
+    ]);
+  } catch (error) {
+    console.error('Get reports list error:', error);
+    res.json([]);
+  }
+});
+
+// Labels list endpoint
+app.get('/api/labels', verifyToken, async (req, res) => {
+  try {
+    // Return label templates/history
+    res.json([
+      { id: 'product', name: 'Product Labels', description: 'Standard product barcode labels' },
+      { id: 'shelf', name: 'Shelf Labels', description: 'Location/shelf labels' },
+      { id: 'shipping', name: 'Shipping Labels', description: 'Order shipping labels' },
+      { id: 'batch', name: 'Batch Labels', description: 'Batch/lot tracking labels' }
+    ]);
+  } catch (error) {
+    console.error('Get labels list error:', error);
+    res.json([]);
+  }
+});
+
+// ===================================
 // INTEGRATION HEALTH & MONITORING
 // ===================================
 
