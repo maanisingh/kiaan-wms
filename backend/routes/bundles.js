@@ -7,6 +7,39 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 
+// Get all bundles
+router.get('/', async (req, res) => {
+  try {
+    const bundles = await prisma.product.findMany({
+      where: {
+        type: 'BUNDLE'
+      },
+      include: {
+        brand: true,
+        bundleItems: {
+          include: {
+            child: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                costPrice: true,
+                sellingPrice: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    res.json(bundles);
+  } catch (error) {
+    console.error('Error fetching bundles:', error);
+    res.status(500).json({ error: 'Failed to fetch bundles' });
+  }
+});
+
 // Calculate bundle cost price from components
 router.get('/:bundleId/cost-price', async (req, res) => {
   try {
