@@ -8022,6 +8022,172 @@ app.get('/api/consumables/stock-value', verifyToken, async (req, res) => {
 });
 
 // ===================================
+// ADDITIONAL ANALYTICS ROUTES (ALIASES)
+// ===================================
+
+// Analytics channels endpoint (alias for frontend compatibility)
+app.get('/api/analytics/channels', verifyToken, async (req, res) => {
+  try {
+    // Fetch products with channel pricing data
+    const products = await prisma.product.findMany({
+      where: { companyId: req.user.companyId },
+      include: {
+        brand: true,
+        channelPrices: {
+          include: {
+            channel: true
+          }
+        },
+        inventory: true
+      }
+    });
+
+    // Enrich products with channel info
+    const enrichedProducts = products.map(p => {
+      const totalStock = p.inventory.reduce((sum, i) => sum + (i.quantity || 0), 0);
+      const channelPrice = p.channelPrices[0];
+      return {
+        ...p,
+        volume: totalStock,
+        channel: channelPrice?.channel?.name || 'Direct',
+        channelFee: channelPrice?.channel?.commissionRate || 0,
+      };
+    });
+
+    res.json({ products: enrichedProducts });
+  } catch (error) {
+    console.error('Get analytics channels error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Analytics margins endpoint
+app.get('/api/analytics/margins', verifyToken, async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { companyId: req.user.companyId },
+      include: {
+        brand: true,
+        channelPrices: {
+          include: {
+            channel: true
+          }
+        },
+        inventory: true
+      }
+    });
+
+    // Calculate margin data for each product
+    const productsWithMargins = products.map((p, index) => {
+      const totalStock = p.inventory.reduce((sum, i) => sum + (i.quantity || 0), 0);
+      const sellingPrice = p.sellingPrice || 0;
+      const productCost = p.costPrice || 0;
+      const packaging = sellingPrice * 0.03;
+      const shipping = sellingPrice * 0.10;
+      const channelPrice = p.channelPrices[0];
+      const channel = channelPrice?.channel;
+      const channelFee = sellingPrice * ((channel?.commissionRate || 0) / 100);
+      const volume = totalStock || 0;
+      const returnRate = 2.5;
+      const returns = Math.floor(volume * (returnRate / 100));
+
+      return {
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        brand: p.brand?.name || 'Unknown',
+        channel: channel?.name || 'Direct',
+        category: p.brand?.name || 'General',
+        sellingPrice,
+        productCost,
+        packaging,
+        shipping,
+        channelFee,
+        volume,
+        returns,
+        returnRate,
+      };
+    });
+
+    res.json({ products: productsWithMargins });
+  } catch (error) {
+    console.error('Get analytics margins error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Replenishment configs endpoint (plural alias)
+app.get('/api/replenishment/configs', verifyToken, async (req, res) => {
+  try {
+    const configs = await prisma.replenishmentConfig.findMany({
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(configs);
+  } catch (error) {
+    console.error('Get replenishment configs error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/replenishment/configs', verifyToken, async (req, res) => {
+  try {
+    const config = await prisma.replenishmentConfig.create({
+      data: req.body,
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        }
+      }
+    });
+    res.status(201).json(config);
+  } catch (error) {
+    console.error('Create replenishment config error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const config = await prisma.replenishmentConfig.update({
+      where: { id },
+      data: req.body,
+      include: {
+        product: {
+          include: {
+            brand: true
+          }
+        }
+      }
+    });
+    res.json(config);
+  } catch (error) {
+    console.error('Update replenishment config error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.replenishmentConfig.delete({ where: { id } });
+    res.json({ message: 'Configuration deleted successfully' });
+  } catch (error) {
+    console.error('Delete replenishment config error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ===================================
 // INTEGRATION HEALTH & MONITORING
 // ===================================
 
