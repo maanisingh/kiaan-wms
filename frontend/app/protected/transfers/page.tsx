@@ -79,7 +79,7 @@ export default function TransfersPage() {
     try {
       if (selectedTransfer) {
         // UPDATE existing transfer
-        await apiService.patch(`/api/transfers/${selectedTransfer.id}`, {
+        await apiService.patch(`/transfers/${selectedTransfer.id}`, {
           type: values.type,
           fromWarehouseId: values.fromWarehouseId,
           toWarehouseId: values.toWarehouseId,
@@ -145,7 +145,7 @@ export default function TransfersPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/transfers/${record.id}`);
+          await apiService.delete(`/transfers/${record.id}`);
           message.success('Transfer deleted successfully!');
           fetchTransfers();
         } catch (err: any) {

@@ -126,13 +126,13 @@ export default function PriceOptimizerPage() {
     setLoading(true);
     try {
       // Try analytics endpoint first
-      const data = await apiService.get('/api/analytics/pricing-optimizer');
+      const data = await apiService.get('/analytics/pricing-optimizer');
       if (data && data.products && data.products.length > 0) {
         setProducts(data.products);
       } else {
         // Fallback to products
-        const productsData = await apiService.get('/api/products');
-        const inventory = await apiService.get('/api/inventory');
+        const productsData = await apiService.get('/products');
+        const inventory = await apiService.get('/inventory');
 
         const enrichedProducts = (productsData || []).map((p: any) => {
           const inv = (inventory || []).filter((i: any) => i.productId === p.id);

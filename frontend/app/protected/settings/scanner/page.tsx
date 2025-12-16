@@ -107,7 +107,7 @@ export default function ScannerSettingsPage() {
 
   const fetchSupportedScanners = async () => {
     try {
-      const data = await apiService.get('/api/scanners/supported');
+      const data = await apiService.get('/scanners/supported');
       setSupportedScanners(data || {});
     } catch (error) {
       console.error('Error fetching supported scanners:', error);
@@ -116,7 +116,7 @@ export default function ScannerSettingsPage() {
 
   const fetchConnectedScanners = async () => {
     try {
-      const data = await apiService.get('/api/scanners/connected');
+      const data = await apiService.get('/scanners/connected');
       setConnectedScanners(data || []);
     } catch (error) {
       console.error('Error fetching connected scanners:', error);
@@ -126,7 +126,7 @@ export default function ScannerSettingsPage() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/scanner-settings');
+      const data = await apiService.get('/scanner-settings');
       setSettings(data);
       form.setFieldsValue({
         ...data,
@@ -176,7 +176,7 @@ export default function ScannerSettingsPage() {
         },
       };
 
-      await apiService.put('/api/scanner-settings', payload);
+      await apiService.put('/scanner-settings', payload);
       message.success('Scanner settings saved successfully');
       setSettings(payload);
     } catch (error) {
@@ -189,7 +189,7 @@ export default function ScannerSettingsPage() {
 
   const switchMode = async (mode: 'camera' | 'tc21') => {
     try {
-      await apiService.post('/api/scanner-settings/switch-mode', { mode });
+      await apiService.post('/scanner-settings/switch-mode', { mode });
       message.success(`Switched to ${mode === 'tc21' ? 'TC21 Handheld' : 'Camera'} scanning mode`);
       fetchSettings();
     } catch (error) {
@@ -199,7 +199,7 @@ export default function ScannerSettingsPage() {
 
   const downloadDataWedgeProfile = async () => {
     try {
-      const profile = await apiService.get('/api/scanner-settings/tc21-profile');
+      const profile = await apiService.get('/scanner-settings/tc21-profile');
       const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -215,7 +215,7 @@ export default function ScannerSettingsPage() {
 
   const handleConnectScanner = async (values: any) => {
     try {
-      await apiService.post('/api/scanners/connect', {
+      await apiService.post('/scanners/connect', {
         brand: values.brand,
         model: values.model,
         connectionType: values.connectionType,
@@ -239,7 +239,7 @@ export default function ScannerSettingsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/scanners/${scannerId}`);
+          await apiService.delete(`/scanners/${scannerId}`);
           message.success('Scanner disconnected');
           fetchConnectedScanners();
           fetchSettings();
@@ -252,7 +252,7 @@ export default function ScannerSettingsPage() {
 
   const handleActivateScanner = async (scannerId: string) => {
     try {
-      await apiService.post(`/api/scanners/${scannerId}/activate`);
+      await apiService.post(`/scanners/${scannerId}/activate`);
       message.success('Scanner activated');
       fetchConnectedScanners();
       fetchSettings();
@@ -263,7 +263,7 @@ export default function ScannerSettingsPage() {
 
   const showSetupGuide = async (brand: string) => {
     try {
-      const guide = await apiService.get(`/api/scanners/${brand}/setup-guide`);
+      const guide = await apiService.get(`/scanners/${brand}/setup-guide`);
       setSetupGuide(guide);
       setSetupGuideOpen(true);
     } catch (error) {

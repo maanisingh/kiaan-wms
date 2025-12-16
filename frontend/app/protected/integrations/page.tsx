@@ -68,7 +68,7 @@ export default function SystemIntegrationsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/integrations/${integrationId}`);
+          await apiService.delete(`/integrations/${integrationId}`);
           message.success('Integration deleted successfully');
           fetchIntegrations();
         } catch (error) {
@@ -81,7 +81,7 @@ export default function SystemIntegrationsPage() {
   const handleSubmit = async (values: any) => {
     try {
       if (isEditMode && selectedIntegration) {
-        await apiService.put(`/api/integrations/${selectedIntegration.id}`, values);
+        await apiService.put(`/integrations/${selectedIntegration.id}`, values);
         message.success('Integration updated successfully');
       } else {
         await apiService.post('/integrations', values);

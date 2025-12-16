@@ -278,6 +278,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         collapsed={sidebarCollapsed}
         className="shadow-lg"
         width={250}
+        style={{
+          overflow: 'auto',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+        }}
       >
         <div className="h-16 flex items-center justify-center border-b border-gray-700">
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -298,8 +307,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         />
       </Sider>
 
-      <Layout>
-        <Header className="bg-white shadow-sm px-4 flex items-center justify-between h-16">
+      <Layout style={{ marginLeft: sidebarCollapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
+        <Header
+          className="bg-white shadow-sm px-4 flex items-center justify-between h-16"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 99,
+            width: '100%',
+          }}
+        >
           <div className="flex items-center gap-4">
             <Button
               type="text"

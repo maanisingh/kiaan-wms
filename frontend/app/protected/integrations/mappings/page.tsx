@@ -59,7 +59,7 @@ export default function IntegrationMappingsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/sku-mappings/${mappingId}`);
+          await apiService.delete(`/sku-mappings/${mappingId}`);
           message.success('Mapping deleted successfully');
           fetchMappings();
         } catch (error) {
@@ -72,7 +72,7 @@ export default function IntegrationMappingsPage() {
   const handleSubmit = async (values: any) => {
     try {
       if (isEditMode && selectedMapping) {
-        await apiService.put(`/api/sku-mappings/${selectedMapping.id}`, values);
+        await apiService.put(`/sku-mappings/${selectedMapping.id}`, values);
         message.success('Mapping updated successfully');
       } else {
         await apiService.post('/sku-mappings', values);

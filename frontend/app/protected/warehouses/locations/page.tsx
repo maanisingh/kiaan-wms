@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { App as AntApp } from 'antd';
 
-import { Table, Button, Input, InputNumber, Select, Tag, Space, Card, Form, Drawer, message, Modal } from 'antd';
+import { Table, Button, Input, InputNumber, Select, Tag, Space, Card, Form, Drawer, Modal } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -14,14 +15,13 @@ import {
   InboxOutlined,
 } from '@ant-design/icons';
 import { useModal } from '@/hooks/useModal';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_LOCATIONS, GET_WAREHOUSES } from '@/lib/graphql/queries';
-import { CREATE_LOCATION, UPDATE_LOCATION, DELETE_LOCATION } from '@/lib/graphql/mutations';
+import apiService from '@/services/api';
 
 const { Search } = Input;
 const { Option } = Select;
 
 export default function WarehouseLocationsPage() {
+  const { message } = AntApp.useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [searchText, setSearchText] = useState('');
@@ -30,65 +30,91 @@ export default function WarehouseLocationsPage() {
   const editModal = useModal();
   const deleteModal = useModal();
   const [form] = Form.useForm();
+  const [locations, setLocations] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
-  // GraphQL query for locations
-  const { data, loading, error, refetch } = useQuery(GET_LOCATIONS, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch locations from REST API
+  const fetchLocations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.get('/locations');
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch locations:', err);
+      message.error(err.message || 'Failed to load locations');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
-  // GraphQL query for warehouses (for dropdown)
-  const { data: warehousesData } = useQuery(GET_WAREHOUSES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch warehouses from REST API for dropdown
+  const fetchWarehouses = useCallback(async () => {
+    try {
+      const data = await apiService.get('/warehouses');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch warehouses:', err);
+    }
+  }, []);
 
-  // GraphQL mutations
-  const [createLocation, { loading: creating }] = useMutation(CREATE_LOCATION, {
-    onCompleted: () => {
+  useEffect(() => {
+    fetchLocations();
+    fetchWarehouses();
+  }, [fetchLocations, fetchWarehouses]);
+
+  const refetch = () => {
+    fetchLocations();
+  };
+
+  // Create location via REST API
+  const createLocation = async (values: any) => {
+    setCreating(true);
+    try {
+      await apiService.post('/locations', values);
       message.success('Location created successfully!');
       form.resetFields();
       addModal.close();
       refetch();
-    },
-    onError: (err) => {
+    } catch (err: any) {
       message.error(`Failed to create location: ${err.message}`);
-    },
-  });
+    } finally {
+      setCreating(false);
+    }
+  };
 
-  const [updateLocation, { loading: updating }] = useMutation(UPDATE_LOCATION, {
-    onCompleted: () => {
+  // Update location via REST API
+  const updateLocation = async (id: string, values: any) => {
+    setUpdating(true);
+    try {
+      await apiService.put(`/locations/${id}`, values);
       message.success('Location updated successfully!');
       form.resetFields();
       editModal.close();
       refetch();
-    },
-    onError: (err) => {
+    } catch (err: any) {
       message.error(`Failed to update location: ${err.message}`);
-    },
-  });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-  const [deleteLocation] = useMutation(DELETE_LOCATION, {
-    onCompleted: () => {
+  // Delete location via REST API
+  const deleteLocationById = async (id: string) => {
+    try {
+      await apiService.delete(`/locations/${id}`);
       message.success('Location deleted successfully!');
       refetch();
-    },
-    onError: (err) => {
-      if (err.message.includes('foreign key') || err.message.includes('constraint')) {
+    } catch (err: any) {
+      if (err.message?.includes('foreign key') || err.message?.includes('constraint')) {
         message.error('Cannot delete location: Please remove all inventory from this location first.');
       } else {
         message.error(`Failed to delete location: ${err.message}`);
       }
-    },
-  });
-
-  // Get data from GraphQL
-  const locations = data?.Location || [];
-  const warehouses = warehousesData?.Warehouse || [];
+    }
+  };
 
   // Filter locations by search text
   const filteredLocations = locations.filter((l: any) => {
@@ -103,47 +129,31 @@ export default function WarehouseLocationsPage() {
     try {
       if (selectedLocation) {
         // UPDATE existing location
-        await updateLocation({
-          variables: {
-            id: selectedLocation.id,
-            set: {
-              name: values.name,
-              warehouseId: values.warehouseId,
-              aisle: values.aisle || null,
-              rack: values.rack || null,
-              shelf: values.shelf || null,
-              bin: values.bin || null,
-              locationType: values.locationType || 'PICK',
-              pickSequence: values.pickSequence || null,
-              maxWeight: values.maxWeight || null,
-              isHeatSensitive: values.isHeatSensitive || false,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+        await updateLocation(selectedLocation.id, {
+          name: values.name,
+          warehouseId: values.warehouseId,
+          aisle: values.aisle || null,
+          rack: values.rack || null,
+          shelf: values.shelf || null,
+          bin: values.bin || null,
+          locationType: values.locationType || 'PICK',
+          pickSequence: values.pickSequence || null,
+          maxWeight: values.maxWeight || null,
+          isHeatSensitive: values.isHeatSensitive || false,
         });
       } else {
         // CREATE new location
-        const uuid = crypto.randomUUID();
-        const locationCode = `LOC-${Date.now().toString().slice(-6)}`;
-
         await createLocation({
-          variables: {
-            object: {
-              id: uuid,
-              code: locationCode,
-              name: values.name,
-              warehouseId: values.warehouseId,
-              aisle: values.aisle || null,
-              rack: values.rack || null,
-              shelf: values.shelf || null,
-              bin: values.bin || null,
-              locationType: values.locationType || 'PICK',
-              pickSequence: values.pickSequence || null,
-              maxWeight: values.maxWeight || null,
-              isHeatSensitive: values.isHeatSensitive || false,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+          name: values.name,
+          warehouseId: values.warehouseId,
+          aisle: values.aisle || null,
+          rack: values.rack || null,
+          shelf: values.shelf || null,
+          bin: values.bin || null,
+          locationType: values.locationType || 'PICK',
+          pickSequence: values.pickSequence || null,
+          maxWeight: values.maxWeight || null,
+          isHeatSensitive: values.isHeatSensitive || false,
         });
       }
     } catch (error: any) {
@@ -176,7 +186,7 @@ export default function WarehouseLocationsPage() {
 
   const confirmDelete = async () => {
     if (deleteTarget) {
-      await deleteLocation({ variables: { id: deleteTarget.id } });
+      await deleteLocationById(deleteTarget.id);
       deleteModal.close();
       setDeleteTarget(null);
     }

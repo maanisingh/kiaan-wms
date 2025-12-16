@@ -22,7 +22,7 @@ export default function ReplenishmentSettingsPage() {
 
   const fetchProducts = async () => {
     try {
-      const data = await apiService.get('/api/products');
+      const data = await apiService.get('/products');
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -32,7 +32,7 @@ export default function ReplenishmentSettingsPage() {
   const fetchConfigs = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/api/replenishment/configs');
+      const data = await apiService.get('/replenishment/configs');
       setConfigs(data || []);
     } catch (error) {
       console.error('Error fetching configs:', error);
@@ -73,7 +73,7 @@ export default function ReplenishmentSettingsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/replenishment/configs/${configId}`);
+          await apiService.delete(`/replenishment/configs/${configId}`);
           message.success('Configuration deleted successfully');
           fetchConfigs();
         } catch (error) {
@@ -92,10 +92,10 @@ export default function ReplenishmentSettingsPage() {
       };
 
       if (isEditMode && selectedConfig) {
-        await apiService.put(`/api/replenishment/configs/${selectedConfig.id}`, payload);
+        await apiService.put(`/replenishment/configs/${selectedConfig.id}`, payload);
         message.success('Configuration updated successfully');
       } else {
-        await apiService.post('/api/replenishment/configs', payload);
+        await apiService.post('/replenishment/configs', payload);
         message.success('Configuration created successfully');
       }
       setIsModalVisible(false);

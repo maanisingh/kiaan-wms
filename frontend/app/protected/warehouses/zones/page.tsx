@@ -1,24 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import React, { useState, useEffect, useCallback } from 'react';
+import { App as AntApp } from 'antd';
 
 import {
   Table, Button, Tag, Card, Space, Statistic, Row, Col, Modal, Form,
-  Input, Select, message, Drawer
+  Input, Select, Drawer
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   EnvironmentOutlined, InboxOutlined, HomeOutlined, SearchOutlined
 } from '@ant-design/icons';
-import { GET_ZONES, GET_WAREHOUSES } from '@/lib/graphql/queries';
-import { CREATE_ZONE, UPDATE_ZONE, DELETE_ZONE } from '@/lib/graphql/mutations';
+import apiService from '@/services/api';
 import { useModal } from '@/hooks/useModal';
 
 const { Option } = Select;
 const { Search } = Input;
 
 export default function WarehouseZonesPage() {
+  const { message } = AntApp.useApp();
   const [selectedZone, setSelectedZone] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -27,64 +27,91 @@ export default function WarehouseZonesPage() {
   const editModal = useModal();
   const deleteModal = useModal();
   const [form] = Form.useForm();
+  const [zones, setZones] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
-  // Query zones
-  const { data, loading, refetch } = useQuery(GET_ZONES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch zones from REST API
+  const fetchZones = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.get('/zones');
+      setZones(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch zones:', err);
+      message.error(err.message || 'Failed to load zones');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
-  // Query warehouses for dropdown
-  const { data: warehousesData } = useQuery(GET_WAREHOUSES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-    },
-  });
+  // Fetch warehouses from REST API for dropdown
+  const fetchWarehouses = useCallback(async () => {
+    try {
+      const data = await apiService.get('/warehouses');
+      setWarehouses(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch warehouses:', err);
+    }
+  }, []);
 
-  const zones = data?.Zone || [];
-  const warehouses = warehousesData?.Warehouse || [];
+  useEffect(() => {
+    fetchZones();
+    fetchWarehouses();
+  }, [fetchZones, fetchWarehouses]);
 
-  // GraphQL mutations
-  const [createZone, { loading: creating }] = useMutation(CREATE_ZONE, {
-    onCompleted: () => {
+  const refetch = () => {
+    fetchZones();
+  };
+
+  // Create zone via REST API
+  const createZone = async (values: any) => {
+    setCreating(true);
+    try {
+      await apiService.post('/zones', values);
       message.success('Zone created successfully!');
       form.resetFields();
       addModal.close();
       refetch();
-    },
-    onError: (err) => {
+    } catch (err: any) {
       message.error(`Failed to create zone: ${err.message}`);
-    },
-  });
+    } finally {
+      setCreating(false);
+    }
+  };
 
-  const [updateZone, { loading: updating }] = useMutation(UPDATE_ZONE, {
-    onCompleted: () => {
+  // Update zone via REST API
+  const updateZone = async (id: string, values: any) => {
+    setUpdating(true);
+    try {
+      await apiService.put(`/zones/${id}`, values);
       message.success('Zone updated successfully!');
       form.resetFields();
       editModal.close();
       refetch();
-    },
-    onError: (err) => {
+    } catch (err: any) {
       message.error(`Failed to update zone: ${err.message}`);
-    },
-  });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-  const [deleteZone] = useMutation(DELETE_ZONE, {
-    onCompleted: () => {
+  // Delete zone via REST API
+  const deleteZoneById = async (id: string) => {
+    try {
+      await apiService.delete(`/zones/${id}`);
       message.success('Zone deleted successfully!');
       refetch();
-    },
-    onError: (err) => {
-      if (err.message.includes('foreign key') || err.message.includes('constraint')) {
+    } catch (err: any) {
+      if (err.message?.includes('foreign key') || err.message?.includes('constraint')) {
         message.error('Cannot delete zone: Please delete all locations in this zone first.');
       } else {
         message.error(`Failed to delete zone: ${err.message}`);
       }
-    },
-  });
+    }
+  };
 
   // Filter zones by search text
   const filteredZones = zones.filter((z: any) => {
@@ -99,32 +126,18 @@ export default function WarehouseZonesPage() {
     try {
       if (selectedZone) {
         // UPDATE existing zone
-        await updateZone({
-          variables: {
-            id: selectedZone.id,
-            set: {
-              name: values.name,
-              warehouseId: values.warehouseId,
-              zoneType: values.zoneType,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+        await updateZone(selectedZone.id, {
+          name: values.name,
+          warehouseId: values.warehouseId,
+          zoneType: values.zoneType,
         });
       } else {
         // CREATE new zone
-        const uuid = crypto.randomUUID();
-
         await createZone({
-          variables: {
-            object: {
-              id: uuid,
-              code: values.code,
-              name: values.name,
-              warehouseId: values.warehouseId,
-              zoneType: values.zoneType,
-              updatedAt: new Date().toISOString(),
-            },
-          },
+          code: values.code,
+          name: values.name,
+          warehouseId: values.warehouseId,
+          zoneType: values.zoneType,
         });
       }
     } catch (error: any) {
@@ -150,7 +163,7 @@ export default function WarehouseZonesPage() {
 
   const confirmDelete = async () => {
     if (deleteTarget) {
-      await deleteZone({ variables: { id: deleteTarget.id } });
+      await deleteZoneById(deleteTarget.id);
       deleteModal.close();
       setDeleteTarget(null);
     }

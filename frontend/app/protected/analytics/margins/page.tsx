@@ -33,14 +33,14 @@ export default function MarginAnalysisPage() {
     setLoading(true);
     try {
       // Try the dedicated margins analytics endpoint first
-      const data = await apiService.get('/api/analytics/margins');
+      const data = await apiService.get('/analytics/margins');
       if (data && data.products && data.products.length > 0) {
         setProducts(data.products);
       } else {
         // Fallback: Fetch products with inventory and channel data
-        const productsData = await apiService.get('/api/products');
-        const inventory = await apiService.get('/api/inventory');
-        const channels = await apiService.get('/api/channels');
+        const productsData = await apiService.get('/products');
+        const inventory = await apiService.get('/inventory');
+        const channels = await apiService.get('/channels');
 
         // Build channel lookup
         const channelMap: Record<string, any> = {};

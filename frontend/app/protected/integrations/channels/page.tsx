@@ -64,7 +64,7 @@ export default function IntegrationChannelsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/channels/${channelId}`);
+          await apiService.delete(`/channels/${channelId}`);
           message.success('Channel deleted successfully');
           fetchChannels();
         } catch (error) {
@@ -77,7 +77,7 @@ export default function IntegrationChannelsPage() {
   const handleSubmit = async (values: any) => {
     try {
       if (isEditMode && selectedChannel) {
-        await apiService.put(`/api/channels/${selectedChannel.id}`, values);
+        await apiService.put(`/channels/${selectedChannel.id}`, values);
         message.success('Channel updated successfully');
       } else {
         await apiService.post('/channels', values);

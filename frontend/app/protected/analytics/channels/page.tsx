@@ -77,13 +77,13 @@ export default function ChannelPricingPage() {
     setLoading(true);
     try {
       // Try to fetch from analytics endpoint first
-      const data = await apiService.get('/api/analytics/channels');
+      const data = await apiService.get('/analytics/channels');
       if (data && data.products && data.products.length > 0) {
         setProducts(data.products);
       } else {
         // Fallback: Fetch products with channel prices
-        const productsData = await apiService.get('/api/products');
-        const inventory = await apiService.get('/api/inventory');
+        const productsData = await apiService.get('/products');
+        const inventory = await apiService.get('/inventory');
 
         // Merge inventory data with products
         const enrichedProducts = (productsData || []).map((p: any) => {

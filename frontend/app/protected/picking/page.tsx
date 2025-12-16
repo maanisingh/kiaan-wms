@@ -89,7 +89,7 @@ export default function PickListsPage() {
     try {
       if (selectedPickList) {
         // UPDATE existing pick list
-        await apiService.patch(`/api/picking/${selectedPickList.id}`, {
+        await apiService.patch(`/picking/${selectedPickList.id}`, {
           type: values.type,
           orderId: values.orderId || null,
           status: values.status,
@@ -142,7 +142,7 @@ export default function PickListsPage() {
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.delete(`/api/picking/${record.id}`);
+          await apiService.delete(`/picking/${record.id}`);
           message.success('Pick list deleted successfully!');
           fetchPickLists();
         } catch (err: any) {
@@ -160,7 +160,7 @@ export default function PickListsPage() {
       okType: 'primary',
       onOk: async () => {
         try {
-          await apiService.patch(`/api/picking/${record.id}`, {
+          await apiService.patch(`/picking/${record.id}`, {
             status: 'COMPLETED',
             completedAt: new Date().toISOString(),
           });
