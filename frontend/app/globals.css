@@ -6,16 +6,40 @@
     --foreground: #171717;
   }
 
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-gray-50 text-gray-900;
+    min-height: 100%;
+    overflow-x: hidden;
   }
 }
 
 /* Ant Design customizations */
 .ant-layout {
   background: transparent;
+  min-height: 100vh;
 }
 
 .ant-layout-content {
   background: transparent;
+}
+
+/* Fixed sidebar styles */
+.ant-layout-sider-fixed {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 100;
+}
+
+/* Sticky header styles */
+.ant-layout-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 99;
 }

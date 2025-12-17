@@ -415,7 +415,7 @@ export const ALGORITHM_CONFIG = {
    - Auto-reorder triggers
 
 4. **Deploy to Production**
-   - Railway deployment
+   - Cloud deployment
    - Performance monitoring
    - A/B testing
 

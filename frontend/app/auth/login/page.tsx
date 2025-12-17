@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Form, Input, Button, Card, Checkbox, message, Tag, Divider } from 'antd';
-import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingOutlined, ShoppingCartOutlined, SolutionOutlined, EyeOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
@@ -12,9 +12,10 @@ import { APP_NAME } from '@/lib/constants';
 const DEMO_USERS = [
   { email: 'admin@kiaan-wms.com', password: 'Admin@123', role: 'SUPER_ADMIN', name: 'Super Admin', icon: <CrownOutlined />, color: 'gold' },
   { email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', role: 'COMPANY_ADMIN', name: 'Company Admin', icon: <TeamOutlined />, color: 'blue' },
-  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MGR', name: 'Warehouse Manager', icon: <BoxPlotOutlined />, color: 'green' },
+  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MGR', name: 'Warehouse Mgr', icon: <BoxPlotOutlined />, color: 'green' },
   { email: 'picker@kiaan-wms.com', password: 'Admin@123', role: 'PICKER', name: 'Picker', icon: <InboxOutlined />, color: 'orange' },
-  { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer', icon: <ShoppingOutlined />, color: 'purple' },
+  { email: 'packer@kiaan-wms.com', password: 'Admin@123', role: 'PACKER', name: 'Packer', icon: <ShoppingCartOutlined />, color: 'magenta' },
+  { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer', icon: <EyeOutlined />, color: 'purple' },
 ];
 
 export default function LoginPage() {

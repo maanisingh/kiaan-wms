@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'https://frontend-production-c9100.up.railway.app';
+const BASE_URL = process.env.BASE_URL || 'https://wms.alexandratechlab.com';
 
 // Test credentials - use existing test account or create one
 const TEST_USER = {
@@ -8,7 +8,7 @@ const TEST_USER = {
   password: 'Test123456!'
 };
 
-test.describe('Excel Requirements Verification - Live Railway Deployment', () => {
+test.describe('Excel Requirements Verification - Live Deployment', () => {
 
   test.beforeEach(async ({ page }) => {
     // Navigate to login page
@@ -389,7 +389,7 @@ test.describe('Summary and Verification', () => {
   test('should generate final verification report', async ({ page }) => {
     const results = {
       timestamp: new Date().toISOString(),
-      platform: 'Railway - Live Deployment',
+      platform: 'Live Deployment',
       url: BASE_URL,
       requirements: {
         products_sheet: {

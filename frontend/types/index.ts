@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'manager' | 'warehouse_staff' | 'picker' | 'packer';
+  role: 'super_admin' | 'company_admin' | 'warehouse_manager' | 'inventory_manager' | 'admin' | 'manager' | 'picker' | 'packer' | 'warehouse_staff' | 'viewer';
   companyId: string;
   warehouseId?: string;
   avatar?: string;

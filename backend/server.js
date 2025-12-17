@@ -7,13 +7,6 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const prisma = require('./lib/prisma');
-// New feature routes
-const supplierProductsRouter = require('./routes/supplierProducts');
-const alternativeSKUsRouter = require('./routes/alternativeSKUs');
-const bundlesRouter = require('./routes/bundles');
-const integrationHealthRouter = require('./routes/integrationHealth');
-const { getMonitor } = require('./lib/monitoring/integrationMonitor');
-
 
 // Load environment variables
 dotenv.config();
@@ -24,13 +17,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'wms-secret-key-2024';
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: [
+
+// CORS configuration - use environment variable or defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [
     'https://wms.alexandratechlab.com',
-    'https://frontend-production-c9100.up.railway.app',
+    'https://kiaan-wms.vercel.app',
     'http://localhost:3000',
     'http://localhost:3011'
-  ],
+  ];
+
+app.use(cors({
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -44,8 +43,65 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Auth middleware
-const verifyToken = (req, res, next) => {
+// Helper function to calculate bundle cost from components
+async function calculateBundleCost(bundleItems) {
+  let totalCost = 0;
+  const itemsWithCost = [];
+
+  for (const item of bundleItems) {
+    const childProduct = await prisma.product.findUnique({
+      where: { id: item.childId || item.productId },
+      select: { costPrice: true, sku: true, name: true }
+    });
+
+    if (childProduct && childProduct.costPrice) {
+      const componentCost = childProduct.costPrice * item.quantity;
+      totalCost += componentCost;
+      itemsWithCost.push({
+        ...item,
+        componentCost,
+        childProduct
+      });
+    } else {
+      itemsWithCost.push({
+        ...item,
+        componentCost: 0,
+        childProduct
+      });
+    }
+  }
+
+  return { totalCost, itemsWithCost };
+}
+
+// Helper function to get or create default company (GLOBAL - used by middleware)
+async function ensureUserHasCompany(userId) {
+  // Check if KIAAN company exists
+  let defaultCompany = await prisma.company.findFirst({ where: { code: 'KIAAN' } });
+  if (!defaultCompany) {
+    defaultCompany = await prisma.company.create({
+      data: {
+        name: 'Kiaan Food Distribution Ltd',
+        code: 'KIAAN',
+        description: 'Premium food and snack distribution',
+        email: 'info@kiaan-distribution.com',
+      },
+    });
+    console.log('Created default KIAAN company:', defaultCompany.id);
+  }
+  // Update user with company if userId provided
+  if (userId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { companyId: defaultCompany.id }
+    });
+    console.log(`Updated user ${userId} with companyId ${defaultCompany.id}`);
+  }
+  return defaultCompany.id;
+}
+
+// Auth middleware - NOW ENSURES companyId is always set
+const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {
@@ -55,8 +111,17 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
+
+    // CRITICAL FIX: Ensure companyId is always set
+    if (!req.user.companyId) {
+      console.log(`User ${req.user.id} has no companyId, assigning default...`);
+      const companyId = await ensureUserHasCompany(req.user.id);
+      req.user.companyId = companyId;
+    }
+
     next();
   } catch (error) {
+    console.error('Token verification error:', error.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
@@ -498,6 +563,107 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
     // Get warehouses
     const warehousesCount = await prisma.warehouse.count();
 
+    // Get orders by status for pie chart
+    const ordersByStatusRaw = await prisma.salesOrder.groupBy({
+      by: ['status'],
+      _count: { status: true }
+    });
+    const statusColors = {
+      PENDING: '#faad14',
+      CONFIRMED: '#1890ff',
+      PROCESSING: '#722ed1',
+      PICKING: '#13c2c2',
+      PACKING: '#eb2f96',
+      SHIPPED: '#52c41a',
+      DELIVERED: '#389e0d',
+      CANCELLED: '#f5222d',
+      ALLOCATED: '#2f54eb',
+    };
+    const ordersByStatus = ordersByStatusRaw.map(s => ({
+      status: s.status,
+      count: s._count.status,
+      color: statusColors[s.status] || '#8c8c8c'
+    }));
+
+    // Get sales trend for last 7 days
+    const salesTrend = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+      const dayOrders = await prisma.salesOrder.findMany({
+        where: {
+          createdAt: {
+            gte: startOfDay,
+            lte: endOfDay
+          }
+        }
+      });
+
+      salesTrend.push({
+        date: new Date(startOfDay).toLocaleDateString('en-US', { weekday: 'short' }),
+        orders: dayOrders.length,
+        revenue: dayOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0)
+      });
+    }
+
+    // Get top products by order quantity
+    const orderItems = await prisma.salesOrderItem.findMany({
+      include: { product: true },
+      take: 100
+    });
+    const productSales = {};
+    orderItems.forEach(item => {
+      const name = item.product?.name || 'Unknown';
+      if (!productSales[name]) {
+        productSales[name] = { name, sold: 0, revenue: 0 };
+      }
+      productSales[name].sold += item.quantity || 0;
+      productSales[name].revenue += (parseFloat(item.price) || 0) * (item.quantity || 0);
+    });
+    const topProducts = Object.values(productSales)
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5);
+
+    // Get recent orders
+    const recentOrdersRaw = await prisma.salesOrder.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: true,
+        items: true
+      }
+    });
+    const recentOrders = recentOrdersRaw.map((o, i) => ({
+      id: i + 1,
+      orderNumber: o.orderNumber || `ORD-${o.id.slice(0, 8)}`,
+      customer: o.customer?.name || 'Walk-in Customer',
+      items: o.items?.length || 0,
+      total: parseFloat(o.totalAmount) || 0,
+      status: o.status?.toLowerCase() || 'pending',
+      date: o.createdAt
+    }));
+
+    // Get low stock alerts
+    const lowStockItems = await prisma.inventory.findMany({
+      where: {
+        availableQuantity: { lte: 50 }
+      },
+      include: { product: true },
+      take: 5,
+      orderBy: { availableQuantity: 'asc' }
+    });
+    const lowStockAlerts = lowStockItems.map((inv, i) => ({
+      id: i + 1,
+      sku: inv.product?.sku || inv.productId?.slice(0, 8),
+      name: inv.product?.name || 'Unknown Product',
+      current: inv.availableQuantity || 0,
+      reorderPoint: 50,
+      status: inv.availableQuantity === 0 ? 'critical' : inv.availableQuantity < 20 ? 'warning' : 'low'
+    }));
+
     res.json({
       kpis: {
         totalStock: {
@@ -521,7 +687,7 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
           trend: 'stable'
         },
         warehouseUtilization: {
-          value: 0,
+          value: warehousesCount > 0 ? Math.min(85, Math.round((totalProducts / (warehousesCount * 100)) * 100)) : 0,
           change: 0,
           trend: 'stable'
         },
@@ -537,7 +703,12 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
         availableInventory: inventoryData._sum.availableQuantity || 0,
         orders: totalOrders,
         warehouses: warehousesCount,
-      }
+      },
+      salesTrend,
+      topProducts: topProducts.length > 0 ? topProducts : [{ name: 'No sales data', sold: 0, revenue: 0 }],
+      ordersByStatus: ordersByStatus.length > 0 ? ordersByStatus : [{ status: 'No Orders', count: 0, color: '#8c8c8c' }],
+      recentOrders,
+      lowStockAlerts
     });
   } catch (error) {
     console.error('Get dashboard stats error:', error);
@@ -832,12 +1003,18 @@ app.post('/api/inventory/adjustments', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Type, reason, and items are required' });
     }
 
+    // Get companyId
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
     // Get warehouse ID - use provided one or get user's company default warehouse
     let targetWarehouseId = warehouseId;
     if (!targetWarehouseId) {
       const defaultWarehouse = await prisma.warehouse.findFirst({
         where: {
-          companyId: req.user.companyId,
+          companyId,
           status: 'ACTIVE'
         },
         orderBy: { createdAt: 'asc' }
@@ -956,6 +1133,9 @@ app.get('/api/inventory/cycle-counts', verifyToken, async (req, res) => {
       cycleCounts = await prisma.cycleCount.findMany({
         where,
         include: {
+          warehouse: {
+            select: { id: true, name: true, code: true }
+          },
           items: {
             include: {
               product: true
@@ -972,7 +1152,21 @@ app.get('/api/inventory/cycle-counts', verifyToken, async (req, res) => {
       });
     }
 
-    res.json(cycleCounts);
+    // Resolve location IDs to full location objects
+    const cycleCountsWithLocations = await Promise.all(
+      cycleCounts.map(async (cc) => {
+        if (cc.locations && Array.isArray(cc.locations) && cc.locations.length > 0) {
+          const locationDetails = await prisma.location.findMany({
+            where: { id: { in: cc.locations } },
+            select: { id: true, name: true, code: true, aisle: true, rack: true, shelf: true, bin: true }
+          });
+          return { ...cc, locationDetails };
+        }
+        return { ...cc, locationDetails: [] };
+      })
+    );
+
+    res.json(cycleCountsWithLocations);
   } catch (error) {
     console.error('Get cycle counts error:', error);
     // Return empty array for any error to prevent 500
@@ -985,21 +1179,24 @@ app.post('/api/inventory/cycle-counts', verifyToken, async (req, res) => {
   try {
     const { name, type, warehouseId, locations, scheduledDate } = req.body;
 
+    // Get default warehouse if not provided
+    let effectiveWarehouseId = warehouseId;
+    if (!effectiveWarehouseId) {
+      const defaultWarehouse = await prisma.warehouse.findFirst({
+        where: { code: 'WH-MAIN' }
+      });
+      effectiveWarehouseId = defaultWarehouse?.id || 'c483471e-7137-49fb-b871-316842b061fa';
+    }
+
     const cycleCount = await prisma.cycleCount.create({
       data: {
         id: require('crypto').randomUUID(),
-        warehouseId: warehouseId || '53c65d84-4606-4b0a-8aa5-6eda9e50c3df',
+        warehouseId: effectiveWarehouseId,
         name,
         status: 'SCHEDULED',
         type: type || 'FULL',
         scheduledDate: new Date(scheduledDate),
         locations: locations || [],
-        items: [],
-        variance: {
-          total: 0,
-          positive: 0,
-          negative: 0
-        },
         createdAt: new Date()
       }
     });
@@ -1905,21 +2102,51 @@ app.get('/api/brands/:id', verifyToken, async (req, res) => {
 
 app.post('/api/brands', verifyToken, async (req, res) => {
   try {
-    const { name, code, description, companyId } = req.body;
+    const { name, code, description } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({ error: 'Name and code are required' });
+    }
+
+    // Get companyId - use user's company or get/create default
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      // Get or create default company
+      let defaultCompany = await prisma.company.findFirst({ where: { code: 'KIAAN' } });
+      if (!defaultCompany) {
+        defaultCompany = await prisma.company.create({
+          data: {
+            name: 'Kiaan Food Distribution Ltd',
+            code: 'KIAAN',
+            description: 'Premium food and snack distribution',
+            email: 'info@kiaan-distribution.com',
+          },
+        });
+      }
+      companyId = defaultCompany.id;
+      // Update user with company
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { companyId }
+      });
+    }
 
     const brand = await prisma.brand.create({
       data: {
         name,
         code,
         description,
-        companyId: companyId || req.user.companyId
+        companyId
       }
     });
 
     res.status(201).json(brand);
   } catch (error) {
     console.error('Create brand error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Brand code already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create brand', details: error.message });
   }
 });
 
@@ -2029,6 +2256,27 @@ app.post('/api/products', verifyToken, async (req, res) => {
   try {
     const { bundleItems, reorderPoint, maxStockLevel, reorderQuantity, unitOfMeasure, ...rawProductData } = req.body;
 
+    // Get companyId - use user's company or get/create default
+    let companyId = rawProductData.companyId || req.user.companyId;
+    if (!companyId) {
+      let defaultCompany = await prisma.company.findFirst({ where: { code: 'KIAAN' } });
+      if (!defaultCompany) {
+        defaultCompany = await prisma.company.create({
+          data: {
+            name: 'Kiaan Food Distribution Ltd',
+            code: 'KIAAN',
+            description: 'Premium food and snack distribution',
+            email: 'info@kiaan-distribution.com',
+          },
+        });
+      }
+      companyId = defaultCompany.id;
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { companyId }
+      });
+    }
+
     // Only include valid Product model fields
     const productData = {
       sku: rawProductData.sku,
@@ -2047,21 +2295,50 @@ app.post('/api/products', verifyToken, async (req, res) => {
       costPrice: rawProductData.costPrice || null,
       sellingPrice: rawProductData.sellingPrice || null,
       currency: rawProductData.currency || 'GBP',
+      vatRate: rawProductData.vatRate !== undefined ? rawProductData.vatRate : 20.0,
+      vatCode: rawProductData.vatCode || null,
+      isHeatSensitive: rawProductData.isHeatSensitive || false,
+      primarySupplierId: rawProductData.primarySupplierId || null,
+      cartonSizes: rawProductData.cartonSizes || null,
+      // Marketplace-specific SKUs
+      ffdSku: rawProductData.ffdSku || null,
+      ffdSaleSku: rawProductData.ffdSaleSku || null,
+      wsSku: rawProductData.wsSku || null,
+      amzSku: rawProductData.amzSku || null,
+      amzSkuBb: rawProductData.amzSkuBb || null,
+      amzSkuM: rawProductData.amzSkuM || null,
+      amzSkuEu: rawProductData.amzSkuEu || null,
+      onBuySku: rawProductData.onBuySku || null,
       isPerishable: rawProductData.isPerishable || false,
       requiresBatch: rawProductData.requiresBatch || false,
       requiresSerial: rawProductData.requiresSerial || false,
       shelfLifeDays: rawProductData.shelfLifeDays || null,
       images: rawProductData.images || [],
-      companyId: rawProductData.companyId || req.user.companyId,
+      companyId,
     };
+
+    // Calculate bundle cost if this is a bundle
+    let calculatedCost = null;
+    let bundleItemsWithCost = [];
+    if (bundleItems && bundleItems.length > 0) {
+      const result = await calculateBundleCost(bundleItems);
+      calculatedCost = result.totalCost;
+      bundleItemsWithCost = result.itemsWithCost;
+
+      // Set costPrice to bundle cost if not provided
+      if (!productData.costPrice) {
+        productData.costPrice = calculatedCost;
+      }
+    }
 
     const product = await prisma.product.create({
       data: {
         ...productData,
-        bundleItems: bundleItems ? {
-          create: bundleItems.map(item => ({
-            childId: item.productId,
-            quantity: item.quantity
+        bundleItems: bundleItemsWithCost.length > 0 ? {
+          create: bundleItemsWithCost.map(item => ({
+            childId: item.childId || item.productId,
+            quantity: item.quantity,
+            componentCost: item.componentCost
           }))
         } : undefined
       },
@@ -2078,7 +2355,7 @@ app.post('/api/products', verifyToken, async (req, res) => {
     res.status(201).json(product);
   } catch (error) {
     console.error('Create product error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -2104,27 +2381,54 @@ app.put('/api/products/:id', verifyToken, async (req, res) => {
     if (rawProductData.costPrice !== undefined) productData.costPrice = rawProductData.costPrice;
     if (rawProductData.sellingPrice !== undefined) productData.sellingPrice = rawProductData.sellingPrice;
     if (rawProductData.currency !== undefined) productData.currency = rawProductData.currency;
+    if (rawProductData.vatRate !== undefined) productData.vatRate = rawProductData.vatRate;
+    if (rawProductData.vatCode !== undefined) productData.vatCode = rawProductData.vatCode;
+    if (rawProductData.isHeatSensitive !== undefined) productData.isHeatSensitive = rawProductData.isHeatSensitive;
+    if (rawProductData.primarySupplierId !== undefined) productData.primarySupplierId = rawProductData.primarySupplierId;
+    if (rawProductData.cartonSizes !== undefined) productData.cartonSizes = rawProductData.cartonSizes;
+    // Marketplace-specific SKUs
+    if (rawProductData.ffdSku !== undefined) productData.ffdSku = rawProductData.ffdSku;
+    if (rawProductData.ffdSaleSku !== undefined) productData.ffdSaleSku = rawProductData.ffdSaleSku;
+    if (rawProductData.wsSku !== undefined) productData.wsSku = rawProductData.wsSku;
+    if (rawProductData.amzSku !== undefined) productData.amzSku = rawProductData.amzSku;
+    if (rawProductData.amzSkuBb !== undefined) productData.amzSkuBb = rawProductData.amzSkuBb;
+    if (rawProductData.amzSkuM !== undefined) productData.amzSkuM = rawProductData.amzSkuM;
+    if (rawProductData.amzSkuEu !== undefined) productData.amzSkuEu = rawProductData.amzSkuEu;
+    if (rawProductData.onBuySku !== undefined) productData.onBuySku = rawProductData.onBuySku;
     if (rawProductData.isPerishable !== undefined) productData.isPerishable = rawProductData.isPerishable;
     if (rawProductData.requiresBatch !== undefined) productData.requiresBatch = rawProductData.requiresBatch;
     if (rawProductData.requiresSerial !== undefined) productData.requiresSerial = rawProductData.requiresSerial;
     if (rawProductData.shelfLifeDays !== undefined) productData.shelfLifeDays = rawProductData.shelfLifeDays;
     if (rawProductData.images !== undefined) productData.images = rawProductData.images;
 
-    // If updating bundle items, delete old ones first
+    // Calculate bundle cost if bundle items are being updated
+    let bundleItemsWithCost = [];
     if (bundleItems !== undefined) {
+      // Delete old bundle items first
       await prisma.bundleItem.deleteMany({
         where: { parentId: req.params.id }
       });
+
+      if (bundleItems.length > 0) {
+        const result = await calculateBundleCost(bundleItems);
+        bundleItemsWithCost = result.itemsWithCost;
+
+        // Auto-update costPrice to bundle cost if not explicitly provided
+        if (rawProductData.costPrice === undefined) {
+          productData.costPrice = result.totalCost;
+        }
+      }
     }
 
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: {
         ...productData,
-        bundleItems: bundleItems ? {
-          create: bundleItems.map(item => ({
-            childId: item.productId,
-            quantity: item.quantity
+        bundleItems: bundleItemsWithCost.length > 0 ? {
+          create: bundleItemsWithCost.map(item => ({
+            childId: item.childId || item.productId,
+            quantity: item.quantity,
+            componentCost: item.componentCost
           }))
         } : undefined
       },
@@ -3733,55 +4037,166 @@ app.post('/api/picking', verifyToken, async (req, res) => {
 // PURCHASE ORDERS
 // ===================================
 
+// ===================================
+// PURCHASE ORDERS - Full CRUD with Database
+// ===================================
+
+// GET all purchase orders
 app.get('/api/purchase-orders', verifyToken, async (req, res) => {
   try {
-    const purchaseOrders = [
-      { id: '1', poNumber: 'PO-001', supplier: 'Acme Supplies', status: 'pending', items: 10, total: 5000, createdAt: new Date().toISOString(), expectedDate: new Date(Date.now() + 604800000).toISOString() },
-      { id: '2', poNumber: 'PO-002', supplier: 'Global Parts Inc', status: 'approved', items: 25, total: 12500, createdAt: new Date().toISOString(), expectedDate: new Date(Date.now() + 432000000).toISOString() },
-      { id: '3', poNumber: 'PO-003', supplier: 'FastShip Co', status: 'received', items: 15, total: 3200, createdAt: new Date(Date.now() - 604800000).toISOString(), expectedDate: new Date().toISOString() },
-      { id: '4', poNumber: 'PO-004', supplier: 'Quality Goods Ltd', status: 'partial', items: 50, total: 25000, createdAt: new Date(Date.now() - 259200000).toISOString(), expectedDate: new Date(Date.now() + 172800000).toISOString() }
-    ];
-    res.json(purchaseOrders);
+    const { status, supplierId, search } = req.query;
+
+    const where = {};
+    if (status) where.status = status.toUpperCase();
+    if (supplierId) where.supplierId = supplierId;
+    if (search) {
+      where.OR = [
+        { poNumber: { contains: search, mode: 'insensitive' } },
+        { supplier: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where,
+      include: {
+        supplier: true,
+        items: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Transform for frontend
+    const transformed = purchaseOrders.map(po => ({
+      id: po.id,
+      poNumber: po.poNumber,
+      supplier: po.supplier?.name || 'Unknown',
+      supplierId: po.supplierId,
+      status: po.status.toLowerCase(),
+      items: po.items?.length || 0,
+      totalAmount: po.totalAmount,
+      orderDate: po.orderDate,
+      expectedDelivery: po.expectedDelivery,
+      createdAt: po.createdAt,
+      notes: po.notes
+    }));
+
+    res.json(transformed);
   } catch (error) {
     console.error('Get purchase orders error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+// CREATE purchase order
 app.post('/api/purchase-orders', verifyToken, async (req, res) => {
   try {
-    const { supplier, items, total, expectedDate } = req.body;
-    const newPO = {
-      id: require('crypto').randomUUID(),
-      poNumber: `PO-${Date.now().toString().slice(-6)}`,
-      supplier,
-      items: parseInt(items) || 0,
-      total: parseFloat(total) || 0,
-      expectedDate,
-      createdAt: new Date().toISOString(),
-      status: 'pending'
-    };
-    res.status(201).json(newPO);
+    const { supplierId, supplier, expectedDelivery, totalAmount, notes, items } = req.body;
+
+    // Generate PO number
+    const lastPO = await prisma.purchaseOrder.findFirst({
+      orderBy: { createdAt: 'desc' }
+    });
+    const nextNumber = lastPO ? parseInt(lastPO.poNumber.split('-')[1] || '0') + 1 : 1;
+    const poNumber = `PO-${String(nextNumber).padStart(6, '0')}`;
+
+    // Find or validate supplier
+    let finalSupplierId = supplierId;
+    if (!finalSupplierId && supplier) {
+      // Try to find supplier by name
+      const existingSupplier = await prisma.supplier.findFirst({
+        where: { name: supplier }
+      });
+      if (existingSupplier) {
+        finalSupplierId = existingSupplier.id;
+      } else {
+        // Create a new supplier
+        const newSupplier = await prisma.supplier.create({
+          data: {
+            name: supplier,
+            code: `SUP-${Date.now().toString().slice(-6)}`,
+            companyId: req.user.companyId || (await prisma.company.findFirst())?.id
+          }
+        });
+        finalSupplierId = newSupplier.id;
+      }
+    }
+
+    if (!finalSupplierId) {
+      return res.status(400).json({ error: 'Supplier is required' });
+    }
+
+    // Calculate totals from items if provided
+    let subtotal = 0;
+    if (items && items.length > 0) {
+      subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    }
+
+    const purchaseOrder = await prisma.purchaseOrder.create({
+      data: {
+        poNumber,
+        supplierId: finalSupplierId,
+        status: 'PENDING',
+        subtotal,
+        totalAmount: totalAmount || subtotal,
+        expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null,
+        notes,
+        items: items && items.length > 0 ? {
+          create: items.map(item => ({
+            productId: item.productId,
+            productName: item.productName || item.name,
+            productSku: item.productSku || item.sku || '',
+            quantity: parseInt(item.quantity) || 1,
+            unitPrice: parseFloat(item.unitPrice) || 0,
+            totalPrice: (parseInt(item.quantity) || 1) * (parseFloat(item.unitPrice) || 0),
+            isBundle: item.isBundle || false,
+            bundleQty: item.bundleQty || null,
+            notes: item.notes
+          }))
+        } : undefined
+      },
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    res.status(201).json({
+      id: purchaseOrder.id,
+      poNumber: purchaseOrder.poNumber,
+      supplier: purchaseOrder.supplier?.name,
+      supplierId: purchaseOrder.supplierId,
+      status: purchaseOrder.status.toLowerCase(),
+      items: purchaseOrder.items?.length || 0,
+      totalAmount: purchaseOrder.totalAmount,
+      expectedDelivery: purchaseOrder.expectedDelivery,
+      createdAt: purchaseOrder.createdAt
+    });
   } catch (error) {
     console.error('Create purchase order error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
 // GET purchase order by ID
 app.get('/api/purchase-orders/:id', verifyToken, async (req, res) => {
   try {
-    const po = {
-      id: req.params.id,
-      poNumber: `PO-${req.params.id.slice(0, 6)}`,
-      supplier: 'Sample Supplier',
-      status: 'pending',
-      items: 10,
-      total: 5000,
-      createdAt: new Date().toISOString(),
-      expectedDate: new Date(Date.now() + 604800000).toISOString()
-    };
-    res.json(po);
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id },
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    res.json({
+      ...purchaseOrder,
+      supplier: purchaseOrder.supplier?.name,
+      status: purchaseOrder.status.toLowerCase()
+    });
   } catch (error) {
     console.error('Get purchase order by ID error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -3791,31 +4206,271 @@ app.get('/api/purchase-orders/:id', verifyToken, async (req, res) => {
 // UPDATE purchase order
 app.put('/api/purchase-orders/:id', verifyToken, async (req, res) => {
   try {
-    const { supplier, items, total, expectedDate, status } = req.body;
-    const updatedPO = {
-      id: req.params.id,
-      poNumber: `PO-${req.params.id.slice(0, 6)}`,
-      supplier: supplier || 'Sample Supplier',
-      status: status || 'pending',
-      items: parseInt(items) || 10,
-      total: parseFloat(total) || 5000,
-      createdAt: new Date().toISOString(),
-      expectedDate: expectedDate || new Date(Date.now() + 604800000).toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    res.json(updatedPO);
+    const { supplierId, expectedDelivery, totalAmount, notes, status, items } = req.body;
+
+    // Check if PO exists
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    // Build update data
+    const updateData = {};
+    if (supplierId) updateData.supplierId = supplierId;
+    if (expectedDelivery) updateData.expectedDelivery = new Date(expectedDelivery);
+    if (totalAmount !== undefined) updateData.totalAmount = parseFloat(totalAmount);
+    if (notes !== undefined) updateData.notes = notes;
+    if (status) updateData.status = status.toUpperCase();
+
+    // Update items if provided
+    if (items && items.length > 0) {
+      // Delete existing items and create new ones
+      await prisma.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: req.params.id }
+      });
+
+      // Calculate new subtotal
+      const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+      updateData.subtotal = subtotal;
+      updateData.totalAmount = subtotal;
+
+      // Create new items
+      await prisma.purchaseOrderItem.createMany({
+        data: items.map(item => ({
+          purchaseOrderId: req.params.id,
+          productId: item.productId,
+          productName: item.productName || item.name,
+          productSku: item.productSku || item.sku || '',
+          quantity: parseInt(item.quantity) || 1,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+          totalPrice: (parseInt(item.quantity) || 1) * (parseFloat(item.unitPrice) || 0),
+          isBundle: item.isBundle || false,
+          bundleQty: item.bundleQty || null,
+          notes: item.notes
+        }))
+      });
+    }
+
+    const updatedPO = await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: updateData,
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    res.json({
+      ...updatedPO,
+      supplier: updatedPO.supplier?.name,
+      status: updatedPO.status.toLowerCase(),
+      itemCount: updatedPO.items?.length || 0
+    });
   } catch (error) {
     console.error('Update purchase order error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
 // DELETE purchase order
 app.delete('/api/purchase-orders/:id', verifyToken, async (req, res) => {
   try {
-    res.json({ success: true, message: 'Purchase order deleted' });
+    // Check if PO exists
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    // Delete PO (items will cascade delete)
+    await prisma.purchaseOrder.delete({
+      where: { id: req.params.id }
+    });
+
+    res.json({ success: true, message: 'Purchase order deleted successfully' });
   } catch (error) {
     console.error('Delete purchase order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// APPROVE purchase order
+app.post('/api/purchase-orders/:id/approve', verifyToken, async (req, res) => {
+  try {
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    if (existingPO.status !== 'PENDING' && existingPO.status !== 'DRAFT') {
+      return res.status(400).json({ error: 'Only pending or draft POs can be approved' });
+    }
+
+    const updatedPO = await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'APPROVED',
+        approvedBy: req.user.id,
+        approvedAt: new Date()
+      },
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    res.json({
+      ...updatedPO,
+      supplier: updatedPO.supplier?.name,
+      status: updatedPO.status.toLowerCase()
+    });
+  } catch (error) {
+    console.error('Approve purchase order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// REJECT purchase order
+app.post('/api/purchase-orders/:id/reject', verifyToken, async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    if (existingPO.status !== 'PENDING' && existingPO.status !== 'DRAFT') {
+      return res.status(400).json({ error: 'Only pending or draft POs can be rejected' });
+    }
+
+    const updatedPO = await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'REJECTED',
+        rejectedBy: req.user.id,
+        rejectedAt: new Date(),
+        rejectionReason: reason || null
+      },
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    res.json({
+      ...updatedPO,
+      supplier: updatedPO.supplier?.name,
+      status: updatedPO.status.toLowerCase()
+    });
+  } catch (error) {
+    console.error('Reject purchase order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ADD item to purchase order
+app.post('/api/purchase-orders/:id/items', verifyToken, async (req, res) => {
+  try {
+    const { productId, productName, productSku, quantity, unitPrice, isBundle, bundleQty, notes } = req.body;
+
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    if (existingPO.status === 'APPROVED' || existingPO.status === 'RECEIVED') {
+      return res.status(400).json({ error: 'Cannot add items to approved or received POs' });
+    }
+
+    const totalPrice = (parseInt(quantity) || 1) * (parseFloat(unitPrice) || 0);
+
+    const newItem = await prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: req.params.id,
+        productId,
+        productName,
+        productSku: productSku || '',
+        quantity: parseInt(quantity) || 1,
+        unitPrice: parseFloat(unitPrice) || 0,
+        totalPrice,
+        isBundle: isBundle || false,
+        bundleQty: bundleQty || null,
+        notes
+      }
+    });
+
+    // Update PO totals
+    const allItems = await prisma.purchaseOrderItem.findMany({
+      where: { purchaseOrderId: req.params.id }
+    });
+    const newSubtotal = allItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
+    await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: {
+        subtotal: newSubtotal,
+        totalAmount: newSubtotal
+      }
+    });
+
+    res.status(201).json(newItem);
+  } catch (error) {
+    console.error('Add PO item error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// REMOVE item from purchase order
+app.delete('/api/purchase-orders/:id/items/:itemId', verifyToken, async (req, res) => {
+  try {
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    if (existingPO.status === 'APPROVED' || existingPO.status === 'RECEIVED') {
+      return res.status(400).json({ error: 'Cannot remove items from approved or received POs' });
+    }
+
+    await prisma.purchaseOrderItem.delete({
+      where: { id: req.params.itemId }
+    });
+
+    // Update PO totals
+    const allItems = await prisma.purchaseOrderItem.findMany({
+      where: { purchaseOrderId: req.params.id }
+    });
+    const newSubtotal = allItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
+    await prisma.purchaseOrder.update({
+      where: { id: req.params.id },
+      data: {
+        subtotal: newSubtotal,
+        totalAmount: newSubtotal
+      }
+    });
+
+    res.json({ success: true, message: 'Item removed successfully' });
+  } catch (error) {
+    console.error('Remove PO item error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -3824,37 +4479,602 @@ app.delete('/api/purchase-orders/:id', verifyToken, async (req, res) => {
 // GOODS RECEIVING
 // ===================================
 
+// Get all goods receipts
 app.get('/api/goods-receiving', verifyToken, async (req, res) => {
   try {
-    const receivings = [
-      { id: '1', grNumber: 'GR-001', poNumber: 'PO-001', supplier: 'Acme Supplies', status: 'pending', items: 10, receivedDate: null },
-      { id: '2', grNumber: 'GR-002', poNumber: 'PO-002', supplier: 'Global Parts Inc', status: 'in_progress', items: 20, receivedDate: new Date().toISOString() },
-      { id: '3', grNumber: 'GR-003', poNumber: 'PO-003', supplier: 'FastShip Co', status: 'completed', items: 15, receivedDate: new Date(Date.now() - 86400000).toISOString() },
-      { id: '4', grNumber: 'GR-004', poNumber: 'PO-004', supplier: 'Quality Goods Ltd', status: 'partial', items: 30, receivedDate: new Date().toISOString() }
-    ];
-    res.json(receivings);
+    const { status, search, purchaseOrderId } = req.query;
+
+    const where = {};
+
+    if (status && status !== 'all') {
+      where.status = status.toUpperCase();
+    }
+
+    if (purchaseOrderId) {
+      where.purchaseOrderId = purchaseOrderId;
+    }
+
+    if (search) {
+      where.OR = [
+        { grNumber: { contains: search, mode: 'insensitive' } },
+        { purchaseOrder: { poNumber: { contains: search, mode: 'insensitive' } } },
+        { purchaseOrder: { supplier: { name: { contains: search, mode: 'insensitive' } } } }
+      ];
+    }
+
+    const receivings = await prisma.goodsReceipt.findMany({
+      where,
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true
+          }
+        },
+        items: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Transform data for frontend
+    const transformed = receivings.map(gr => ({
+      id: gr.id,
+      grNumber: gr.grNumber,
+      poNumber: gr.purchaseOrder.poNumber,
+      purchaseOrderId: gr.purchaseOrderId,
+      supplier: gr.purchaseOrder.supplier.name,
+      supplierId: gr.purchaseOrder.supplierId,
+      status: gr.status.toLowerCase(),
+      items: gr.items.length,
+      totalExpected: gr.totalExpected,
+      totalReceived: gr.totalReceived,
+      totalDamaged: gr.totalDamaged,
+      receivedDate: gr.receivedDate,
+      receivedBy: gr.receivedBy,
+      qualityStatus: gr.qualityStatus,
+      qualityNotes: gr.qualityNotes,
+      notes: gr.notes,
+      createdAt: gr.createdAt,
+      updatedAt: gr.updatedAt
+    }));
+
+    res.json(transformed);
   } catch (error) {
     console.error('Get goods receiving error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
+// Get single goods receipt by ID
+app.get('/api/goods-receiving/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true,
+            items: true
+          }
+        },
+        items: true
+      }
+    });
+
+    if (!goodsReceipt) {
+      return res.status(404).json({ error: 'Goods receipt not found' });
+    }
+
+    // Transform for frontend
+    const transformed = {
+      id: goodsReceipt.id,
+      grNumber: goodsReceipt.grNumber,
+      purchaseOrderId: goodsReceipt.purchaseOrderId,
+      poNumber: goodsReceipt.purchaseOrder.poNumber,
+      supplier: {
+        id: goodsReceipt.purchaseOrder.supplier.id,
+        name: goodsReceipt.purchaseOrder.supplier.name,
+        code: goodsReceipt.purchaseOrder.supplier.code
+      },
+      status: goodsReceipt.status.toLowerCase(),
+      receivedDate: goodsReceipt.receivedDate,
+      receivedBy: goodsReceipt.receivedBy,
+      qualityStatus: goodsReceipt.qualityStatus,
+      qualityNotes: goodsReceipt.qualityNotes,
+      totalExpected: goodsReceipt.totalExpected,
+      totalReceived: goodsReceipt.totalReceived,
+      totalDamaged: goodsReceipt.totalDamaged,
+      notes: goodsReceipt.notes,
+      createdAt: goodsReceipt.createdAt,
+      updatedAt: goodsReceipt.updatedAt,
+      items: goodsReceipt.items.map(item => ({
+        id: item.id,
+        purchaseOrderItemId: item.purchaseOrderItemId,
+        productId: item.productId,
+        productName: item.productName,
+        productSku: item.productSku,
+        expectedQty: item.expectedQty,
+        receivedQty: item.receivedQty,
+        damagedQty: item.damagedQty,
+        batchNumber: item.batchNumber,
+        lotNumber: item.lotNumber,
+        bestBeforeDate: item.bestBeforeDate,
+        locationId: item.locationId,
+        qualityStatus: item.qualityStatus,
+        qualityNotes: item.qualityNotes,
+        notes: item.notes
+      })),
+      purchaseOrder: {
+        id: goodsReceipt.purchaseOrder.id,
+        poNumber: goodsReceipt.purchaseOrder.poNumber,
+        status: goodsReceipt.purchaseOrder.status,
+        totalAmount: goodsReceipt.purchaseOrder.totalAmount,
+        items: goodsReceipt.purchaseOrder.items.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          productSku: item.productSku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        }))
+      }
+    };
+
+    res.json(transformed);
+  } catch (error) {
+    console.error('Get goods receipt error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Get approved purchase orders available for goods receiving
+app.get('/api/goods-receiving/purchase-orders/approved', verifyToken, async (req, res) => {
+  try {
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        status: 'APPROVED'
+      },
+      include: {
+        supplier: true,
+        items: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const transformed = purchaseOrders.map(po => ({
+      id: po.id,
+      poNumber: po.poNumber,
+      supplier: {
+        id: po.supplier.id,
+        name: po.supplier.name,
+        code: po.supplier.code
+      },
+      status: po.status.toLowerCase(),
+      totalAmount: po.totalAmount,
+      expectedDate: po.expectedDeliveryDate,
+      items: po.items.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        productName: item.productName,
+        productSku: item.productSku,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice
+      })),
+      createdAt: po.createdAt
+    }));
+
+    res.json(transformed);
+  } catch (error) {
+    console.error('Get approved POs error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Create goods receipt from purchase order
 app.post('/api/goods-receiving', verifyToken, async (req, res) => {
   try {
-    const { poNumber, supplier, items } = req.body;
-    const newGR = {
-      id: require('crypto').randomUUID(),
-      grNumber: `GR-${Date.now().toString().slice(-6)}`,
-      poNumber,
-      supplier,
-      items: parseInt(items) || 0,
-      receivedDate: null,
-      status: 'pending'
-    };
-    res.status(201).json(newGR);
+    const { purchaseOrderId, notes } = req.body;
+
+    if (!purchaseOrderId) {
+      return res.status(400).json({ error: 'Purchase Order ID is required' });
+    }
+
+    // Get the purchase order with items
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
+      include: {
+        supplier: true,
+        items: true
+      }
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (purchaseOrder.status !== 'APPROVED') {
+      return res.status(400).json({ error: 'Purchase Order must be approved to create goods receipt' });
+    }
+
+    // Generate GR number
+    const lastGR = await prisma.goodsReceipt.findFirst({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    let grNumber;
+    if (lastGR && lastGR.grNumber) {
+      const lastNum = parseInt(lastGR.grNumber.replace('GR-', '')) || 0;
+      grNumber = `GR-${String(lastNum + 1).padStart(6, '0')}`;
+    } else {
+      grNumber = 'GR-000001';
+    }
+
+    // Calculate totals
+    const totalExpected = purchaseOrder.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Create goods receipt with items
+    const goodsReceipt = await prisma.goodsReceipt.create({
+      data: {
+        grNumber,
+        purchaseOrderId,
+        status: 'PENDING',
+        totalExpected,
+        totalReceived: 0,
+        totalDamaged: 0,
+        notes,
+        items: {
+          create: purchaseOrder.items.map(item => ({
+            purchaseOrderItemId: item.id,
+            productId: item.productId,
+            productName: item.productName || 'Unknown Product',
+            productSku: item.productSku || 'N/A',
+            expectedQty: item.quantity,
+            receivedQty: 0,
+            damagedQty: 0
+          }))
+        }
+      },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true
+          }
+        },
+        items: true
+      }
+    });
+
+    res.status(201).json({
+      id: goodsReceipt.id,
+      grNumber: goodsReceipt.grNumber,
+      poNumber: goodsReceipt.purchaseOrder.poNumber,
+      supplier: goodsReceipt.purchaseOrder.supplier.name,
+      status: goodsReceipt.status.toLowerCase(),
+      totalExpected: goodsReceipt.totalExpected,
+      items: goodsReceipt.items.length,
+      createdAt: goodsReceipt.createdAt
+    });
   } catch (error) {
     console.error('Create goods receiving error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Update goods receipt
+app.put('/api/goods-receiving/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes, qualityStatus, qualityNotes, receivedBy } = req.body;
+
+    const goodsReceipt = await prisma.goodsReceipt.update({
+      where: { id },
+      data: {
+        notes,
+        qualityStatus,
+        qualityNotes,
+        receivedBy,
+        updatedAt: new Date()
+      },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true
+          }
+        },
+        items: true
+      }
+    });
+
+    res.json({
+      id: goodsReceipt.id,
+      grNumber: goodsReceipt.grNumber,
+      poNumber: goodsReceipt.purchaseOrder.poNumber,
+      supplier: goodsReceipt.purchaseOrder.supplier.name,
+      status: goodsReceipt.status.toLowerCase(),
+      totalExpected: goodsReceipt.totalExpected,
+      totalReceived: goodsReceipt.totalReceived,
+      notes: goodsReceipt.notes,
+      qualityStatus: goodsReceipt.qualityStatus,
+      qualityNotes: goodsReceipt.qualityNotes,
+      receivedBy: goodsReceipt.receivedBy,
+      updatedAt: goodsReceipt.updatedAt
+    });
+  } catch (error) {
+    console.error('Update goods receipt error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Delete goods receipt
+app.delete('/api/goods-receiving/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id }
+    });
+
+    if (!goodsReceipt) {
+      return res.status(404).json({ error: 'Goods receipt not found' });
+    }
+
+    if (goodsReceipt.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Cannot delete completed goods receipt' });
+    }
+
+    await prisma.goodsReceipt.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Goods receipt deleted successfully' });
+  } catch (error) {
+    console.error('Delete goods receipt error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Receive items - update item quantities
+app.post('/api/goods-receiving/:id/receive-item', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { itemId, receivedQty, damagedQty, batchNumber, lotNumber, bestBeforeDate, locationId, qualityStatus, qualityNotes, notes } = req.body;
+
+    // Update the item
+    const item = await prisma.goodsReceiptItem.update({
+      where: { id: itemId },
+      data: {
+        receivedQty: parseInt(receivedQty) || 0,
+        damagedQty: parseInt(damagedQty) || 0,
+        batchNumber,
+        lotNumber,
+        bestBeforeDate: bestBeforeDate ? new Date(bestBeforeDate) : null,
+        locationId,
+        qualityStatus,
+        qualityNotes,
+        notes,
+        updatedAt: new Date()
+      }
+    });
+
+    // Update totals in goods receipt
+    const allItems = await prisma.goodsReceiptItem.findMany({
+      where: { goodsReceiptId: id }
+    });
+
+    const totalReceived = allItems.reduce((sum, i) => sum + i.receivedQty, 0);
+    const totalDamaged = allItems.reduce((sum, i) => sum + i.damagedQty, 0);
+
+    // Determine status
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id }
+    });
+
+    let newStatus = goodsReceipt.status;
+    if (totalReceived > 0 && totalReceived < goodsReceipt.totalExpected) {
+      newStatus = 'IN_PROGRESS';
+    } else if (totalReceived >= goodsReceipt.totalExpected) {
+      newStatus = 'IN_PROGRESS'; // Still needs completion action
+    }
+
+    await prisma.goodsReceipt.update({
+      where: { id },
+      data: {
+        totalReceived,
+        totalDamaged,
+        status: newStatus,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({
+      message: 'Item received successfully',
+      item,
+      totals: { totalReceived, totalDamaged }
+    });
+  } catch (error) {
+    console.error('Receive item error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Bulk receive items
+app.post('/api/goods-receiving/:id/receive-items', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { items, receivedBy } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+
+    // Update all items
+    for (const item of items) {
+      await prisma.goodsReceiptItem.update({
+        where: { id: item.id },
+        data: {
+          receivedQty: parseInt(item.receivedQty) || 0,
+          damagedQty: parseInt(item.damagedQty) || 0,
+          batchNumber: item.batchNumber,
+          lotNumber: item.lotNumber,
+          bestBeforeDate: item.bestBeforeDate ? new Date(item.bestBeforeDate) : null,
+          locationId: item.locationId,
+          qualityStatus: item.qualityStatus,
+          qualityNotes: item.qualityNotes,
+          notes: item.notes,
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    // Update totals
+    const allItems = await prisma.goodsReceiptItem.findMany({
+      where: { goodsReceiptId: id }
+    });
+
+    const totalReceived = allItems.reduce((sum, i) => sum + i.receivedQty, 0);
+    const totalDamaged = allItems.reduce((sum, i) => sum + i.damagedQty, 0);
+
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id }
+    });
+
+    let newStatus = 'IN_PROGRESS';
+    if (totalReceived === 0) {
+      newStatus = 'PENDING';
+    }
+
+    await prisma.goodsReceipt.update({
+      where: { id },
+      data: {
+        totalReceived,
+        totalDamaged,
+        status: newStatus,
+        receivedBy,
+        receivedDate: totalReceived > 0 ? new Date() : null,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({
+      message: 'Items received successfully',
+      totals: { totalReceived, totalDamaged }
+    });
+  } catch (error) {
+    console.error('Bulk receive items error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Complete goods receipt
+app.post('/api/goods-receiving/:id/complete', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { qualityStatus, qualityNotes, notes } = req.body;
+
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id },
+      include: { items: true }
+    });
+
+    if (!goodsReceipt) {
+      return res.status(404).json({ error: 'Goods receipt not found' });
+    }
+
+    if (goodsReceipt.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Goods receipt already completed' });
+    }
+
+    // Verify at least some items received
+    const totalReceived = goodsReceipt.items.reduce((sum, i) => sum + i.receivedQty, 0);
+    if (totalReceived === 0) {
+      return res.status(400).json({ error: 'Cannot complete goods receipt with no items received' });
+    }
+
+    // Update goods receipt to completed
+    const updated = await prisma.goodsReceipt.update({
+      where: { id },
+      data: {
+        status: 'COMPLETED',
+        qualityStatus: qualityStatus || 'PASSED',
+        qualityNotes,
+        notes,
+        receivedDate: goodsReceipt.receivedDate || new Date(),
+        updatedAt: new Date()
+      },
+      include: {
+        purchaseOrder: {
+          include: { supplier: true }
+        }
+      }
+    });
+
+    // Update PO status to RECEIVED if all items received
+    if (updated.totalReceived >= updated.totalExpected) {
+      await prisma.purchaseOrder.update({
+        where: { id: goodsReceipt.purchaseOrderId },
+        data: {
+          status: 'RECEIVED',
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Partial receive
+      await prisma.purchaseOrder.update({
+        where: { id: goodsReceipt.purchaseOrderId },
+        data: {
+          status: 'PARTIAL',
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    res.json({
+      message: 'Goods receipt completed successfully',
+      id: updated.id,
+      grNumber: updated.grNumber,
+      status: updated.status.toLowerCase(),
+      totalExpected: updated.totalExpected,
+      totalReceived: updated.totalReceived,
+      totalDamaged: updated.totalDamaged
+    });
+  } catch (error) {
+    console.error('Complete goods receipt error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Cancel goods receipt
+app.post('/api/goods-receiving/:id/cancel', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const goodsReceipt = await prisma.goodsReceipt.findUnique({
+      where: { id }
+    });
+
+    if (!goodsReceipt) {
+      return res.status(404).json({ error: 'Goods receipt not found' });
+    }
+
+    if (goodsReceipt.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Cannot cancel completed goods receipt' });
+    }
+
+    await prisma.goodsReceipt.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        notes: reason ? `Cancelled: ${reason}` : goodsReceipt.notes,
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({ message: 'Goods receipt cancelled successfully' });
+  } catch (error) {
+    console.error('Cancel goods receipt error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -5299,6 +6519,29 @@ app.post('/api/warehouses', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Name and code are required' });
     }
 
+    // Get companyId - use user's company or get/create default
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      // Get or create default company
+      let defaultCompany = await prisma.company.findFirst({ where: { code: 'KIAAN' } });
+      if (!defaultCompany) {
+        defaultCompany = await prisma.company.create({
+          data: {
+            name: 'Kiaan Food Distribution Ltd',
+            code: 'KIAAN',
+            description: 'Premium food and snack distribution',
+            email: 'info@kiaan-distribution.com',
+          },
+        });
+      }
+      companyId = defaultCompany.id;
+      // Update user with company
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { companyId }
+      });
+    }
+
     const warehouse = await prisma.warehouse.create({
       data: {
         name,
@@ -5308,7 +6551,7 @@ app.post('/api/warehouses', verifyToken, async (req, res) => {
         phone,
         capacity: capacity ? parseInt(capacity) : null,
         status: status || 'ACTIVE',
-        companyId: req.user.companyId
+        companyId
       }
     });
     res.status(201).json(warehouse);
@@ -5317,7 +6560,7 @@ app.post('/api/warehouses', verifyToken, async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ error: 'Warehouse code already exists' });
     }
-    res.status(500).json({ error: 'Failed to create warehouse' });
+    res.status(500).json({ error: 'Failed to create warehouse', details: error.message });
   }
 });
 
@@ -5876,24 +7119,32 @@ app.delete('/api/channels/:id', verifyToken, async (req, res) => {
 // GET all suppliers
 app.get('/api/suppliers', verifyToken, async (req, res) => {
   try {
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
     const suppliers = await prisma.supplier.findMany({
-      where: { companyId: req.user.companyId },
+      where: { companyId },
       orderBy: { name: 'asc' }
     });
     res.json(suppliers);
   } catch (error) {
     console.error('Get suppliers error:', error);
-    res.status(500).json({ error: 'Failed to get suppliers' });
+    res.status(500).json({ error: 'Failed to get suppliers', details: error.message });
   }
 });
 
 // GET single supplier
 app.get('/api/suppliers/:id', verifyToken, async (req, res) => {
   try {
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
     const supplier = await prisma.supplier.findFirst({
       where: {
         id: req.params.id,
-        companyId: req.user.companyId
+        companyId
       }
     });
     if (!supplier) {
@@ -5902,7 +7153,7 @@ app.get('/api/suppliers/:id', verifyToken, async (req, res) => {
     res.json(supplier);
   } catch (error) {
     console.error('Get supplier error:', error);
-    res.status(500).json({ error: 'Failed to get supplier' });
+    res.status(500).json({ error: 'Failed to get supplier', details: error.message });
   }
 });
 
@@ -5915,6 +7166,11 @@ app.post('/api/suppliers', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Name and code are required' });
     }
 
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
     const supplier = await prisma.supplier.create({
       data: {
         name,
@@ -5922,7 +7178,7 @@ app.post('/api/suppliers', verifyToken, async (req, res) => {
         email,
         phone,
         address,
-        companyId: req.user.companyId
+        companyId
       }
     });
     res.status(201).json(supplier);
@@ -5931,7 +7187,7 @@ app.post('/api/suppliers', verifyToken, async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ error: 'Supplier code already exists' });
     }
-    res.status(500).json({ error: 'Failed to create supplier' });
+    res.status(500).json({ error: 'Failed to create supplier', details: error.message });
   }
 });
 
@@ -5982,6 +7238,174 @@ app.delete('/api/suppliers/:id', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Delete supplier error:', error);
     res.status(500).json({ error: 'Failed to delete supplier' });
+  }
+});
+
+// ===================================
+// CLIENTS - 3PL Client Management
+// ===================================
+
+// Helper function to get or create default company
+async function getOrCreateDefaultCompany(userId) {
+  let defaultCompany = await prisma.company.findFirst({ where: { code: 'KIAAN' } });
+  if (!defaultCompany) {
+    defaultCompany = await prisma.company.create({
+      data: {
+        name: 'Kiaan Food Distribution Ltd',
+        code: 'KIAAN',
+        description: 'Premium food and snack distribution',
+        email: 'info@kiaan-distribution.com',
+      },
+    });
+  }
+  // Update user with company
+  if (userId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { companyId: defaultCompany.id }
+    });
+  }
+  return defaultCompany.id;
+}
+
+// GET all clients
+app.get('/api/clients', verifyToken, async (req, res) => {
+  try {
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
+    const clients = await prisma.client.findMany({
+      where: { companyId },
+      orderBy: { name: 'asc' }
+    });
+    res.json(clients);
+  } catch (error) {
+    console.error('Get clients error:', error);
+    res.status(500).json({ error: 'Failed to get clients', details: error.message });
+  }
+});
+
+// GET single client
+app.get('/api/clients/:id', verifyToken, async (req, res) => {
+  try {
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
+    const client = await prisma.client.findFirst({
+      where: {
+        id: req.params.id,
+        companyId
+      }
+    });
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    res.json(client);
+  } catch (error) {
+    console.error('Get client error:', error);
+    res.status(500).json({ error: 'Failed to get client', details: error.message });
+  }
+});
+
+// CREATE client
+app.post('/api/clients', verifyToken, async (req, res) => {
+  try {
+    const { name, code, email, phone, address, contactName, status } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({ error: 'Name and code are required' });
+    }
+
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
+    const client = await prisma.client.create({
+      data: {
+        name,
+        code,
+        email,
+        phone,
+        address,
+        contactName,
+        status: status || 'ACTIVE',
+        companyId
+      }
+    });
+    res.status(201).json(client);
+  } catch (error) {
+    console.error('Create client error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Client code already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create client', details: error.message });
+  }
+});
+
+// UPDATE client
+app.put('/api/clients/:id', verifyToken, async (req, res) => {
+  try {
+    const { name, code, email, phone, address, contactName, status } = req.body;
+
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
+    const existing = await prisma.client.findFirst({
+      where: { id: req.params.id, companyId }
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const client = await prisma.client.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name && { name }),
+        ...(code && { code }),
+        ...(email !== undefined && { email }),
+        ...(phone !== undefined && { phone }),
+        ...(address !== undefined && { address }),
+        ...(contactName !== undefined && { contactName }),
+        ...(status && { status })
+      }
+    });
+    res.json(client);
+  } catch (error) {
+    console.error('Update client error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Client code already exists' });
+    }
+    res.status(500).json({ error: 'Failed to update client', details: error.message });
+  }
+});
+
+// DELETE client
+app.delete('/api/clients/:id', verifyToken, async (req, res) => {
+  try {
+    let companyId = req.user.companyId;
+    if (!companyId) {
+      companyId = await getOrCreateDefaultCompany(req.user.id);
+    }
+
+    const existing = await prisma.client.findFirst({
+      where: { id: req.params.id, companyId }
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    await prisma.client.delete({ where: { id: req.params.id } });
+    res.json({ message: 'Client deleted successfully' });
+  } catch (error) {
+    console.error('Delete client error:', error);
+    res.status(500).json({ error: 'Failed to delete client', details: error.message });
   }
 });
 
@@ -6078,7 +7502,10 @@ app.put('/api/orders/:id', verifyToken, async (req, res) => {
   try {
     const { status, priority, isWholesale, shippingAddress, shippingMethod, notes, trackingNumber } = req.body;
 
-    const existing = await prisma.salesOrder.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.salesOrder.findUnique({
+      where: { id: req.params.id },
+      include: { items: { include: { product: true } } }
+    });
     if (!existing) {
       return res.status(404).json({ error: 'Order not found' });
     }
@@ -6100,6 +7527,74 @@ app.put('/api/orders/:id', verifyToken, async (req, res) => {
         items: { include: { product: true } }
       }
     });
+
+    // Auto-generate pick list when order is CONFIRMED or ALLOCATED
+    if (status && ['CONFIRMED', 'ALLOCATED'].includes(status.toUpperCase()) &&
+        !['CONFIRMED', 'ALLOCATED'].includes(existing.status?.toUpperCase())) {
+      try {
+        // Check if pick list already exists for this order
+        const existingPickList = await prisma.pickList.findFirst({
+          where: { orderId: req.params.id }
+        });
+
+        if (!existingPickList && order.items?.length > 0) {
+          // Generate pick list items from inventory
+          const pickListItems = [];
+          let sequence = 1;
+
+          for (const item of order.items) {
+            // Find available inventory for this product (FEFO)
+            const inventoryItems = await prisma.inventory.findMany({
+              where: {
+                productId: item.productId,
+                status: 'AVAILABLE',
+                quantity: { gt: 0 }
+              },
+              include: {
+                product: true,
+                location: { include: { warehouse: true } }
+              },
+              orderBy: [
+                { bestBeforeDate: 'asc' },
+                { createdAt: 'asc' }
+              ]
+            });
+
+            let remainingQty = item.quantity;
+            for (const inv of inventoryItems) {
+              if (remainingQty <= 0) break;
+              const qtyToPick = Math.min(remainingQty, inv.quantity);
+              pickListItems.push({
+                pickSequence: sequence++,
+                inventoryId: inv.id,
+                productId: inv.productId,
+                locationId: inv.locationId,
+                quantityToPick: qtyToPick,
+                quantityPicked: 0,
+                status: 'PENDING'
+              });
+              remainingQty -= qtyToPick;
+            }
+          }
+
+          if (pickListItems.length > 0) {
+            await prisma.pickList.create({
+              data: {
+                orderId: req.params.id,
+                status: 'PENDING',
+                priority: order.priority || 'MEDIUM',
+                items: { create: pickListItems }
+              }
+            });
+            console.log(`✅ Auto-generated pick list for order ${order.orderNumber}`);
+          }
+        }
+      } catch (pickErr) {
+        console.error('Auto pick list generation error:', pickErr);
+        // Don't fail the order update if pick list generation fails
+      }
+    }
+
     res.json(order);
   } catch (error) {
     console.error('Update order error:', error);
@@ -6682,1682 +8177,1305 @@ app.delete('/api/inventory/batches/:id', verifyToken, async (req, res) => {
   }
 });
 
-// ===================================
-// MARKETPLACE INTEGRATIONS API
-// ===================================
-
-const IntegrationClientFactory = require('./lib/integrations/clientFactory');
-const encryptionService = require('./lib/encryption');
-const JobQueueProcessor = require('./lib/queue');
-
-// GET all integrations for company
-app.get('/api/integrations', verifyToken, async (req, res) => {
-  try {
-    const integrations = await prisma.integration.findMany({
-      where: { companyId: req.user.companyId },
-      include: {
-        _count: {
-          select: {
-            mappings: true,
-            syncLogs: true,
-            orderImports: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    // Don't send raw credentials back to frontend
-    const sanitized = integrations.map(int => ({
-      ...int,
-      credentials: '***ENCRYPTED***',
-      _count: int._count
-    }));
-
-    res.json(sanitized);
-  } catch (error) {
-    console.error('Get integrations error:', error);
-    res.status(500).json({ error: 'Failed to fetch integrations' });
-  }
-});
-
-// GET single integration by ID
-app.get('/api/integrations/:id', verifyToken, async (req, res) => {
-  try {
-    const integration = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      },
-      include: {
-        mappings: {
-          include: { integration: true },
-          take: 100
-        },
-        syncLogs: {
-          orderBy: { createdAt: 'desc' },
-          take: 20
-        },
-        _count: {
-          select: {
-            mappings: true,
-            orderImports: true
-          }
-        }
-      }
-    });
-
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    // Don't send raw credentials
-    const sanitized = {
-      ...integration,
-      credentials: '***ENCRYPTED***'
-    };
-
-    res.json(sanitized);
-  } catch (error) {
-    console.error('Get integration error:', error);
-    res.status(500).json({ error: 'Failed to fetch integration' });
-  }
-});
-
-// POST create new integration
-app.post('/api/integrations', verifyToken, async (req, res) => {
-  try {
-    const { platform, credentials, syncFrequency } = req.body;
-
-    if (!platform || !credentials) {
-      return res.status(400).json({ error: 'Platform and credentials are required' });
-    }
-
-    // Validate credentials for platform
-    const validation = IntegrationClientFactory.validateCredentials(platform, credentials);
-    if (!validation.valid) {
-      return res.status(400).json({ error: validation.errors.join(', ') });
-    }
-
-    // Encrypt credentials before storing
-    const credentialsJson = JSON.stringify(credentials);
-    const encrypted = encryptionService.encrypt(credentialsJson);
-    const encryptedStr = JSON.stringify(encrypted);
-
-    // Create integration record
-    const integration = await prisma.integration.create({
-      data: {
-        companyId: req.user.companyId,
-        platform,
-        credentials: encryptedStr,
-        isActive: true,
-        syncFrequency: syncFrequency || 'HOURLY'
-      }
-    });
-
-    // Test connection
-    const testResult = await IntegrationClientFactory.testConnection(integration);
-
-    if (!testResult.success) {
-      // Delete integration if connection test fails
-      await prisma.integration.delete({ where: { id: integration.id } });
-      return res.status(400).json({
-        error: 'Connection test failed',
-        details: testResult.message
-      });
-    }
-
-    res.status(201).json({
-      ...integration,
-      credentials: '***ENCRYPTED***',
-      testResult
-    });
-  } catch (error) {
-    console.error('Create integration error:', error);
-    res.status(500).json({ error: error.message || 'Failed to create integration' });
-  }
-});
-
-// PUT update integration
-app.put('/api/integrations/:id', verifyToken, async (req, res) => {
-  try {
-    const existing = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      }
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    const { credentials, isActive, syncFrequency } = req.body;
-    const updateData = {};
-
-    if (credentials) {
-      // Validate and encrypt new credentials
-      const validation = IntegrationClientFactory.validateCredentials(existing.platform, credentials);
-      if (!validation.valid) {
-        return res.status(400).json({ error: validation.errors.join(', ') });
-      }
-
-      const credentialsJson = JSON.stringify(credentials);
-      const encrypted = encryptionService.encrypt(credentialsJson);
-      updateData.credentials = JSON.stringify(encrypted);
-    }
-
-    if (typeof isActive !== 'undefined') {
-      updateData.isActive = isActive;
-    }
-
-    if (syncFrequency) {
-      updateData.syncFrequency = syncFrequency;
-    }
-
-    const updated = await prisma.integration.update({
-      where: { id: req.params.id },
-      data: updateData
-    });
-
-    res.json({
-      ...updated,
-      credentials: '***ENCRYPTED***'
-    });
-  } catch (error) {
-    console.error('Update integration error:', error);
-    res.status(500).json({ error: 'Failed to update integration' });
-  }
-});
-
-// DELETE integration
-app.delete('/api/integrations/:id', verifyToken, async (req, res) => {
-  try {
-    const existing = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      }
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    // Delete will cascade to mappings, sync logs, order imports
-    await prisma.integration.delete({ where: { id: req.params.id } });
-
-    res.json({ message: 'Integration deleted successfully' });
-  } catch (error) {
-    console.error('Delete integration error:', error);
-    res.status(500).json({ error: 'Failed to delete integration' });
-  }
-});
-
-// POST manual sync trigger
-app.post('/api/integrations/:id/sync', verifyToken, async (req, res) => {
-  try {
-    const { syncType } = req.body; // 'ORDERS' or 'INVENTORY'
-
-    const integration = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      }
-    });
-
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    if (!integration.isActive) {
-      return res.status(400).json({ error: 'Integration is not active' });
-    }
-
-    // Create job in queue
-    const job = await prisma.jobQueue.create({
-      data: {
-        type: syncType === 'INVENTORY' ? 'SYNC_INVENTORY' : 'SYNC_ORDERS',
-        payload: JSON.stringify({
-          integrationId: integration.id,
-          triggeredBy: req.user.id
-        }),
-        status: 'PENDING',
-        processAt: new Date()
-      }
-    });
-
-    // Process job immediately (in production, this would be handled by background worker)
-    const processor = new JobQueueProcessor();
-    processor.processNextJob();
-
-    res.json({
-      message: 'Sync started',
-      jobId: job.id,
-      type: syncType
-    });
-  } catch (error) {
-    console.error('Manual sync error:', error);
-    res.status(500).json({ error: 'Failed to start sync' });
-  }
-});
-
-// GET sync logs for integration
-app.get('/api/integrations/:id/logs', verifyToken, async (req, res) => {
-  try {
-    const { limit = 50, offset = 0, syncType } = req.query;
-
-    const where = {
-      integrationId: req.params.id,
-      integration: { companyId: req.user.companyId }
-    };
-
-    if (syncType) {
-      where.syncType = syncType;
-    }
-
-    const logs = await prisma.syncLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: parseInt(limit),
-      skip: parseInt(offset)
-    });
-
-    const total = await prisma.syncLog.count({ where });
-
-    res.json({
-      logs,
-      total,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-  } catch (error) {
-    console.error('Get sync logs error:', error);
-    res.status(500).json({ error: 'Failed to fetch sync logs' });
-  }
-});
-
-// GET integration mappings (SKU mappings)
-app.get('/api/integrations/:id/mappings', verifyToken, async (req, res) => {
-  try {
-    const mappings = await prisma.integrationMapping.findMany({
-      where: {
-        integrationId: req.params.id,
-        integration: { companyId: req.user.companyId }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.json(mappings);
-  } catch (error) {
-    console.error('Get mappings error:', error);
-    res.status(500).json({ error: 'Failed to fetch mappings' });
-  }
-});
-
-// POST create SKU mapping
-app.post('/api/integrations/:id/mappings', verifyToken, async (req, res) => {
-  try {
-    const { internalSku, externalSku, externalProductId } = req.body;
-
-    if (!internalSku || !externalSku) {
-      return res.status(400).json({ error: 'Internal and external SKU are required' });
-    }
-
-    const integration = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      }
-    });
-
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    // Check if internal SKU exists
-    const product = await prisma.product.findFirst({
-      where: { sku: internalSku }
-    });
-
-    if (!product) {
-      return res.status(400).json({ error: 'Internal SKU not found in products' });
-    }
-
-    const mapping = await prisma.integrationMapping.create({
-      data: {
-        integrationId: req.params.id,
-        internalSku,
-        externalSku,
-        externalProductId
-      }
-    });
-
-    res.status(201).json(mapping);
-  } catch (error) {
-    console.error('Create mapping error:', error);
-    if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Mapping already exists' });
-    }
-    res.status(500).json({ error: 'Failed to create mapping' });
-  }
-});
-
-// DELETE mapping
-app.delete('/api/integrations/:integrationId/mappings/:mappingId', verifyToken, async (req, res) => {
-  try {
-    const mapping = await prisma.integrationMapping.findFirst({
-      where: {
-        id: req.params.mappingId,
-        integrationId: req.params.integrationId,
-        integration: { companyId: req.user.companyId }
-      }
-    });
-
-    if (!mapping) {
-      return res.status(404).json({ error: 'Mapping not found' });
-    }
-
-    await prisma.integrationMapping.delete({
-      where: { id: req.params.mappingId }
-    });
-
-    res.json({ message: 'Mapping deleted successfully' });
-  } catch (error) {
-    console.error('Delete mapping error:', error);
-    res.status(500).json({ error: 'Failed to delete mapping' });
-  }
-});
-
-// GET supported platforms
-app.get('/api/integrations/platforms/supported', verifyToken, async (req, res) => {
-  try {
-    const platforms = IntegrationClientFactory.getSupportedPlatforms();
-    res.json(platforms);
-  } catch (error) {
-    console.error('Get supported platforms error:', error);
-    res.status(500).json({ error: 'Failed to fetch supported platforms' });
-  }
-});
-
-// POST test connection
-app.post('/api/integrations/:id/test-connection', verifyToken, async (req, res) => {
-  try {
-    const integration = await prisma.integration.findFirst({
-      where: {
-        id: req.params.id,
-        companyId: req.user.companyId
-      }
-    });
-
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    const result = await IntegrationClientFactory.testConnection(integration);
-    res.json(result);
-  } catch (error) {
-    console.error('Test connection error:', error);
-    res.status(500).json({ error: 'Failed to test connection' });
-  }
-});
-
-// ===================================
-// WEBHOOK RECEIVERS
-// ===================================
-
-// Shopify webhook receiver
-app.post('/api/webhooks/shopify', async (req, res) => {
-  try {
-    const topic = req.headers['x-shopify-topic'];
-    const shop = req.headers['x-shopify-shop-domain'];
-
-    // Find integration by shop domain
-    const integration = await prisma.integration.findFirst({
-      where: {
-        platform: 'SHOPIFY',
-        isActive: true
-      }
-    });
-
-    if (!integration) {
-      console.warn(`No active Shopify integration found for shop: ${shop}`);
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    // Create client and handle webhook
-    const client = IntegrationClientFactory.createClient(integration);
-    await client.handleWebhook(topic, req.body);
-
-    res.status(200).json({ message: 'Webhook processed' });
-  } catch (error) {
-    console.error('Shopify webhook error:', error);
-    res.status(500).json({ error: 'Failed to process webhook' });
-  }
-});
-
-// TikTok Shop webhook receiver
-app.post('/api/webhooks/tiktok', async (req, res) => {
-  try {
-    const { type, shop_id, data } = req.body;
-
-    // Find integration by shop_id
-    const integration = await prisma.integration.findFirst({
-      where: {
-        platform: 'TIKTOK',
-        isActive: true
-      }
-    });
-
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-
-    // Handle webhook based on type
-    if (type === 'ORDER_STATUS_CHANGE' || type === 'NEW_ORDER') {
-      const client = IntegrationClientFactory.createClient(integration);
-      const orderDetail = await client.makeRequest('/api/orders/detail/query', 'POST', {
-        shop_id,
-        order_id_list: [data.order_id]
-      });
-
-      if (orderDetail.order_list?.[0]) {
-        await client.importOrder(orderDetail.order_list[0]);
-      }
-    }
-
-    res.status(200).json({ message: 'Webhook processed' });
-  } catch (error) {
-    console.error('TikTok webhook error:', error);
-    res.status(500).json({ error: 'Failed to process webhook' });
-  }
-});
-
-// =============================================================================
-// PHASE 5: SHIPPING INTEGRATIONS API
-// =============================================================================
-
-const ShippingCarrierFactory = require('./lib/shipping/carrierFactory');
-
-// Get supported shipping carriers (metadata)
-app.get('/api/shipping/carriers/supported', async (req, res) => {
-  try {
-    const carriers = ShippingCarrierFactory.getSupportedCarriers();
-    res.json(carriers);
-  } catch (error) {
-    console.error('Failed to get supported carriers:', error);
-    res.status(500).json({ error: 'Failed to get supported carriers' });
-  }
-});
-
-// List configured shipping carriers
-app.get('/api/shipping/carriers', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-
-    const carriers = await prisma.shippingCarrier.findMany({
-      where: { companyId },
-      select: {
-        id: true,
-        name: true,
-        carrierCode: true,
-        country: true,
-        isActive: true,
-        isDefault: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.json(carriers);
-  } catch (error) {
-    console.error('Failed to list carriers:', error);
-    res.status(500).json({ error: 'Failed to list carriers' });
-  }
-});
-
-// Get single carrier details
-app.get('/api/shipping/carriers/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id, companyId },
-      select: {
-        id: true,
-        name: true,
-        carrierCode: true,
-        country: true,
-        isActive: true,
-        isDefault: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found' });
-    }
-
-    // Get carrier metadata
-    const metadata = ShippingCarrierFactory.getSupportedCarriers().find(
-      c => c.carrierCode === carrier.carrierCode
-    );
-
-    res.json({ ...carrier, metadata });
-  } catch (error) {
-    console.error('Failed to get carrier:', error);
-    res.status(500).json({ error: 'Failed to get carrier' });
-  }
-});
-
-// Create new shipping carrier
-app.post('/api/shipping/carriers', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const { name, carrierCode, credentials, isDefault = false } = req.body;
-
-    // Validate credentials
-    const validation = ShippingCarrierFactory.validateCredentials(carrierCode, credentials);
-    if (!validation.valid) {
-      return res.status(400).json({
-        error: 'Invalid credentials',
-        details: validation.errors
-      });
-    }
-
-    // Encrypt credentials
-    const encryptedCredentials = encryptionService.encrypt(JSON.stringify(credentials));
-
-    // Get carrier metadata
-    const carrierConfig = ShippingCarrierFactory.getSupportedCarriers().find(
-      c => c.carrierCode === carrierCode
-    );
-
-    if (!carrierConfig) {
-      return res.status(400).json({ error: 'Unsupported carrier' });
-    }
-
-    // If setting as default, unset other defaults
-    if (isDefault) {
-      await prisma.shippingCarrier.updateMany({
-        where: { companyId, isDefault: true },
-        data: { isDefault: false }
-      });
-    }
-
-    // Create carrier
-    const carrier = await prisma.shippingCarrier.create({
-      data: {
-        companyId,
-        name: name || carrierConfig.name,
-        carrierCode,
-        country: carrierConfig.country,
-        credentials: JSON.stringify(encryptedCredentials),
-        isActive: false, // Start inactive until connection test passes
-        isDefault
-      }
-    });
-
-    // Test connection
-    try {
-      const testResult = await ShippingCarrierFactory.testConnection(carrier);
-
-      if (testResult.success) {
-        // Activate carrier if test passes
-        await prisma.shippingCarrier.update({
-          where: { id: carrier.id },
-          data: { isActive: true }
-        });
-
-        res.status(201).json({
-          ...carrier,
-          credentials: undefined, // Don't return credentials
-          connectionTest: testResult
-        });
-      } else {
-        res.status(201).json({
-          ...carrier,
-          credentials: undefined,
-          connectionTest: testResult,
-          warning: 'Carrier created but connection test failed. Please verify credentials.'
-        });
-      }
-    } catch (testError) {
-      console.error('Connection test failed:', testError);
-      res.status(201).json({
-        ...carrier,
-        credentials: undefined,
-        connectionTest: { success: false, message: testError.message },
-        warning: 'Carrier created but connection test failed.'
-      });
-    }
-  } catch (error) {
-    console.error('Failed to create carrier:', error);
-    res.status(500).json({ error: 'Failed to create carrier' });
-  }
-});
-
-// Update carrier
-app.put('/api/shipping/carriers/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-    const { name, credentials, isActive, isDefault } = req.body;
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id, companyId }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found' });
-    }
-
-    const updateData = {};
-
-    if (name !== undefined) updateData.name = name;
-    if (isActive !== undefined) updateData.isActive = isActive;
-
-    if (credentials) {
-      // Validate new credentials
-      const validation = ShippingCarrierFactory.validateCredentials(
-        carrier.carrierCode,
-        credentials
-      );
-
-      if (!validation.valid) {
-        return res.status(400).json({
-          error: 'Invalid credentials',
-          details: validation.errors
-        });
-      }
-
-      // Encrypt credentials
-      const encryptedCredentials = encryptionService.encrypt(JSON.stringify(credentials));
-      updateData.credentials = JSON.stringify(encryptedCredentials);
-    }
-
-    if (isDefault === true) {
-      // Unset other defaults
-      await prisma.shippingCarrier.updateMany({
-        where: { companyId, isDefault: true, id: { not: id } },
-        data: { isDefault: false }
-      });
-      updateData.isDefault = true;
-    } else if (isDefault === false) {
-      updateData.isDefault = false;
-    }
-
-    const updated = await prisma.shippingCarrier.update({
-      where: { id },
-      data: updateData
-    });
-
-    res.json({
-      ...updated,
-      credentials: undefined
-    });
-  } catch (error) {
-    console.error('Failed to update carrier:', error);
-    res.status(500).json({ error: 'Failed to update carrier' });
-  }
-});
-
-// Delete carrier
-app.delete('/api/shipping/carriers/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id, companyId }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found' });
-    }
-
-    // Check for existing shipments
-    const shipmentsCount = await prisma.shipment.count({
-      where: { carrierId: id }
-    });
-
-    if (shipmentsCount > 0) {
-      return res.status(400).json({
-        error: 'Cannot delete carrier with existing shipments',
-        shipmentsCount
-      });
-    }
-
-    await prisma.shippingCarrier.delete({
-      where: { id }
-    });
-
-    res.json({ message: 'Carrier deleted successfully' });
-  } catch (error) {
-    console.error('Failed to delete carrier:', error);
-    res.status(500).json({ error: 'Failed to delete carrier' });
-  }
-});
-
-// Test carrier connection
-app.post('/api/shipping/carriers/:id/test', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id, companyId }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found' });
-    }
-
-    const result = await ShippingCarrierFactory.testConnection(carrier);
-    res.json(result);
-  } catch (error) {
-    console.error('Connection test failed:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Get available services for a carrier
-app.get('/api/shipping/carriers/:id/services', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id, companyId }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found' });
-    }
-
-    const services = ShippingCarrierFactory.getCarrierServices(carrier.carrierCode);
-    res.json(services);
-  } catch (error) {
-    console.error('Failed to get services:', error);
-    res.status(500).json({ error: 'Failed to get services' });
-  }
-});
-
-// Compare shipping rates across carriers
-app.post('/api/shipping/compare-rates', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const { fromAddress, toAddress, parcelDetails, carrierCodes } = req.body;
-
-    if (!fromAddress || !toAddress || !parcelDetails) {
-      return res.status(400).json({
-        error: 'Missing required fields: fromAddress, toAddress, parcelDetails'
-      });
-    }
-
-    // Filter by company's carriers
-    const whereClause = { companyId, isActive: true };
-    if (carrierCodes && carrierCodes.length > 0) {
-      whereClause.carrierCode = { in: carrierCodes };
-    }
-
-    const carriers = await prisma.shippingCarrier.findMany({
-      where: whereClause
-    });
-
-    if (carriers.length === 0) {
-      return res.status(404).json({ error: 'No active carriers found' });
-    }
-
-    const rates = [];
-
-    for (const carrier of carriers) {
-      try {
-        const client = ShippingCarrierFactory.createClient(carrier);
-        const services = await client.getServices(fromAddress, toAddress, parcelDetails);
-
-        for (const service of services) {
-          rates.push({
-            carrier: {
-              id: carrier.id,
-              code: carrier.carrierCode,
-              name: carrier.name
-            },
-            service: {
-              code: service.serviceCode,
-              name: service.serviceName,
-              description: service.description
-            },
-            price: service.price,
-            currency: service.currency,
-            estimatedDeliveryDays: service.estimatedDeliveryDays,
-            estimatedDeliveryDate: service.estimatedDeliveryDate,
-            features: {
-              tracked: service.tracked,
-              signed: service.signed,
-              compensation: service.compensation
-            }
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to get rates from ${carrier.carrierCode}:`, error.message);
-        // Continue with other carriers
-      }
-    }
-
-    // Sort by price (cheapest first)
-    rates.sort((a, b) => (a.price || 999999) - (b.price || 999999));
-
-    res.json({
-      rates,
-      fromAddress,
-      toAddress,
-      parcelDetails,
-      comparedAt: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Failed to compare rates:', error);
-    res.status(500).json({ error: 'Failed to compare rates' });
-  }
-});
-
-// Create shipment
-app.post('/api/shipping/shipments', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const { carrierId, orderId, serviceCode, ...orderDetails } = req.body;
-
-    if (!carrierId || !orderId || !serviceCode) {
-      return res.status(400).json({
-        error: 'Missing required fields: carrierId, orderId, serviceCode'
-      });
-    }
-
-    const carrier = await prisma.shippingCarrier.findFirst({
-      where: { id: carrierId, companyId, isActive: true }
-    });
-
-    if (!carrier) {
-      return res.status(404).json({ error: 'Carrier not found or inactive' });
-    }
-
-    // Create client and shipment
-    const client = ShippingCarrierFactory.createClient(carrier);
-    const result = await client.createShipment({
-      orderId,
-      serviceCode,
-      ...orderDetails
-    });
-
-    res.status(201).json(result);
-  } catch (error) {
-    console.error('Failed to create shipment:', error);
-    res.status(500).json({ error: error.message || 'Failed to create shipment' });
-  }
-});
-
-// List shipments
-app.get('/api/shipping/shipments', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const { orderId, status, carrierId, limit = 50, offset = 0 } = req.query;
-
-    const where = {
-      carrier: { companyId }
-    };
-
-    if (orderId) where.orderId = orderId;
-    if (status) where.status = status;
-    if (carrierId) where.carrierId = carrierId;
-
-    const [shipments, total] = await Promise.all([
-      prisma.shipment.findMany({
-        where,
-        include: {
-          carrier: {
-            select: {
-              id: true,
-              name: true,
-              carrierCode: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: parseInt(limit),
-        skip: parseInt(offset)
-      }),
-      prisma.shipment.count({ where })
-    ]);
-
-    res.json({
-      shipments,
-      total,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-  } catch (error) {
-    console.error('Failed to list shipments:', error);
-    res.status(500).json({ error: 'Failed to list shipments' });
-  }
-});
-
-// Get shipment details
-app.get('/api/shipping/shipments/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        id,
-        carrier: { companyId }
-      },
-      include: {
-        carrier: {
-          select: {
-            id: true,
-            name: true,
-            carrierCode: true
-          }
-        }
-      }
-    });
-
-    if (!shipment) {
-      return res.status(404).json({ error: 'Shipment not found' });
-    }
-
-    res.json(shipment);
-  } catch (error) {
-    console.error('Failed to get shipment:', error);
-    res.status(500).json({ error: 'Failed to get shipment' });
-  }
-});
-
-// Track shipment
-app.get('/api/shipping/shipments/:id/track', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        id,
-        carrier: { companyId }
-      },
-      include: { carrier: true }
-    });
-
-    if (!shipment) {
-      return res.status(404).json({ error: 'Shipment not found' });
-    }
-
-    const client = ShippingCarrierFactory.createClient(shipment.carrier);
-    const trackingInfo = await client.trackShipment(shipment.trackingNumber);
-
-    res.json(trackingInfo);
-  } catch (error) {
-    console.error('Failed to track shipment:', error);
-    res.status(500).json({ error: error.message || 'Failed to track shipment' });
-  }
-});
-
-// Cancel shipment
-app.post('/api/shipping/shipments/:id/cancel', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        id,
-        carrier: { companyId }
-      },
-      include: { carrier: true }
-    });
-
-    if (!shipment) {
-      return res.status(404).json({ error: 'Shipment not found' });
-    }
-
-    if (shipment.status === 'CANCELLED') {
-      return res.status(400).json({ error: 'Shipment already cancelled' });
-    }
-
-    if (['DELIVERED', 'RETURNED'].includes(shipment.status)) {
-      return res.status(400).json({
-        error: `Cannot cancel shipment with status: ${shipment.status}`
-      });
-    }
-
-    const client = ShippingCarrierFactory.createClient(shipment.carrier);
-    const result = await client.cancelShipment(shipment.carrierShipmentId);
-
-    res.json(result);
-  } catch (error) {
-    console.error('Failed to cancel shipment:', error);
-    res.status(500).json({ error: error.message || 'Failed to cancel shipment' });
-  }
-});
-
-// Get/print shipping label
-app.get('/api/shipping/shipments/:id/label', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { companyId } = req.user;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        id,
-        carrier: { companyId }
-      },
-      include: { carrier: true }
-    });
-
-    if (!shipment) {
-      return res.status(404).json({ error: 'Shipment not found' });
-    }
-
-    const client = ShippingCarrierFactory.createClient(shipment.carrier);
-    const label = await client.printLabel(id);
-
-    res.json(label);
-  } catch (error) {
-    console.error('Failed to get label:', error);
-    res.status(500).json({ error: error.message || 'Failed to get label' });
-  }
-});
-
-// Get shipping logs
-app.get('/api/shipping/logs', async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const { carrierId, operation, status, limit = 100, offset = 0 } = req.query;
-
-    const where = {
-      carrier: { companyId }
-    };
-
-    if (carrierId) where.carrierId = carrierId;
-    if (operation) where.operation = operation;
-    if (status) where.status = status;
-
-    const [logs, total] = await Promise.all([
-      prisma.shippingLog.findMany({
-        where,
-        include: {
-          carrier: {
-            select: {
-              id: true,
-              name: true,
-              carrierCode: true
-            }
-          }
-        },
-        orderBy: { timestamp: 'desc' },
-        take: parseInt(limit),
-        skip: parseInt(offset)
-      }),
-      prisma.shippingLog.count({ where })
-    ]);
-
-    res.json({
-      logs,
-      total,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-  } catch (error) {
-    console.error('Failed to get shipping logs:', error);
-    res.status(500).json({ error: 'Failed to get shipping logs' });
-  }
-});
-
-// ===================================
-// NEW FEATURES - Supplier Products, Alternative SKUs, Bundles
-// ===================================
-
-// Supplier Products Management
-app.use('/api/supplier-products', verifyToken, supplierProductsRouter);
-
-// Alternative SKU Management (Amazon _BB, _M, marketplace SKUs)
-app.use('/api/alternative-skus', verifyToken, alternativeSKUsRouter);
-
-// Bundle Management (cost calculation, stock by BBD)
-app.use('/api/bundles', verifyToken, bundlesRouter);
-
-// ===================================
-// INVENTORY VIEWS BY BBD AND LOCATION
-// ===================================
-
-// Get inventory grouped by Best Before Date
-app.get('/api/inventory/by-best-before-date', verifyToken, async (req, res) => {
-  try {
-    const { productId, warehouseId } = req.query;
-    const where = {};
-    if (productId) where.productId = productId;
-    if (warehouseId) where.warehouseId = warehouseId;
-
-    const inventory = await prisma.inventory.findMany({
-      where,
-      include: {
-        product: { select: { id: true, sku: true, name: true } },
-        location: { select: { code: true, name: true } }
-      },
-      orderBy: [{ bestBeforeDate: 'asc' }, { product: { sku: 'asc' } }]
-    });
-
-    const grouped = inventory.reduce((acc, inv) => {
-      const key = inv.productId;
-      const bbdKey = inv.bestBeforeDate ? inv.bestBeforeDate.toISOString().split('T')[0] : 'NO_BBD';
-      if (!acc[key]) acc[key] = { product: inv.product, byBBD: {} };
-      if (!acc[key].byBBD[bbdKey]) acc[key].byBBD[bbdKey] = { bestBeforeDate: inv.bestBeforeDate, totalQty: 0, availableQty: 0, locations: [] };
-      acc[key].byBBD[bbdKey].totalQty += inv.quantity;
-      acc[key].byBBD[bbdKey].availableQty += inv.availableQuantity;
-      acc[key].byBBD[bbdKey].locations.push({ locationCode: inv.location?.code, quantity: inv.quantity });
-      return acc;
-    }, {});
-
-    res.json({ inventory: Object.values(grouped) });
-  } catch (error) {
-    console.error('Error fetching inventory by BBD:', error);
-    res.status(500).json({ error: 'Failed to fetch inventory by best before date' });
-  }
-});
-
-// Get inventory grouped by Location
-app.get('/api/inventory/by-location', verifyToken, async (req, res) => {
-  try {
-    const { warehouseId, locationType } = req.query;
-    const where = {};
-    if (warehouseId) where.warehouseId = warehouseId;
-
-    const inventory = await prisma.inventory.findMany({
-      where,
-      include: {
-        product: { select: { sku: true, name: true, isHeatSensitive: true, weight: true } },
-        location: {
-          where: locationType ? { locationType } : {},
-          select: { code: true, name: true, locationType: true, pickSequence: true, maxWeight: true, isHeatSensitive: true }
-        }
-      },
-      orderBy: [{ location: { pickSequence: 'asc' } }]
-    });
-
-    const grouped = inventory.reduce((acc, inv) => {
-      if (!inv.location) return acc;
-      const key = inv.locationId;
-      if (!acc[key]) acc[key] = { location: inv.location, products: [], warnings: [] };
-      acc[key].products.push({ product: inv.product, quantity: inv.quantity });
-      if (inv.product.isHeatSensitive && inv.location.isHeatSensitive) {
-        acc[key].warnings.push({ type: 'HEAT_SENSITIVE', message: 'Heat-sensitive product in hot location' });
-      }
-      return acc;
-    }, {});
-
-    res.json({ locations: Object.values(grouped) });
-  } catch (error) {
-    console.error('Error fetching inventory by location:', error);
-    res.status(500).json({ error: 'Failed to fetch inventory by location' });
-  }
-});
-
-// ===================================
-// VAT CODES
-// ===================================
-
-app.get('/api/vat-codes', verifyToken, async (req, res) => {
-  try {
-    const vatCodes = await prisma.vATCode.findMany({
-      include: { rates: { where: { isActive: true } } },
-      orderBy: { code: 'asc' }
-    });
-    res.json(vatCodes);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch VAT codes' });
-  }
-});
-
-app.post('/api/vat-codes/bulk-import', verifyToken, async (req, res) => {
-  try {
-    const { vatCodes } = req.body;
-    const results = { created: 0, updated: 0 };
-    for (const vc of vatCodes) {
-      const existing = await prisma.vATCode.findUnique({ where: { code: vc.code } });
-      if (existing) {
-        await prisma.vATCode.update({
-          where: { code: vc.code },
-          data: { description: vc.description, rates: { deleteMany: {}, create: vc.rates } }
-        });
-        results.updated++;
-      } else {
-        await prisma.vATCode.create({ data: { code: vc.code, description: vc.description, rates: { create: vc.rates } } });
-        results.created++;
-      }
-    }
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to bulk import VAT codes' });
-  }
-});
-
-// ===================================
-// MARKETPLACE PRICING CALCULATOR
-// ===================================
-
-app.post('/api/pricing/calculate', verifyToken, async (req, res) => {
-  try {
-    const { productId, channelType, consumableIds, shippingCost, laborCost, desiredMargin } = req.body;
-
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { bundleItems: { include: { child: true } } }
-    });
-
-    let productCost = product.costPrice || 0;
-    if (product.type === 'BUNDLE') {
-      productCost = product.bundleItems.reduce((sum, item) => sum + ((item.child.costPrice || 0) * item.quantity), 0);
-    }
-
-    let consumablesCost = 0;
-    if (consumableIds?.length > 0) {
-      const consumables = await prisma.consumable.findMany({ where: { id: { in: consumableIds } } });
-      consumablesCost = consumables.reduce((sum, c) => sum + (c.costPriceEach || 0), 0);
-    }
-
-    const totalCost = productCost + consumablesCost + (shippingCost || 0) + (laborCost || 0);
-    const referralFee = 0.15; // Default 15%
-    const sellingPrice = totalCost / (1 - (desiredMargin || 0) - referralFee);
-    const fees = sellingPrice * referralFee;
-    const profit = sellingPrice - totalCost - fees;
-
-    res.json({
-      productCost,
-      consumablesCost,
-      totalCost,
-      recommendedSellingPrice: Math.ceil(sellingPrice * 100) / 100,
-      fees,
-      profit,
-      margin: profit / sellingPrice
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to calculate price' });
-  }
-});
-
-// ===================================
-// CONSUMABLES STOCK VALUE
-// ===================================
-
-app.get('/api/consumables/stock-value', verifyToken, async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    const consumables = await prisma.consumable.findMany({
-      where: { companyId, isActive: true }
-    });
-
-    let totalValue = 0;
-    const breakdown = consumables.map(c => {
-      const value = (c.costPricePack || 0) * Math.ceil(c.onStock / (c.unitPerPack || 1));
-      totalValue += value;
-      return {
-        sku: c.sku,
-        name: c.name,
-        onStock: c.onStock,
-        stockValue: value,
-        needsReorder: c.reorderLevel && c.onStock <= c.reorderLevel
-      };
-    });
-
-    res.json({ totalStockValue: totalValue, consumables: breakdown });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to calculate stock value' });
-  }
-});
-
-// ===================================
-// ADDITIONAL ANALYTICS ROUTES (ALIASES)
-// ===================================
-
-// Analytics channels endpoint (alias for frontend compatibility)
-app.get('/api/analytics/channels', verifyToken, async (req, res) => {
-  try {
-    // Fetch products with channel pricing data
-    const products = await prisma.product.findMany({
-      where: { companyId: req.user.companyId },
-      include: {
-        brand: true,
-        channelPrices: {
-          include: {
-            channel: true
-          }
-        },
-        inventory: true
-      }
-    });
-
-    // Enrich products with channel info
-    const enrichedProducts = products.map(p => {
-      const totalStock = p.inventory.reduce((sum, i) => sum + (i.quantity || 0), 0);
-      const channelPrice = p.channelPrices[0];
-      return {
-        ...p,
-        volume: totalStock,
-        channel: channelPrice?.channel?.name || 'Direct',
-        channelFee: channelPrice?.channel?.commissionRate || 0,
-      };
-    });
-
-    res.json({ products: enrichedProducts });
-  } catch (error) {
-    console.error('Get analytics channels error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Analytics margins endpoint
-app.get('/api/analytics/margins', verifyToken, async (req, res) => {
-  try {
-    const products = await prisma.product.findMany({
-      where: { companyId: req.user.companyId },
-      include: {
-        brand: true,
-        channelPrices: {
-          include: {
-            channel: true
-          }
-        },
-        inventory: true
-      }
-    });
-
-    // Calculate margin data for each product
-    const productsWithMargins = products.map((p, index) => {
-      const totalStock = p.inventory.reduce((sum, i) => sum + (i.quantity || 0), 0);
-      const sellingPrice = p.sellingPrice || 0;
-      const productCost = p.costPrice || 0;
-      const packaging = sellingPrice * 0.03;
-      const shipping = sellingPrice * 0.10;
-      const channelPrice = p.channelPrices[0];
-      const channel = channelPrice?.channel;
-      const channelFee = sellingPrice * ((channel?.commissionRate || 0) / 100);
-      const volume = totalStock || 0;
-      const returnRate = 2.5;
-      const returns = Math.floor(volume * (returnRate / 100));
-
-      return {
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        brand: p.brand?.name || 'Unknown',
-        channel: channel?.name || 'Direct',
-        category: p.brand?.name || 'General',
-        sellingPrice,
-        productCost,
-        packaging,
-        shipping,
-        channelFee,
-        volume,
-        returns,
-        returnRate,
-      };
-    });
-
-    res.json({ products: productsWithMargins });
-  } catch (error) {
-    console.error('Get analytics margins error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Replenishment configs endpoint (plural alias)
-app.get('/api/replenishment/configs', verifyToken, async (req, res) => {
-  try {
-    const configs = await prisma.replenishmentConfig.findMany({
-      include: {
-        product: {
-          include: {
-            brand: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(configs);
-  } catch (error) {
-    console.error('Get replenishment configs error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.post('/api/replenishment/configs', verifyToken, async (req, res) => {
-  try {
-    const config = await prisma.replenishmentConfig.create({
-      data: req.body,
-      include: {
-        product: {
-          include: {
-            brand: true
-          }
-        }
-      }
-    });
-    res.status(201).json(config);
-  } catch (error) {
-    console.error('Create replenishment config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.put('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const config = await prisma.replenishmentConfig.update({
-      where: { id },
-      data: req.body,
-      include: {
-        product: {
-          include: {
-            brand: true
-          }
-        }
-      }
-    });
-    res.json(config);
-  } catch (error) {
-    console.error('Update replenishment config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.delete('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.replenishmentConfig.delete({ where: { id } });
-    res.json({ message: 'Configuration deleted successfully' });
-  } catch (error) {
-    console.error('Delete replenishment config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ===================================
-// ADDITIONAL MISSING ROUTES
-// ===================================
-
-// Cycle counts alias (redirect to inventory/cycle-counts)
-app.get('/api/cycle-counts', verifyToken, async (req, res) => {
-  try {
-    const cycleCounts = await prisma.cycleCount.findMany({
-      where: {
-        warehouse: { companyId: req.user.companyId }
-      },
-      include: {
-        warehouse: true,
-        zone: true,
-        location: true,
-        items: {
-          include: {
-            product: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(cycleCounts);
-  } catch (error) {
-    console.error('Get cycle counts error:', error);
-    res.json([]);
-  }
-});
-
-// SKU Mappings endpoint
-app.get('/api/sku-mappings', verifyToken, async (req, res) => {
-  try {
-    const mappings = await prisma.skuMapping.findMany({
-      include: {
-        product: true,
-        channel: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(mappings);
-  } catch (error) {
-    console.error('Get SKU mappings error:', error);
-    res.json([]);
-  }
-});
-
-app.post('/api/sku-mappings', verifyToken, async (req, res) => {
-  try {
-    const mapping = await prisma.skuMapping.create({
-      data: req.body,
-      include: {
-        product: true,
-        channel: true
-      }
-    });
-    res.status(201).json(mapping);
-  } catch (error) {
-    console.error('Create SKU mapping error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.put('/api/sku-mappings/:id', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const mapping = await prisma.skuMapping.update({
-      where: { id },
-      data: req.body,
-      include: {
-        product: true,
-        channel: true
-      }
-    });
-    res.json(mapping);
-  } catch (error) {
-    console.error('Update SKU mapping error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.delete('/api/sku-mappings/:id', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.skuMapping.delete({ where: { id } });
-    res.json({ message: 'SKU mapping deleted successfully' });
-  } catch (error) {
-    console.error('Delete SKU mapping error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Scanner settings endpoint
-app.get('/api/settings/scanner', verifyToken, async (req, res) => {
-  try {
-    // Return scanner settings (could be stored in company settings)
-    const company = await prisma.company.findUnique({
-      where: { id: req.user.companyId }
-    });
-    res.json({
-      scannerEnabled: true,
-      autoSubmit: true,
-      soundEnabled: true,
-      vibrationEnabled: true,
-      barcodeFormats: ['EAN13', 'EAN8', 'CODE128', 'CODE39', 'QR'],
-      cameraPreference: 'back'
-    });
-  } catch (error) {
-    console.error('Get scanner settings error:', error);
-    res.json({});
-  }
-});
-
-app.post('/api/settings/scanner', verifyToken, async (req, res) => {
-  try {
-    // Save scanner settings
-    res.json({ message: 'Scanner settings saved successfully', ...req.body });
-  } catch (error) {
-    console.error('Save scanner settings error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Reports list endpoint
-app.get('/api/reports', verifyToken, async (req, res) => {
-  try {
-    // Return available reports
-    res.json([
-      { id: 'inventory', name: 'Inventory Report', description: 'Current inventory levels', endpoint: '/api/reports/inventory' },
-      { id: 'sales', name: 'Sales Report', description: 'Sales analytics', endpoint: '/api/reports/sales' },
-      { id: 'stock-movements', name: 'Stock Movements', description: 'Inventory movement history', endpoint: '/api/reports/stock-movements' },
-      { id: 'stock-valuation', name: 'Stock Valuation', description: 'Value of current stock', endpoint: '/api/reports/stock-valuation' },
-      { id: 'abc-analysis', name: 'ABC Analysis', description: 'Product classification analysis', endpoint: '/api/reports/abc-analysis' },
-      { id: 'low-stock', name: 'Low Stock Alert', description: 'Products below reorder point', endpoint: '/api/reports/low-stock' },
-      { id: 'summary', name: 'Summary Report', description: 'Overview of all reports', endpoint: '/api/reports/summary' }
-    ]);
-  } catch (error) {
-    console.error('Get reports list error:', error);
-    res.json([]);
-  }
-});
-
-// Labels list endpoint
-app.get('/api/labels', verifyToken, async (req, res) => {
-  try {
-    // Return label templates/history
-    res.json([
-      { id: 'product', name: 'Product Labels', description: 'Standard product barcode labels' },
-      { id: 'shelf', name: 'Shelf Labels', description: 'Location/shelf labels' },
-      { id: 'shipping', name: 'Shipping Labels', description: 'Order shipping labels' },
-      { id: 'batch', name: 'Batch Labels', description: 'Batch/lot tracking labels' }
-    ]);
-  } catch (error) {
-    console.error('Get labels list error:', error);
-    res.json([]);
-  }
-});
-
-// ===================================
-// INTEGRATION HEALTH & MONITORING
-// ===================================
-
-// Integration health check routes (public for monitoring systems)
-app.use('/api/health', integrationHealthRouter);
-
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// ========================================
+// ZOLTAN'S CUSTOMIZATIONS - NEW API ROUTES
+// ========================================
+
+// ==========================================
+// ALTERNATIVE SKU ROUTES (Multi-Channel SKU Mapping)
+// ==========================================
+
+// Get all alternative SKUs for a product
+app.get('/api/products/:productId/alternative-skus', verifyToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const alternativeSkus = await prisma.alternativeSku.findMany({
+      where: { 
+        productId,
+        companyId: req.user.companyId 
+      },
+      include: {
+        product: {
+          select: { sku: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(alternativeSkus);
+  } catch (error) {
+    console.error('Error fetching alternative SKUs:', error);
+    res.status(500).json({ error: 'Failed to fetch alternative SKUs' });
+  }
+});
+
+// Get alternative SKU by ID
+app.get('/api/alternative-skus/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const alternativeSku = await prisma.alternativeSku.findFirst({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      include: {
+        product: true
+      }
+    });
+    
+    if (!alternativeSku) {
+      return res.status(404).json({ error: 'Alternative SKU not found' });
+    }
+    
+    res.json(alternativeSku);
+  } catch (error) {
+    console.error('Error fetching alternative SKU:', error);
+    res.status(500).json({ error: 'Failed to fetch alternative SKU' });
+  }
+});
+
+// Create alternative SKU
+app.post('/api/alternative-skus', verifyToken, async (req, res) => {
+  try {
+    const { productId, channel, sku, skuSuffix, fnsku, asin, isActive } = req.body;
+    
+    const alternativeSku = await prisma.alternativeSku.create({
+      data: {
+        productId,
+        channel,
+        sku,
+        skuSuffix,
+        fnsku,
+        asin,
+        isActive: isActive !== undefined ? isActive : true,
+        companyId: req.user.companyId
+      },
+      include: {
+        product: {
+          select: { sku: true, name: true }
+        }
+      }
+    });
+    
+    res.status(201).json(alternativeSku);
+  } catch (error) {
+    console.error('Error creating alternative SKU:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Alternative SKU already exists for this product and channel' });
+    } else {
+      res.status(500).json({ error: 'Failed to create alternative SKU' });
+    }
+  }
+});
+
+// Update alternative SKU
+app.put('/api/alternative-skus/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sku, skuSuffix, fnsku, asin, isActive } = req.body;
+    
+    const alternativeSku = await prisma.alternativeSku.updateMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      data: {
+        sku,
+        skuSuffix,
+        fnsku,
+        asin,
+        isActive
+      }
+    });
+    
+    if (alternativeSku.count === 0) {
+      return res.status(404).json({ error: 'Alternative SKU not found' });
+    }
+    
+    const updated = await prisma.alternativeSku.findUnique({
+      where: { id },
+      include: {
+        product: {
+          select: { sku: true, name: true }
+        }
+      }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating alternative SKU:', error);
+    res.status(500).json({ error: 'Failed to update alternative SKU' });
+  }
+});
+
+// Delete alternative SKU
+app.delete('/api/alternative-skus/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await prisma.alternativeSku.deleteMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Alternative SKU not found' });
+    }
+    
+    res.json({ message: 'Alternative SKU deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting alternative SKU:', error);
+    res.status(500).json({ error: 'Failed to delete alternative SKU' });
+  }
+});
+
+// ==========================================
+// SUPPLIER PRODUCT ROUTES (Supplier Products with Case Sizes)
+// ==========================================
+
+// Get all supplier products
+app.get('/api/supplier-products', verifyToken, async (req, res) => {
+  try {
+    const supplierProducts = await prisma.supplierProduct.findMany({
+      where: { companyId: req.user.companyId },
+      include: {
+        product: {
+          select: { sku: true, name: true, costPrice: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(supplierProducts);
+  } catch (error) {
+    console.error('Error fetching supplier products:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier products' });
+  }
+});
+
+// Get supplier products by supplier ID
+app.get('/api/suppliers/:supplierId/products', verifyToken, async (req, res) => {
+  try {
+    const { supplierId } = req.params;
+    const supplierProducts = await prisma.supplierProduct.findMany({
+      where: { 
+        supplierId,
+        companyId: req.user.companyId 
+      },
+      include: {
+        product: {
+          select: { sku: true, name: true, costPrice: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(supplierProducts);
+  } catch (error) {
+    console.error('Error fetching supplier products:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier products' });
+  }
+});
+
+// Get supplier products by product ID
+app.get('/api/products/:productId/supplier-products', verifyToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const supplierProducts = await prisma.supplierProduct.findMany({
+      where: { 
+        productId,
+        companyId: req.user.companyId 
+      },
+      orderBy: [
+        { isPrimary: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    });
+    res.json(supplierProducts);
+  } catch (error) {
+    console.error('Error fetching supplier products:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier products' });
+  }
+});
+
+// Create supplier product (with auto unit cost calculation)
+app.post('/api/supplier-products', verifyToken, async (req, res) => {
+  try {
+    const { 
+      supplierId, 
+      productId, 
+      supplierSku, 
+      supplierName, 
+      caseSize, 
+      caseCost, 
+      isPrimary, 
+      leadTimeDays, 
+      moq 
+    } = req.body;
+    
+    // Auto-calculate unit cost if caseCost and caseSize provided
+    const unitCost = (caseCost && caseSize) ? caseCost / caseSize : null;
+    
+    const supplierProduct = await prisma.supplierProduct.create({
+      data: {
+        supplierId,
+        productId,
+        supplierSku,
+        supplierName,
+        caseSize,
+        caseCost,
+        unitCost,
+        isPrimary: isPrimary || false,
+        leadTimeDays,
+        moq,
+        companyId: req.user.companyId
+      },
+      include: {
+        product: {
+          select: { sku: true, name: true, costPrice: true }
+        }
+      }
+    });
+    
+    res.status(201).json(supplierProduct);
+  } catch (error) {
+    console.error('Error creating supplier product:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Supplier SKU already exists for this supplier' });
+    } else {
+      res.status(500).json({ error: 'Failed to create supplier product' });
+    }
+  }
+});
+
+// Update supplier product
+app.put('/api/supplier-products/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      supplierSku, 
+      supplierName, 
+      caseSize, 
+      caseCost, 
+      isPrimary, 
+      leadTimeDays, 
+      moq 
+    } = req.body;
+    
+    // Auto-calculate unit cost if caseCost and caseSize provided
+    const unitCost = (caseCost && caseSize) ? caseCost / caseSize : undefined;
+    
+    const supplierProduct = await prisma.supplierProduct.updateMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      data: {
+        supplierSku,
+        supplierName,
+        caseSize,
+        caseCost,
+        unitCost,
+        isPrimary,
+        leadTimeDays,
+        moq
+      }
+    });
+    
+    if (supplierProduct.count === 0) {
+      return res.status(404).json({ error: 'Supplier product not found' });
+    }
+    
+    const updated = await prisma.supplierProduct.findUnique({
+      where: { id },
+      include: {
+        product: {
+          select: { sku: true, name: true, costPrice: true }
+        }
+      }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating supplier product:', error);
+    res.status(500).json({ error: 'Failed to update supplier product' });
+  }
+});
+
+// Delete supplier product
+app.delete('/api/supplier-products/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await prisma.supplierProduct.deleteMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Supplier product not found' });
+    }
+    
+    res.json({ message: 'Supplier product deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting supplier product:', error);
+    res.status(500).json({ error: 'Failed to delete supplier product' });
+  }
+});
+
+// ==========================================
+// CONSUMABLE ROUTES (Packaging Materials)
+// ==========================================
+
+// Get all consumables
+app.get('/api/consumables', verifyToken, async (req, res) => {
+  try {
+    const { category, lowStock } = req.query;
+    
+    const where = { companyId: req.user.companyId };
+    
+    if (category) {
+      where.category = category;
+    }
+    
+    if (lowStock === 'true') {
+      // Get consumables where currentStock <= minStockLevel
+      const consumables = await prisma.consumable.findMany({
+        where,
+        orderBy: { name: 'asc' }
+      });
+      
+      const lowStockItems = consumables.filter(c => c.currentStock <= c.minStockLevel);
+      return res.json(lowStockItems);
+    }
+    
+    const consumables = await prisma.consumable.findMany({
+      where,
+      orderBy: { name: 'asc' }
+    });
+    
+    res.json(consumables);
+  } catch (error) {
+    console.error('Error fetching consumables:', error);
+    res.status(500).json({ error: 'Failed to fetch consumables' });
+  }
+});
+
+// Get consumable by ID
+app.get('/api/consumables/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const consumable = await prisma.consumable.findFirst({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      include: {
+        usage: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
+      }
+    });
+    
+    if (!consumable) {
+      return res.status(404).json({ error: 'Consumable not found' });
+    }
+    
+    res.json(consumable);
+  } catch (error) {
+    console.error('Error fetching consumable:', error);
+    res.status(500).json({ error: 'Failed to fetch consumable' });
+  }
+});
+
+// Create consumable
+app.post('/api/consumables', verifyToken, async (req, res) => {
+  try {
+    const { sku, name, category, currentStock, minStockLevel, unitCost } = req.body;
+    
+    const consumable = await prisma.consumable.create({
+      data: {
+        sku,
+        name,
+        category: category || 'PACKAGING',
+        currentStock: currentStock || 0,
+        minStockLevel: minStockLevel || 10,
+        unitCost,
+        companyId: req.user.companyId
+      }
+    });
+    
+    res.status(201).json(consumable);
+  } catch (error) {
+    console.error('Error creating consumable:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Consumable SKU already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create consumable' });
+    }
+  }
+});
+
+// Update consumable
+app.put('/api/consumables/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category, currentStock, minStockLevel, unitCost } = req.body;
+    
+    const consumable = await prisma.consumable.updateMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      data: {
+        name,
+        category,
+        currentStock,
+        minStockLevel,
+        unitCost
+      }
+    });
+    
+    if (consumable.count === 0) {
+      return res.status(404).json({ error: 'Consumable not found' });
+    }
+    
+    const updated = await prisma.consumable.findUnique({
+      where: { id }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating consumable:', error);
+    res.status(500).json({ error: 'Failed to update consumable' });
+  }
+});
+
+// Delete consumable
+app.delete('/api/consumables/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await prisma.consumable.deleteMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Consumable not found' });
+    }
+    
+    res.json({ message: 'Consumable deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting consumable:', error);
+    res.status(500).json({ error: 'Failed to delete consumable' });
+  }
+});
+
+// Record consumable usage
+app.post('/api/consumables/usage', verifyToken, async (req, res) => {
+  try {
+    const { consumableId, quantity, usedBy, orderId, reason } = req.body;
+    
+    // Create usage record
+    const usage = await prisma.consumableUsage.create({
+      data: {
+        consumableId,
+        quantity,
+        usedBy,
+        orderId,
+        reason,
+        companyId: req.user.companyId
+      }
+    });
+    
+    // Update consumable stock
+    await prisma.consumable.update({
+      where: { id: consumableId },
+      data: {
+        currentStock: {
+          decrement: quantity
+        }
+      }
+    });
+    
+    res.status(201).json(usage);
+  } catch (error) {
+    console.error('Error recording consumable usage:', error);
+    res.status(500).json({ error: 'Failed to record consumable usage' });
+  }
+});
+
+// Get consumable usage history
+app.get('/api/consumables/:id/usage', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usage = await prisma.consumableUsage.findMany({
+      where: { 
+        consumableId: id,
+        companyId: req.user.companyId 
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+    
+    res.json(usage);
+  } catch (error) {
+    console.error('Error fetching consumable usage:', error);
+    res.status(500).json({ error: 'Failed to fetch consumable usage' });
+  }
+});
+
+// ==========================================
+// MARKETPLACE CONNECTION ROUTES
+// ==========================================
+
+// Get all marketplace connections
+app.get('/api/marketplace-connections', verifyToken, async (req, res) => {
+  try {
+    const connections = await prisma.marketplaceConnection.findMany({
+      where: { companyId: req.user.companyId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(connections);
+  } catch (error) {
+    console.error('Error fetching marketplace connections:', error);
+    res.status(500).json({ error: 'Failed to fetch marketplace connections' });
+  }
+});
+
+// Get marketplace connection by ID
+app.get('/api/marketplace-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const connection = await prisma.marketplaceConnection.findFirst({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      include: {
+        orderSyncs: {
+          orderBy: { syncedAt: 'desc' },
+          take: 20
+        },
+        stockSyncs: {
+          orderBy: { syncedAt: 'desc' },
+          take: 20
+        }
+      }
+    });
+    
+    if (!connection) {
+      return res.status(404).json({ error: 'Marketplace connection not found' });
+    }
+    
+    res.json(connection);
+  } catch (error) {
+    console.error('Error fetching marketplace connection:', error);
+    res.status(500).json({ error: 'Failed to fetch marketplace connection' });
+  }
+});
+
+// Create marketplace connection
+app.post('/api/marketplace-connections', verifyToken, async (req, res) => {
+  try {
+    const {
+      marketplace,
+      accountName,
+      // Generic credentials
+      apiKey,
+      apiSecret,
+      accessToken,
+      refreshToken,
+      // Amazon SP-API fields
+      sellerId,        // Merchant Token
+      clientId,        // Client ID
+      clientSecret,    // Client Secret
+      awsAccessKeyId,
+      awsSecretKey,
+      region,
+      // Shopify fields
+      shopUrl,
+      shopifyApiKey,
+      shopifyApiSecret,
+      shopifyAccessToken,
+      // eBay fields
+      ebayAppId,
+      ebayDevId,
+      ebayCertId,
+      ebayAuthToken,
+      ebayRefreshToken,
+      ebayEnvironment,
+      // Generic
+      storeId,
+      // Sync settings
+      autoSyncOrders,
+      autoSyncStock,
+      syncFrequency,
+      isActive
+    } = req.body;
+
+    const connection = await prisma.marketplaceConnection.create({
+      data: {
+        marketplace,
+        accountName,
+        // Generic credentials
+        apiKey,
+        apiSecret,
+        accessToken,
+        refreshToken,
+        // Amazon SP-API fields
+        sellerId,
+        clientId,
+        clientSecret,
+        awsAccessKeyId,
+        awsSecretKey,
+        region: region || 'eu-west-1', // Default to EU region for UK
+        // Shopify fields
+        shopUrl,
+        shopifyApiKey,
+        shopifyApiSecret,
+        shopifyAccessToken,
+        // eBay fields
+        ebayAppId,
+        ebayDevId,
+        ebayCertId,
+        ebayAuthToken,
+        ebayRefreshToken,
+        ebayEnvironment: ebayEnvironment || 'production',
+        // Generic
+        storeId,
+        // Sync settings
+        autoSyncOrders: autoSyncOrders !== undefined ? autoSyncOrders : true,
+        autoSyncStock: autoSyncStock !== undefined ? autoSyncStock : true,
+        syncFrequency: syncFrequency || 30,
+        isActive: isActive !== undefined ? isActive : true,
+        companyId: req.user.companyId
+      }
+    });
+
+    res.status(201).json(connection);
+  } catch (error) {
+    console.error('Error creating marketplace connection:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Marketplace connection already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create marketplace connection', details: error.message });
+    }
+  }
+});
+
+// Update marketplace connection
+app.put('/api/marketplace-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      accountName,
+      // Generic credentials
+      apiKey,
+      apiSecret,
+      accessToken,
+      refreshToken,
+      // Amazon SP-API fields
+      sellerId,
+      clientId,
+      clientSecret,
+      awsAccessKeyId,
+      awsSecretKey,
+      region,
+      // Shopify fields
+      shopUrl,
+      shopifyApiKey,
+      shopifyApiSecret,
+      shopifyAccessToken,
+      // eBay fields
+      ebayAppId,
+      ebayDevId,
+      ebayCertId,
+      ebayAuthToken,
+      ebayRefreshToken,
+      ebayEnvironment,
+      // Generic
+      storeId,
+      // Sync settings
+      autoSyncOrders,
+      autoSyncStock,
+      syncFrequency,
+      isActive
+    } = req.body;
+
+    // Build update object only with provided fields
+    const updateData = {};
+    if (accountName !== undefined) updateData.accountName = accountName;
+    if (apiKey !== undefined) updateData.apiKey = apiKey;
+    if (apiSecret !== undefined) updateData.apiSecret = apiSecret;
+    if (accessToken !== undefined) updateData.accessToken = accessToken;
+    if (refreshToken !== undefined) updateData.refreshToken = refreshToken;
+    if (sellerId !== undefined) updateData.sellerId = sellerId;
+    if (clientId !== undefined) updateData.clientId = clientId;
+    if (clientSecret !== undefined) updateData.clientSecret = clientSecret;
+    if (awsAccessKeyId !== undefined) updateData.awsAccessKeyId = awsAccessKeyId;
+    if (awsSecretKey !== undefined) updateData.awsSecretKey = awsSecretKey;
+    if (region !== undefined) updateData.region = region;
+    if (shopUrl !== undefined) updateData.shopUrl = shopUrl;
+    if (shopifyApiKey !== undefined) updateData.shopifyApiKey = shopifyApiKey;
+    if (shopifyApiSecret !== undefined) updateData.shopifyApiSecret = shopifyApiSecret;
+    if (shopifyAccessToken !== undefined) updateData.shopifyAccessToken = shopifyAccessToken;
+    if (ebayAppId !== undefined) updateData.ebayAppId = ebayAppId;
+    if (ebayDevId !== undefined) updateData.ebayDevId = ebayDevId;
+    if (ebayCertId !== undefined) updateData.ebayCertId = ebayCertId;
+    if (ebayAuthToken !== undefined) updateData.ebayAuthToken = ebayAuthToken;
+    if (ebayRefreshToken !== undefined) updateData.ebayRefreshToken = ebayRefreshToken;
+    if (ebayEnvironment !== undefined) updateData.ebayEnvironment = ebayEnvironment;
+    if (storeId !== undefined) updateData.storeId = storeId;
+    if (autoSyncOrders !== undefined) updateData.autoSyncOrders = autoSyncOrders;
+    if (autoSyncStock !== undefined) updateData.autoSyncStock = autoSyncStock;
+    if (syncFrequency !== undefined) updateData.syncFrequency = syncFrequency;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const connection = await prisma.marketplaceConnection.updateMany({
+      where: {
+        id,
+        companyId: req.user.companyId
+      },
+      data: updateData
+    });
+
+    if (connection.count === 0) {
+      return res.status(404).json({ error: 'Marketplace connection not found' });
+    }
+
+    const updated = await prisma.marketplaceConnection.findUnique({
+      where: { id }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating marketplace connection:', error);
+    res.status(500).json({ error: 'Failed to update marketplace connection' });
+  }
+});
+
+// Delete marketplace connection
+app.delete('/api/marketplace-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await prisma.marketplaceConnection.deleteMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Marketplace connection not found' });
+    }
+    
+    res.json({ message: 'Marketplace connection deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting marketplace connection:', error);
+    res.status(500).json({ error: 'Failed to delete marketplace connection' });
+  }
+});
+
+// Sync marketplace orders (manual trigger)
+app.post('/api/marketplace-connections/:id/sync-orders', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // TODO: Implement actual marketplace API integration
+    // For now, just log the sync request
+    console.log(`Manual order sync requested for marketplace connection ${id}`);
+    
+    res.json({ 
+      message: 'Order sync initiated', 
+      status: 'PENDING',
+      note: 'Marketplace API integration pending implementation'
+    });
+  } catch (error) {
+    console.error('Error syncing marketplace orders:', error);
+    res.status(500).json({ error: 'Failed to sync marketplace orders' });
+  }
+});
+
+// Sync marketplace stock (manual trigger)
+app.post('/api/marketplace-connections/:id/sync-stock', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // TODO: Implement actual marketplace API integration
+    console.log(`Manual stock sync requested for marketplace connection ${id}`);
+    
+    res.json({ 
+      message: 'Stock sync initiated', 
+      status: 'PENDING',
+      note: 'Marketplace API integration pending implementation'
+    });
+  } catch (error) {
+    console.error('Error syncing marketplace stock:', error);
+    res.status(500).json({ error: 'Failed to sync marketplace stock' });
+  }
+});
+
+// ==========================================
+// COURIER CONNECTION ROUTES
+// ==========================================
+
+// Get all courier connections
+app.get('/api/courier-connections', verifyToken, async (req, res) => {
+  try {
+    const connections = await prisma.courierConnection.findMany({
+      where: { companyId: req.user.companyId },
+      orderBy: [
+        { isDefault: 'desc' },
+        { courier: 'asc' }
+      ]
+    });
+    res.json(connections);
+  } catch (error) {
+    console.error('Error fetching courier connections:', error);
+    res.status(500).json({ error: 'Failed to fetch courier connections' });
+  }
+});
+
+// Get courier connection by ID
+app.get('/api/courier-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const connection = await prisma.courierConnection.findFirst({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      include: {
+        shipments: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
+      }
+    });
+    
+    if (!connection) {
+      return res.status(404).json({ error: 'Courier connection not found' });
+    }
+    
+    res.json(connection);
+  } catch (error) {
+    console.error('Error fetching courier connection:', error);
+    res.status(500).json({ error: 'Failed to fetch courier connection' });
+  }
+});
+
+// Create courier connection
+app.post('/api/courier-connections', verifyToken, async (req, res) => {
+  try {
+    const {
+      courier,
+      accountName,
+      // Generic credentials
+      apiKey,
+      apiSecret,
+      accountNumber,
+      username,
+      password,
+      // Royal Mail / Parcelforce specific
+      royalMailApiKey,
+      royalMailPostingLocation,
+      parcelforceContractNumber,
+      // DPD specific
+      dpdGeoSession,
+      dpdAccountCode,
+      // OAuth
+      accessToken,
+      refreshToken,
+      // Settings
+      isDefault,
+      isActive,
+      testMode,
+      defaultService,
+      serviceOptions
+    } = req.body;
+
+    // If setting as default, unset other defaults for this company
+    if (isDefault) {
+      await prisma.courierConnection.updateMany({
+        where: {
+          companyId: req.user.companyId,
+          courier
+        },
+        data: { isDefault: false }
+      });
+    }
+
+    const connection = await prisma.courierConnection.create({
+      data: {
+        courier,
+        accountName,
+        // Generic credentials
+        apiKey,
+        apiSecret,
+        accountNumber,
+        username,
+        password,
+        // Royal Mail / Parcelforce specific
+        royalMailApiKey,
+        royalMailPostingLocation,
+        parcelforceContractNumber,
+        // DPD specific
+        dpdGeoSession,
+        dpdAccountCode,
+        // OAuth
+        accessToken,
+        refreshToken,
+        // Settings
+        isDefault: isDefault || false,
+        isActive: isActive !== undefined ? isActive : true,
+        testMode: testMode || false,
+        defaultService,
+        serviceOptions,
+        companyId: req.user.companyId
+      }
+    });
+
+    res.status(201).json(connection);
+  } catch (error) {
+    console.error('Error creating courier connection:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Courier connection already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create courier connection' });
+    }
+  }
+});
+
+// Update courier connection
+app.put('/api/courier-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      accountName,
+      apiKey,
+      apiSecret,
+      accountNumber,
+      username,
+      password,
+      royalMailApiKey,
+      royalMailPostingLocation,
+      parcelforceContractNumber,
+      dpdGeoSession,
+      dpdAccountCode,
+      accessToken,
+      refreshToken,
+      isDefault,
+      isActive,
+      testMode,
+      defaultService,
+      serviceOptions
+    } = req.body;
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      const connection = await prisma.courierConnection.findUnique({
+        where: { id },
+        select: { courier: true }
+      });
+
+      if (connection) {
+        await prisma.courierConnection.updateMany({
+          where: {
+            companyId: req.user.companyId,
+            courier: connection.courier,
+            id: { not: id }
+          },
+          data: { isDefault: false }
+        });
+      }
+    }
+
+    // Build update object only with provided fields
+    const updateData = {};
+    if (accountName !== undefined) updateData.accountName = accountName;
+    if (apiKey !== undefined) updateData.apiKey = apiKey;
+    if (apiSecret !== undefined) updateData.apiSecret = apiSecret;
+    if (accountNumber !== undefined) updateData.accountNumber = accountNumber;
+    if (username !== undefined) updateData.username = username;
+    if (password !== undefined) updateData.password = password;
+    if (royalMailApiKey !== undefined) updateData.royalMailApiKey = royalMailApiKey;
+    if (royalMailPostingLocation !== undefined) updateData.royalMailPostingLocation = royalMailPostingLocation;
+    if (parcelforceContractNumber !== undefined) updateData.parcelforceContractNumber = parcelforceContractNumber;
+    if (dpdGeoSession !== undefined) updateData.dpdGeoSession = dpdGeoSession;
+    if (dpdAccountCode !== undefined) updateData.dpdAccountCode = dpdAccountCode;
+    if (accessToken !== undefined) updateData.accessToken = accessToken;
+    if (refreshToken !== undefined) updateData.refreshToken = refreshToken;
+    if (isDefault !== undefined) updateData.isDefault = isDefault;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (testMode !== undefined) updateData.testMode = testMode;
+    if (defaultService !== undefined) updateData.defaultService = defaultService;
+    if (serviceOptions !== undefined) updateData.serviceOptions = serviceOptions;
+
+    const result = await prisma.courierConnection.updateMany({
+      where: {
+        id,
+        companyId: req.user.companyId
+      },
+      data: updateData
+    });
+
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Courier connection not found' });
+    }
+
+    const updated = await prisma.courierConnection.findUnique({
+      where: { id }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating courier connection:', error);
+    res.status(500).json({ error: 'Failed to update courier connection' });
+  }
+});
+
+// Delete courier connection
+app.delete('/api/courier-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await prisma.courierConnection.deleteMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Courier connection not found' });
+    }
+    
+    res.json({ message: 'Courier connection deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting courier connection:', error);
+    res.status(500).json({ error: 'Failed to delete courier connection' });
+  }
+});
+
+// ==========================================
+// COURIER SHIPMENT ROUTES
+// ==========================================
+
+// Get all shipments
+app.get('/api/courier-shipments', verifyToken, async (req, res) => {
+  try {
+    const { status, courier } = req.query;
+    
+    const where = { companyId: req.user.companyId };
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    let shipments;
+    
+    if (courier) {
+      shipments = await prisma.courierShipment.findMany({
+        where,
+        include: {
+          connection: {
+            where: { courier }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      // Filter out shipments without matching courier
+      shipments = shipments.filter(s => s.connection !== null);
+    } else {
+      shipments = await prisma.courierShipment.findMany({
+        where,
+        include: {
+          connection: {
+            select: { courier: true, accountName: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+    
+    res.json(shipments);
+  } catch (error) {
+    console.error('Error fetching courier shipments:', error);
+    res.status(500).json({ error: 'Failed to fetch courier shipments' });
+  }
+});
+
+// Get shipment by ID
+app.get('/api/courier-shipments/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const shipment = await prisma.courierShipment.findFirst({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      include: {
+        connection: true
+      }
+    });
+    
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    
+    res.json(shipment);
+  } catch (error) {
+    console.error('Error fetching shipment:', error);
+    res.status(500).json({ error: 'Failed to fetch shipment' });
+  }
+});
+
+// Get shipment by tracking number
+app.get('/api/courier-shipments/tracking/:trackingNumber', verifyToken, async (req, res) => {
+  try {
+    const { trackingNumber } = req.params;
+    const shipment = await prisma.courierShipment.findFirst({
+      where: { 
+        trackingNumber,
+        companyId: req.user.companyId 
+      },
+      include: {
+        connection: {
+          select: { courier: true, accountName: true }
+        }
+      }
+    });
+    
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    
+    res.json(shipment);
+  } catch (error) {
+    console.error('Error fetching shipment:', error);
+    res.status(500).json({ error: 'Failed to fetch shipment' });
+  }
+});
+
+// Create shipment
+app.post('/api/courier-shipments', verifyToken, async (req, res) => {
+  try {
+    const { 
+      connectionId, 
+      orderId, 
+      trackingNumber, 
+      labelUrl, 
+      serviceCode, 
+      weight, 
+      cost, 
+      estimatedDelivery 
+    } = req.body;
+    
+    const shipment = await prisma.courierShipment.create({
+      data: {
+        connectionId,
+        orderId,
+        trackingNumber,
+        labelUrl,
+        serviceCode,
+        weight,
+        cost,
+        status: 'LABEL_CREATED',
+        estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
+        companyId: req.user.companyId
+      },
+      include: {
+        connection: {
+          select: { courier: true, accountName: true }
+        }
+      }
+    });
+    
+    res.status(201).json(shipment);
+  } catch (error) {
+    console.error('Error creating shipment:', error);
+    if (error.code === 'P2002') {
+      res.status(400).json({ error: 'Tracking number already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create shipment' });
+    }
+  }
+});
+
+// Update shipment status
+app.put('/api/courier-shipments/:id/status', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, actualDelivery } = req.body;
+    
+    const data = { status };
+    
+    if (actualDelivery) {
+      data.actualDelivery = new Date(actualDelivery);
+    }
+    
+    const result = await prisma.courierShipment.updateMany({
+      where: { 
+        id,
+        companyId: req.user.companyId 
+      },
+      data
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    
+    const updated = await prisma.courierShipment.findUnique({
+      where: { id },
+      include: {
+        connection: {
+          select: { courier: true, accountName: true }
+        }
+      }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating shipment status:', error);
+    res.status(500).json({ error: 'Failed to update shipment status' });
+  }
+});
+
+// Generate shipping label (placeholder - needs actual courier API integration)
+app.post('/api/courier-shipments/generate-label', verifyToken, async (req, res) => {
+  try {
+    const { connectionId, orderId, weight, serviceCode } = req.body;
+    
+    // TODO: Implement actual courier API integration
+    console.log(`Label generation requested for order ${orderId} via connection ${connectionId}`);
+    
+    res.json({ 
+      message: 'Label generation initiated', 
+      status: 'PENDING',
+      note: 'Courier API integration pending implementation'
+    });
+  } catch (error) {
+    console.error('Error generating shipping label:', error);
+    res.status(500).json({ error: 'Failed to generate shipping label' });
+  }
+});
+
+// END OF NEW ROUTES
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WMS API Server running on port ${PORT}`);
@@ -8366,7 +9484,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n✅ API Endpoints:`);
   console.log(`   - Health: GET /health`);
-  console.log(`   - Integration Health: GET /api/health/integrations`);
   console.log(`   - Auth: POST /api/auth/login`);
   console.log(`   - Brands: GET /api/brands`);
   console.log(`   - Products: GET /api/products`);
@@ -8375,36 +9492,17 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   - Replenishment: GET /api/replenishment/tasks`);
   console.log(`   - FBA Transfers: GET /api/transfers`);
   console.log(`   - Analytics: GET /api/analytics/channel-prices`);
-
-  // Start integration monitoring (only in production or if explicitly enabled)
-  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_MONITORING === 'true') {
-    try {
-      const monitor = getMonitor();
-      monitor.start();
-      console.log(`\n🔍 Integration monitoring started`);
-    } catch (error) {
-      console.error('Failed to start integration monitor:', error.message);
-    }
-  }
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
-  try {
-    const monitor = getMonitor();
-    monitor.stop();
-  } catch (e) { /* ignore */ }
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
-  try {
-    const monitor = getMonitor();
-    monitor.stop();
-  } catch (e) { /* ignore */ }
   await prisma.$disconnect();
   process.exit(0);
 });

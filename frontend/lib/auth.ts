@@ -1,12 +1,13 @@
 // Authentication and role management utilities
 
-export type UserRole = 'admin' | 'manager' | 'warehouse_staff' | 'picker' | 'packer';
+export type UserRole = 'super_admin' | 'company_admin' | 'warehouse_manager' | 'inventory_manager' | 'admin' | 'manager' | 'picker' | 'packer' | 'warehouse_staff' | 'viewer';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  companyId?: string;
   warehouseId?: string;
 }
 
@@ -46,61 +47,98 @@ export const clearCurrentUser = () => {
 };
 
 export const getRoleDashboardPath = (role: UserRole): string => {
-  const dashboardPaths: Record<UserRole, string> = {
-    admin: '/dashboard',
-    manager: '/dashboards/manager',
-    warehouse_staff: '/dashboards/warehouse-staff',
-    picker: '/dashboards/picker',
-    packer: '/dashboards/packer',
-  };
-
-  return dashboardPaths[role] || '/dashboard';
+  // All roles use the main dashboard now
+  return '/dashboard';
 };
 
 export const hasPermission = (userRole: UserRole, requiredRoles: UserRole[]): boolean => {
-  return requiredRoles.includes(userRole);
+  // Normalize the role for comparison
+  const normalizedRole = userRole.toLowerCase().replace(/-/g, '_') as UserRole;
+  return requiredRoles.some(r => r.toLowerCase().replace(/-/g, '_') === normalizedRole);
 };
 
 export const canAccessRoute = (userRole: UserRole, route: string): boolean => {
-  // Admin can access everything
-  if (userRole === 'admin') return true;
+  // Import permission check from permissions module
+  // This is a simplified version - the full version is in permissions.ts
+  const normalizedRole = userRole.toLowerCase().replace(/-/g, '_');
 
-  // Manager can access most routes except user management
-  if (userRole === 'manager') {
-    const restrictedRoutes = ['/users', '/companies', '/settings'];
-    return !restrictedRoutes.some(r => route.startsWith(r));
+  // Super admin and company admin can access everything
+  if (normalizedRole === 'super_admin' || normalizedRole === 'company_admin') {
+    return true;
   }
 
-  // Warehouse staff can access operational routes
-  if (userRole === 'warehouse_staff') {
+  // Admin can access most routes
+  if (normalizedRole === 'admin') {
+    const superAdminOnly = ['/companies'];
+    return !superAdminOnly.some(r => route.startsWith(r));
+  }
+
+  // Warehouse manager
+  if (normalizedRole === 'warehouse_manager') {
     const allowedRoutes = [
-      '/dashboards/warehouse-staff',
-      '/goods-receiving',
-      '/inventory',
-      '/shipments',
-      '/transfers',
+      '/dashboard', '/profile',
+      '/warehouses', '/inventory', '/products',
+      '/purchase-orders', '/goods-receiving', '/suppliers',
+      '/sales-orders', '/customers', '/clients',
+      '/picking', '/packing', '/shipments', '/returns',
+      '/transfers', '/fba-transfers', '/labels',
+      '/replenishment', '/analytics', '/reports',
     ];
     return allowedRoutes.some(r => route.startsWith(r));
   }
 
-  // Picker can only access picking-related routes
-  if (userRole === 'picker') {
+  // Manager
+  if (normalizedRole === 'manager') {
+    const restrictedRoutes = ['/users', '/companies', '/settings', '/integrations'];
+    if (restrictedRoutes.some(r => route.startsWith(r))) return false;
+    return true;
+  }
+
+  // Picker can access picking-related routes
+  if (normalizedRole === 'picker') {
     const allowedRoutes = [
-      '/dashboards/picker',
-      '/picking',
-      '/sales-orders',
-      '/inventory',
+      '/dashboard', '/profile',
+      '/picking', '/sales-orders', '/inventory',
     ];
     return allowedRoutes.some(r => route.startsWith(r));
   }
 
-  // Packer can only access packing-related routes
-  if (userRole === 'packer') {
+  // Packer can access packing-related routes
+  if (normalizedRole === 'packer') {
     const allowedRoutes = [
-      '/dashboards/packer',
-      '/packing',
-      '/shipments',
-      '/labels',
+      '/dashboard', '/profile',
+      '/packing', '/shipments', '/labels', '/sales-orders',
+    ];
+    return allowedRoutes.some(r => route.startsWith(r));
+  }
+
+  // Warehouse staff
+  if (normalizedRole === 'warehouse_staff') {
+    const allowedRoutes = [
+      '/dashboard', '/profile',
+      '/goods-receiving', '/inventory', '/shipments', '/transfers',
+    ];
+    return allowedRoutes.some(r => route.startsWith(r));
+  }
+
+  // Viewer - read-only access
+  if (normalizedRole === 'viewer') {
+    const allowedRoutes = [
+      '/dashboard', '/profile',
+      '/inventory', '/products', '/purchase-orders',
+      '/suppliers', '/sales-orders', '/customers', '/clients',
+      '/shipments', '/returns', '/reports',
+    ];
+    return allowedRoutes.some(r => route.startsWith(r));
+  }
+
+  // Inventory manager
+  if (normalizedRole === 'inventory_manager') {
+    const allowedRoutes = [
+      '/dashboard', '/profile',
+      '/inventory', '/products', '/purchase-orders',
+      '/goods-receiving', '/suppliers', '/sales-orders',
+      '/customers', '/transfers', '/reports',
     ];
     return allowedRoutes.some(r => route.startsWith(r));
   }

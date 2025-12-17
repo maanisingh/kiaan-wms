@@ -6,15 +6,22 @@ import type { User } from '@/types';
 const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
 const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.replace('/api', '') : rawApiUrl;
 
+// Helper to normalize role from backend (SUPER_ADMIN -> super_admin)
+const normalizeRole = (role: string): string => {
+  return role.toLowerCase().replace(/-/g, '_');
+};
+
 // Demo users for client-side authentication (when backend is not available)
 const DEMO_USERS = [
   // Database users (matches backend database)
   { id: 'super-admin-001', email: 'admin@kiaan-wms.com', password: 'Admin@123', name: 'Super Administrator', role: 'super_admin', companyId: 'demo-company' },
   { id: 'company-admin-001', email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', name: 'Company Administrator', role: 'company_admin', companyId: 'demo-company' },
-  { id: 'picker-001', email: 'picker@kiaan-wms.com', password: 'Admin@123', name: 'Picker User', role: 'picker', companyId: 'demo-company' },
-  { id: 'viewer-001', email: 'viewer@kiaan-wms.com', password: 'Admin@123', name: 'Viewer User', role: 'viewer', companyId: 'demo-company' },
   { id: 'warehouse-manager-001', email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', name: 'Warehouse Manager', role: 'warehouse_manager', companyId: 'demo-company' },
+  { id: 'picker-001', email: 'picker@kiaan-wms.com', password: 'Admin@123', name: 'Picker User', role: 'picker', companyId: 'demo-company' },
+  { id: 'packer-001', email: 'packer@kiaan-wms.com', password: 'Admin@123', name: 'Packer User', role: 'packer', companyId: 'demo-company' },
+  { id: 'viewer-001', email: 'viewer@kiaan-wms.com', password: 'Admin@123', name: 'Viewer User', role: 'viewer', companyId: 'demo-company' },
   { id: 'inventory-manager-001', email: 'inventorymanager@kiaan-wms.com', password: 'Admin@123', name: 'Inventory Manager', role: 'inventory_manager', companyId: 'demo-company' },
+  { id: 'manager-001', email: 'manager@kiaan-wms.com', password: 'Admin@123', name: 'Manager', role: 'manager', companyId: 'demo-company' },
   // Quick demo access
   { id: 'demo-1', email: 'demo@kiaan.com', password: 'demo123', name: 'Demo User', role: 'super_admin', companyId: 'demo-company' },
   { id: 'demo-2', email: 'admin', password: 'admin', name: 'Quick Admin', role: 'super_admin', companyId: 'demo-company' },
@@ -67,11 +74,12 @@ export const useAuthStore = create<AuthState>()(
             }
 
             // Transform user data to match frontend type
+            // Normalize role: SUPER_ADMIN -> super_admin, COMPANY-ADMIN -> company_admin
             const user: User = {
               id: data.user.id,
               email: data.user.email,
               name: data.user.name,
-              role: data.user.role.toLowerCase().replace('_', '_'),
+              role: normalizeRole(data.user.role) as User['role'],
               companyId: data.user.companyId || '',
               status: data.user.isActive ? 'active' : 'inactive',
               permissions: [],

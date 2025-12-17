@@ -276,7 +276,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         trigger={null}
         collapsible
         collapsed={sidebarCollapsed}
-        className="shadow-lg"
+        className="shadow-lg ant-layout-sider-fixed"
         width={250}
         style={{
           overflow: 'auto',

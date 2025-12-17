@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
     // Skip ESLint during build for faster deployments
     ignoreDuringBuilds: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://wms-api.alexandratechlab.com/api/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

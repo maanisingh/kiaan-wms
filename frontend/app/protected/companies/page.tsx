@@ -32,7 +32,7 @@ export default function CompaniesPage() {
   const [form] = Form.useForm();
   const { token } = useAuthStore();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://serene-adaptation-production-c6d3.up.railway.app';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
 
   const fetchCompanies = async () => {
     try {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Button, DatePicker, Space, Alert, Avatar, List, Timeline, Progress } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Button, DatePicker, Space, Alert, Avatar, List, Timeline, Progress, Dropdown, Menu } from 'antd';
 import {
   DatabaseOutlined,
   ShoppingCartOutlined,
@@ -338,11 +338,19 @@ export default function DashboardPage() {
   };
 
   const quickActions = [
-    { title: 'Create Order', icon: <PlusOutlined />, href: '/sales-orders/new', color: '#1890ff' },
-    { title: 'Receive Goods', icon: <InboxOutlined />, href: '/goods-receiving/new', color: '#52c41a' },
-    { title: 'Create Transfer', icon: <CarOutlined />, href: '/transfers/new', color: '#722ed1' },
-    { title: 'Add Product', icon: <BoxPlotOutlined />, href: '/products/new', color: '#faad14' },
+    { title: 'Create Order', icon: <PlusOutlined />, href: '/protected/sales-orders/new', color: '#1890ff' },
+    { title: 'Receive Goods', icon: <InboxOutlined />, href: '/protected/goods-receiving/new', color: '#52c41a' },
+    { title: 'Create Transfer', icon: <CarOutlined />, href: '/protected/transfers/new', color: '#722ed1' },
+    { title: 'Add Product', icon: <BoxPlotOutlined />, href: '/protected/products/new', color: '#faad14' },
   ];
+
+  const quickAddMenu = {
+    items: quickActions.map((action, index) => ({
+      key: index.toString(),
+      icon: action.icon,
+      label: <Link href={action.href}>{action.title}</Link>,
+    })),
+  };
 
   const orderColumns = [
     {
@@ -395,7 +403,9 @@ export default function DashboardPage() {
               onChange={(dates) => dates && setDateRange([dates[0]!, dates[1]!])}
               format="MMM DD, YYYY"
             />
-            <Button type="primary" icon={<PlusOutlined />}>Quick Add</Button>
+            <Dropdown menu={quickAddMenu} placement="bottomRight">
+              <Button type="primary" icon={<PlusOutlined />}>Quick Add</Button>
+            </Dropdown>
           </Space>
         </div>
       </div>
@@ -491,11 +501,11 @@ export default function DashboardPage() {
         <Row gutter={[16, 16]}>
           {quickActions.map((action, index) => (
             <Col xs={12} sm={6} key={index}>
-              <Link href={action.href}>
+              <Link href={action.href} prefetch={false}>
                 <Card
                   hoverable
-                  className="text-center"
-                  bodyStyle={{ padding: '24px 12px' }}
+                  className="text-center cursor-pointer"
+                  styles={{ body: { padding: '24px 12px' } }}
                 >
                   <div style={{ fontSize: 32, color: action.color, marginBottom: 8 }}>
                     {action.icon}
