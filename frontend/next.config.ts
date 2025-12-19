@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://wms-api.alexandratechlab.com/api/:path*',
+        destination: 'http://91.98.157.75:8010/api/:path*',
       },
     ];
   },

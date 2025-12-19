@@ -152,6 +152,7 @@ export default function ProductDetailPage() {
   const [barcodeData, setBarcodeData] = useState<BarcodeHistory | null>(null);
   const [alternativeSKUs, setAlternativeSKUs] = useState<AlternativeSKU[]>([]);
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; code: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
@@ -212,10 +213,20 @@ export default function ProductDetailPage() {
     }
   };
 
+  const fetchSuppliers = async () => {
+    try {
+      const data = await apiService.get('/suppliers');
+      setSuppliers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch suppliers:', err);
+    }
+  };
+
   const fetchAlternativeSKUs = async () => {
-    try{
+    try {
       const data = await apiService.get(`/products/${params.id}/alternative-skus`);
-      setAlternativeSKUs(data.alternativeSKUs || []);
+      // Backend returns array directly with channelType and channelSKU mapped
+      setAlternativeSKUs(Array.isArray(data) ? data : (data.alternativeSKUs || []));
     } catch (err) {
       console.error('Failed to fetch alternative SKUs:', err);
       setAlternativeSKUs([]);
@@ -305,6 +316,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (params.id && activeTab === 'supplier-products') {
       fetchSupplierProducts();
+      fetchSuppliers();
     }
   }, [params.id, activeTab]);
 
@@ -1314,11 +1326,11 @@ export default function ProductDetailPage() {
                       columns={[
                         {
                           title: 'Supplier',
-                          dataIndex: 'supplierName',
                           key: 'supplier',
-                          render: (name: string, record: SupplierProduct) => (
+                          render: (_: any, record: any) => (
                             <div>
-                              <div className="font-semibold">{name || 'Unknown Supplier'}</div>
+                              <div className="font-semibold">{record.supplier?.name || record.supplierName || 'Unknown Supplier'}</div>
+                              {record.supplier?.code && <div className="text-xs text-gray-500">{record.supplier.code}</div>}
                               {record.isPrimary && <Tag color="gold">Primary</Tag>}
                             </div>
                           ),
@@ -1453,15 +1465,13 @@ export default function ProductDetailPage() {
             rules={[{ required: true, message: 'Please select a channel' }]}
           >
             <Select placeholder="Select marketplace/channel">
-              <Select.Option value="Amazon UK">Amazon UK</Select.Option>
-              <Select.Option value="Amazon EU">Amazon EU</Select.Option>
-              <Select.Option value="Amazon US">Amazon US</Select.Option>
-              <Select.Option value="Shopify">Shopify</Select.Option>
-              <Select.Option value="eBay">eBay</Select.Option>
-              <Select.Option value="TikTok Shop">TikTok Shop</Select.Option>
-              <Select.Option value="Temu">Temu</Select.Option>
-              <Select.Option value="Direct">Direct Sales</Select.Option>
-              <Select.Option value="Other">Other</Select.Option>
+              <Select.Option value="AMAZON_FBA">Amazon FBA</Select.Option>
+              <Select.Option value="AMAZON_MFN">Amazon MFN (Seller Fulfilled)</Select.Option>
+              <Select.Option value="SHOPIFY">Shopify</Select.Option>
+              <Select.Option value="EBAY">eBay</Select.Option>
+              <Select.Option value="TIKTOK">TikTok Shop</Select.Option>
+              <Select.Option value="TEMU">Temu</Select.Option>
+              <Select.Option value="OTHER">Other / Direct Sales</Select.Option>
             </Select>
           </Form.Item>
 
@@ -1522,11 +1532,11 @@ export default function ProductDetailPage() {
               placeholder="Select supplier"
               showSearch
               optionFilterProp="label"
-            >
-              {/* Suppliers will be loaded dynamically */}
-              <Select.Option value="supplier-1">Supplier 1</Select.Option>
-              <Select.Option value="supplier-2">Supplier 2</Select.Option>
-            </Select>
+              options={suppliers.map(s => ({
+                value: s.id,
+                label: `${s.name} (${s.code})`
+              }))}
+            />
           </Form.Item>
 
           <Form.Item

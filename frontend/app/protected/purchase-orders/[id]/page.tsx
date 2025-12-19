@@ -160,12 +160,14 @@ export default function PurchaseOrderDetailPage({ params }: { params: { id: stri
 
   // Print PO
   const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent || !purchaseOrder) return;
+    if (!purchaseOrder) {
+      msg.error('No purchase order data to print');
+      return;
+    }
 
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
-      msg.error('Please allow popups to print');
+      msg.error('Please allow popups to print. Check your browser settings.');
       return;
     }
 
@@ -277,8 +279,13 @@ export default function PurchaseOrderDetailPage({ params }: { params: { id: stri
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
-      printWindow.print();
-    }, 250);
+      try {
+        printWindow.print();
+      } catch (err) {
+        console.error('Print error:', err);
+        msg.error('Failed to print. Please try again.');
+      }
+    }, 500);
   };
 
   // Delete PO

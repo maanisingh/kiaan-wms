@@ -367,6 +367,12 @@ model Product {
   // Cycle counts
   cycleCountItems CycleCountItem[]
 
+  // Returns
+  returnItems     ReturnItem[]
+
+  // Transfers
+  transferItems   TransferItem[] @relation("TransferProducts")
+
   images          String[]
 
   createdAt       DateTime @default(now())
@@ -651,6 +657,7 @@ model Customer {
   customerType CustomerType @default(B2C)
 
   orders      SalesOrder[]
+  returns     Return[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -680,6 +687,7 @@ model SalesOrder {
 
   items           SalesOrderItem[]
   pickLists       PickList[]
+  returns         Return[]
 
   // Financials
   subtotal        Float    @default(0)
@@ -692,6 +700,8 @@ model SalesOrder {
   shippingAddress String?
   shippingMethod  String?
   trackingNumber  String?
+  carrier         String?
+  shippingNotes   String?
 
   notes           String?
 
@@ -948,6 +958,7 @@ model TransferItem {
   transfer        Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
 
   productId       String
+  product         Product  @relation("TransferProducts", fields: [productId], references: [id])
 
   quantity        Int
   receivedQuantity Int     @default(0)
@@ -960,6 +971,90 @@ model TransferItem {
 
   @@index([transferId])
   @@index([productId])
+}
+
+// ===================================
+// RETURNS / RMA
+// ===================================
+
+model Return {
+  id              String   @id @default(uuid())
+  rmaNumber       String   @unique
+
+  orderId         String?
+  order           SalesOrder? @relation(fields: [orderId], references: [id])
+
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+
+  type            ReturnType @default(RETURN)
+  reason          String?
+  status          ReturnStatus @default(PENDING)
+
+  items           ReturnItem[]
+
+  totalValue      Float    @default(0)
+  refundAmount    Float?
+
+  notes           String?
+
+  requestedAt     DateTime @default(now())
+  receivedAt      DateTime?
+  processedAt     DateTime?
+  completedAt     DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([rmaNumber])
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model ReturnItem {
+  id              String   @id @default(uuid())
+  returnId        String
+  return          Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+
+  quantity        Int
+  receivedQuantity Int     @default(0)
+  condition       String?  // e.g., "Good", "Damaged", "Defective"
+
+  action          ReturnAction @default(PENDING)
+
+  createdAt       DateTime @default(now())
+
+  @@index([returnId])
+  @@index([productId])
+}
+
+enum ReturnType {
+  RETURN
+  EXCHANGE
+  REFUND
+  WARRANTY
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  RECEIVING
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnAction {
+  PENDING
+  RESTOCK
+  DISPOSE
+  REPAIR
+  EXCHANGE
 }
 
 // ===================================
@@ -1201,6 +1296,12 @@ model SalesChannel {
   code            String   @unique
   type            ChannelType
 
+  // API Integration
+  apiKey          String?  // API key for marketplace integration
+  apiSecret       String?  // API secret
+  webhookUrl      String?  // Webhook URL for events
+  syncFrequency   Int?     @default(5) // Sync frequency in minutes
+
   // Fee structure
   referralFeePercent    Float?  // e.g., 15% for Amazon
   fixedFee              Float?  // Fixed per-transaction fee
@@ -1211,6 +1312,7 @@ model SalesChannel {
   additionalFees        Json?
 
   isActive              Boolean @default(true)
+  lastSyncAt            DateTime? // Last successful sync
 
   channelPrices         ChannelPrice[]
 

@@ -404,9 +404,122 @@ export default function SalesOrderDetailPage() {
   const canProcessPayment = ['PENDING'].includes(order?.status?.toUpperCase() || '');
   const canAllocate = ['PENDING', 'CONFIRMED'].includes(order?.status?.toUpperCase() || '');
   const canCreatePickList = ['CONFIRMED', 'ALLOCATED'].includes(order?.status?.toUpperCase() || '');
-  const canGenerateInvoice = !['PENDING', 'CANCELLED'].includes(order?.status?.toUpperCase() || '');
-  const canShip = ['PICKING', 'PACKING', 'ALLOCATED'].includes(order?.status?.toUpperCase() || '');
+  const canGenerateInvoice = !['CANCELLED'].includes(order?.status?.toUpperCase() || '');
+  const canShip = !['SHIPPED', 'COMPLETED', 'CANCELLED'].includes(order?.status?.toUpperCase() || '');
   const canCancel = !['SHIPPED', 'COMPLETED', 'CANCELLED'].includes(order?.status?.toUpperCase() || '');
+
+  // Print order handler
+  const handlePrint = async () => {
+    if (!order) return;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      message.error('Please allow popups to print');
+      return;
+    }
+
+    const itemsHtml = order.salesOrderItems?.map(item =>
+      '<tr>' +
+      '<td>' + (item.product?.sku || '-') + '</td>' +
+      '<td>' + (item.product?.name || '-') + '</td>' +
+      '<td class="text-right">' + item.quantity + '</td>' +
+      '<td class="text-right">£' + (item.unitPrice || 0).toFixed(2) + '</td>' +
+      '<td class="text-right">£' + (item.totalPrice || 0).toFixed(2) + '</td>' +
+      '</tr>'
+    ).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sales Order - ${order.orderNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+            .title { font-size: 24px; font-weight: bold; color: #1890ff; }
+            .section { margin: 20px 0; }
+            .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #f5f5f5; font-weight: bold; }
+            .text-right { text-align: right; }
+            .total-row { font-weight: bold; background: #f9f9f9; }
+            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; }
+            @media print { body { print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">SALES ORDER</div>
+              <div style="font-size: 18px; margin-top: 5px;">${order.orderNumber}</div>
+            </div>
+            <div>
+              <strong>Order Date:</strong> ${formatDate(order.orderDate)}<br/>
+              <strong>Channel:</strong> ${order.salesChannel || 'DIRECT'}<br/>
+              <strong>Status:</strong> ${order.status?.toUpperCase()}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Customer</div>
+            <p>
+              <strong>${order.customer?.name || 'N/A'}</strong><br/>
+              ${order.customer?.email || ''}<br/>
+              ${order.customer?.phone || ''}<br/>
+              ${order.customer?.address || ''}
+            </p>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Order Items</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Product</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Unit Price</th>
+                  <th class="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+                <tr class="total-row">
+                  <td colspan="4" class="text-right">Subtotal:</td>
+                  <td class="text-right">£${(order.subtotal || 0).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" class="text-right">Tax:</td>
+                  <td class="text-right">£${(order.taxAmount || 0).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" class="text-right">Shipping:</td>
+                  <td class="text-right">£${(order.shippingCost || 0).toFixed(2)}</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="4" class="text-right">Total Amount:</td>
+                  <td class="text-right">£${(order.totalAmount || 0).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          ${order.notes ? '<div class="section"><div class="section-title">Notes</div><p>' + order.notes + '</p></div>' : ''}
+
+          <div class="footer">
+            <p>Printed on ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
 
   if (loading) {
     return (
@@ -514,7 +627,7 @@ export default function SalesOrderDetailPage() {
           <Button icon={<ReloadOutlined />} onClick={fetchOrder}>
             Refresh
           </Button>
-          <Button icon={<PrinterOutlined />} size="large">
+          <Button icon={<PrinterOutlined />} size="large" onClick={handlePrint}>
             Print
           </Button>
           <Link href={`/protected/sales-orders/${order.id}/edit`}>

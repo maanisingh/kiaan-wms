@@ -34,7 +34,9 @@ export default function CompanyDetailPage() {
   const [loading, setLoading] = useState(true);
   const { token } = useAuthStore();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
+  // Ensure API URL doesn't have duplicate /api prefix
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wms-api.alexandratechlab.com';
+  const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.replace(/\/api$/, '') : rawApiUrl;
 
   useEffect(() => {
     const fetchCompany = async () => {

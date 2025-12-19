@@ -110,6 +110,62 @@ export default function InventoryPage() {
     }
   }, []);
 
+  // Export inventory as CSV
+  const handleExport = async () => {
+    try {
+      message.loading({ content: 'Exporting inventory...', key: 'export' });
+
+      // Get the auth token from Zustand persist storage
+      let token = null;
+      try {
+        const authStorage = localStorage.getItem('wms-auth-storage');
+        if (authStorage) {
+          const parsed = JSON.parse(authStorage);
+          token = parsed?.state?.token;
+        }
+      } catch (e) {
+        console.error('Failed to parse auth storage:', e);
+      }
+
+      // Fallback to direct token storage
+      if (!token) {
+        token = localStorage.getItem('wms_auth_token');
+      }
+
+      if (!token) {
+        message.error({ content: 'Please log in to export', key: 'export' });
+        return;
+      }
+
+      // Fetch the CSV file
+      const response = await fetch('/api/inventory/export?format=csv', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the blob and create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inventory-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      message.success({ content: 'Inventory exported successfully!', key: 'export' });
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      message.error({ content: 'Failed to export inventory', key: 'export' });
+    }
+  };
+
   useEffect(() => {
     fetchInventory();
     fetchProducts();
@@ -434,7 +490,7 @@ export default function InventoryPage() {
           <Button icon={<ReloadOutlined />} onClick={fetchInventory} loading={loading}>
             Refresh
           </Button>
-          <Button icon={<ExportOutlined />}>Export</Button>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>Export</Button>
           <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleAddInventory}>
             Add Inventory
           </Button>

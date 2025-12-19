@@ -48,13 +48,21 @@ export default function PickListsPage() {
     }
   };
 
-  // Fetch sales orders
+  // Fetch sales orders available for picking (CONFIRMED status)
   const fetchSalesOrders = async () => {
     try {
-      const data = await apiService.get('/sales-orders?status=PENDING&limit=100');
+      // Fetch confirmed orders that are ready for picking
+      const data = await apiService.get('/picking/available-orders');
       setSalesOrders(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Error fetching sales orders:', err);
+      // Fallback to confirmed orders if new endpoint fails
+      try {
+        const fallback = await apiService.get('/sales-orders?status=CONFIRMED&limit=100');
+        setSalesOrders(Array.isArray(fallback) ? fallback : []);
+      } catch {
+        setSalesOrders([]);
+      }
     }
   };
 

@@ -18,6 +18,7 @@ import {
   ReloadOutlined,
   ShoppingCartOutlined,
   MinusCircleOutlined,
+  PrinterOutlined,
 } from '@ant-design/icons';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import apiService from '@/services/api';
@@ -280,6 +281,109 @@ export default function PurchaseOrdersPage() {
     }
   };
 
+  // Print PO
+  const handlePrint = async (record: PurchaseOrder) => {
+    try {
+      const poDetail = await apiService.get(`/purchase-orders/${record.id}`);
+
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        message.error('Please allow popups to print');
+        return;
+      }
+
+      // Build items HTML
+      const itemsHtml = poDetail.items?.map((item: any) =>
+        '<tr>' +
+        '<td>' + (item.productSku || '-') + '</td>' +
+        '<td>' + (item.productName || '-') + '</td>' +
+        '<td class="text-right">' + item.quantity + '</td>' +
+        '<td class="text-right">£' + (item.unitPrice || 0).toFixed(2) + '</td>' +
+        '<td class="text-right">£' + (item.totalPrice || 0).toFixed(2) + '</td>' +
+        '</tr>'
+      ).join('') || '<tr><td colspan="5">No items</td></tr>';
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Purchase Order - ${poDetail.poNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+              .po-title { font-size: 24px; font-weight: bold; color: #1890ff; }
+              .po-number { font-size: 18px; margin-top: 5px; }
+              .section { margin: 20px 0; }
+              .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
+              table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+              th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+              th { background: #f5f5f5; font-weight: bold; }
+              .text-right { text-align: right; }
+              .total-row { font-weight: bold; background: #f9f9f9; }
+              .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; }
+              .status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; }
+              .status-approved { background: #f6ffed; color: #52c41a; }
+              .status-pending { background: #fff7e6; color: #fa8c16; }
+              @media print { body { print-color-adjust: exact; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <div class="po-title">PURCHASE ORDER</div>
+                <div class="po-number">${poDetail.poNumber}</div>
+              </div>
+              <div>
+                <strong>Order Date:</strong> ${formatDate(poDetail.orderDate)}<br/>
+                <strong>Expected:</strong> ${poDetail.expectedDelivery ? formatDate(poDetail.expectedDelivery) : 'N/A'}<br/>
+                <span class="status status-${poDetail.status}">${poDetail.status?.toUpperCase()}</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Supplier</div>
+              <p><strong>${poDetail.supplier || 'N/A'}</strong></p>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Order Items</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml}
+                  <tr class="total-row">
+                    <td colspan="4" class="text-right">Total Amount:</td>
+                    <td class="text-right">£${(poDetail.totalAmount || 0).toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="footer">
+              <p>Printed on ${new Date().toLocaleString()}</p>
+            </div>
+          </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    } catch (err: any) {
+      message.error('Failed to load purchase order for printing');
+    }
+  };
+
   const allOrders = purchaseOrders;
   const pendingOrders = purchaseOrders.filter(po => po.status === 'pending' || po.status === 'draft');
   const approvedOrders = purchaseOrders.filter(po => po.status === 'approved');
@@ -338,6 +442,9 @@ export default function PurchaseOrdersPage() {
         <Space>
           <Button type="link" icon={<EyeOutlined />} size="small" onClick={() => handleView(record)}>
             View
+          </Button>
+          <Button type="link" icon={<PrinterOutlined />} size="small" onClick={() => handlePrint(record)}>
+            Print
           </Button>
           {(record.status === 'pending' || record.status === 'draft') && (
             <>
