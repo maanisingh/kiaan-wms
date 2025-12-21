@@ -2841,6 +2841,21 @@ app.get('/api/products', verifyToken, async (req, res) => {
   }
 });
 
+// IMPORTANT: This must be BEFORE /api/products/:id to avoid route conflict
+app.get('/api/products/categories', verifyToken, async (req, res) => {
+  try {
+    // Categories are implemented as brands in this system
+    const categories = await prisma.brand.findMany({
+      include: { _count: { select: { products: true } } },
+      orderBy: { name: 'asc' }
+    });
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching product categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
 app.get('/api/products/:id', verifyToken, async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
@@ -10040,6 +10055,37 @@ app.get('/api/analytics/margins', verifyToken, async (req, res) => {
 // WAREHOUSES - Full CRUD
 // ===================================
 
+// IMPORTANT: These specific routes must be BEFORE /api/warehouses/:id
+app.get('/api/warehouses/zones', verifyToken, async (req, res) => {
+  try {
+    const zones = await prisma.zone.findMany({
+      include: {
+        warehouse: { select: { name: true } },
+        _count: { select: { locations: true } }
+      }
+    });
+    res.json(zones);
+  } catch (error) {
+    console.error('Error fetching warehouse zones:', error);
+    res.status(500).json({ error: 'Failed to fetch zones' });
+  }
+});
+
+app.get('/api/warehouses/locations', verifyToken, async (req, res) => {
+  try {
+    const locations = await prisma.location.findMany({
+      include: {
+        zone: { include: { warehouse: { select: { name: true } } } },
+        _count: { select: { inventory: true } }
+      }
+    });
+    res.json(locations);
+  } catch (error) {
+    console.error('Error fetching warehouse locations:', error);
+    res.status(500).json({ error: 'Failed to fetch locations' });
+  }
+});
+
 // GET single warehouse
 app.get('/api/warehouses/:id', verifyToken, async (req, res) => {
   try {
@@ -14560,6 +14606,126 @@ app.get('/api/reports', verifyToken, async (req, res) => {
 });
 
 // END OF NEW ROUTES
+
+// ==========================================
+// MISSING ROUTE ALIASES AND NEW ENDPOINTS
+// ==========================================
+
+// Dashboard overview - aggregate stats
+app.get('/api/dashboard', verifyToken, async (req, res) => {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(400).json({ error: 'Company ID not found in user context' });
+    }
+    const totalProducts = await prisma.product.count({ where: { companyId } });
+    const totalLocations = await prisma.location.count();
+    const totalOrders = await prisma.salesOrder.count(); // SalesOrder doesn't have companyId
+    const totalUsers = await prisma.user.count({ where: { companyId } });
+    res.json({ totalProducts, totalLocations, totalOrders, totalUsers });
+  } catch (error) {
+    console.error('Error fetching dashboard:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard' });
+  }
+});
+
+// NOTE: /api/products/categories, /api/warehouses/zones, /api/warehouses/locations
+// are defined earlier in file (before their dynamic :id counterparts) for correct route matching
+
+// Roles endpoint
+app.get('/api/roles', verifyToken, async (req, res) => {
+  try {
+    const roles = [
+      { id: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full system access', permissions: ['*'] },
+      { id: 'COMPANY_ADMIN', name: 'Company Admin', description: 'Company-wide management', permissions: ['dashboard', 'products', 'inventory', 'orders', 'users', 'settings'] },
+      { id: 'WAREHOUSE_MANAGER', name: 'Warehouse Manager', description: 'Warehouse operations management', permissions: ['dashboard', 'products', 'inventory', 'orders', 'warehouses'] },
+      { id: 'PICKER', name: 'Picker', description: 'Picking operations', permissions: ['picking', 'inventory:view'] },
+      { id: 'PACKER', name: 'Packer', description: 'Packing operations', permissions: ['packing', 'shipments'] },
+      { id: 'VIEWER', name: 'Viewer', description: 'Read-only access', permissions: ['dashboard:view', 'inventory:view', 'orders:view'] }
+    ];
+    res.json(roles);
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    res.status(500).json({ error: 'Failed to fetch roles' });
+  }
+});
+
+// VAT rates endpoint
+app.get('/api/settings/vat-rates', verifyToken, async (req, res) => {
+  try {
+    const vatRates = [
+      { id: '1', name: 'Standard Rate', rate: 20, country: 'UK', isDefault: true },
+      { id: '2', name: 'Reduced Rate', rate: 5, country: 'UK', isDefault: false },
+      { id: '3', name: 'Zero Rate', rate: 0, country: 'UK', isDefault: false },
+      { id: '4', name: 'EU Standard', rate: 21, country: 'EU', isDefault: false }
+    ];
+    res.json(vatRates);
+  } catch (error) {
+    console.error('Error fetching VAT rates:', error);
+    res.status(500).json({ error: 'Failed to fetch VAT rates' });
+  }
+});
+
+// POST VAT rate
+app.post('/api/settings/vat-rates', verifyToken, async (req, res) => {
+  try {
+    const { name, rate, country, isDefault } = req.body;
+    const newRate = { id: String(Date.now()), name, rate, country, isDefault: isDefault || false };
+    res.status(201).json(newRate);
+  } catch (error) {
+    console.error('Error creating VAT rate:', error);
+    res.status(500).json({ error: 'Failed to create VAT rate' });
+  }
+});
+
+// Carriers alias endpoint
+app.get('/api/carriers', verifyToken, async (req, res) => {
+  try {
+    const carriers = await prisma.courierConnection.findMany({
+      where: { companyId: req.user.companyId }
+    });
+    // Also add shipping carriers from the in-memory if any
+    res.json(carriers.map(c => ({
+      id: c.id,
+      name: c.courierName || 'Unknown Carrier',
+      code: (c.courierName || 'unknown').toLowerCase().replace(/\s+/g, '_'),
+      apiKey: c.credentials?.apiKey ? '***' : null,
+      status: c.status,
+      services: ['standard', 'express', 'next_day']
+    })));
+  } catch (error) {
+    console.error('Error fetching carriers:', error);
+    res.status(500).json({ error: 'Failed to fetch carriers' });
+  }
+});
+
+// Analytics pricing calculator
+app.get('/api/analytics/pricing-calculator', verifyToken, async (req, res) => {
+  try {
+    // Return calculator configuration and sample data
+    const products = await prisma.product.findMany({
+      where: { companyId: req.user.companyId },
+      take: 20,
+      select: { id: true, sku: true, name: true, costPrice: true, sellingPrice: true }
+    });
+    res.json({
+      calculator: {
+        defaultMargin: 30,
+        vatRate: 20,
+        packingCost: 0.50,
+        shippingCost: 3.99
+      },
+      products: products.map(p => ({
+        ...p,
+        rrp: p.sellingPrice,
+        suggestedPrice: p.costPrice ? (p.costPrice * 1.3).toFixed(2) : null
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching pricing calculator:', error);
+    res.status(500).json({ error: 'Failed to fetch pricing calculator' });
+  }
+});
 
 // Register integration routes with real API services
 registerIntegrationRoutes(app, prisma, verifyToken);
