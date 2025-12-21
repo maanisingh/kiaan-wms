@@ -53,7 +53,7 @@ interface CycleCount {
   updatedAt: string;
 }
 
-export default function CycleCountDetailPage({ params }: { params: { id: string } }) {
+export default function CycleCountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { modal, message: msg } = App.useApp();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('details');
@@ -64,13 +64,20 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
   const [saving, setSaving] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [countForm] = Form.useForm();
+  const [cycleCountId, setCycleCountId] = useState<string | null>(null);
+
+  // Unwrap params (Next.js 15+ async params)
+  useEffect(() => {
+    params.then(p => setCycleCountId(p.id));
+  }, [params]);
 
   // Fetch cycle count details
   const fetchCycleCount = useCallback(async () => {
+    if (!cycleCountId) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.get(`/inventory/cycle-counts/${params.id}`);
+      const data = await apiService.get(`/inventory/cycle-counts/${cycleCountId}`);
       setCycleCount(data);
       setItems(data.items || []);
     } catch (err: any) {
@@ -79,17 +86,20 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [cycleCountId]);
 
   useEffect(() => {
-    fetchCycleCount();
-  }, [fetchCycleCount]);
+    if (cycleCountId) {
+      fetchCycleCount();
+    }
+  }, [cycleCountId, fetchCycleCount]);
 
   // Update item count
   const handleUpdateCount = async (itemId: string, countedQuantity: number, notes?: string) => {
+    if (!cycleCountId) return;
     try {
       setSaving(true);
-      await apiService.patch(`/inventory/cycle-counts/${params.id}/items/${itemId}`, {
+      await apiService.patch(`/inventory/cycle-counts/${cycleCountId}/items/${itemId}`, {
         countedQuantity,
         notes,
       });
@@ -114,7 +124,7 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
       okType: 'primary',
       onOk: async () => {
         try {
-          await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+          await apiService.patch(`/inventory/cycle-counts/${cycleCountId}`, {
             status: 'COMPLETED',
             completedDate: new Date().toISOString(),
           });
@@ -131,7 +141,7 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
   // Start counting (change status to IN_PROGRESS)
   const handleStartCounting = async () => {
     try {
-      await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+      await apiService.patch(`/inventory/cycle-counts/${cycleCountId}`, {
         status: 'IN_PROGRESS',
       });
       msg.success('Cycle count started');
@@ -151,7 +161,7 @@ export default function CycleCountDetailPage({ params }: { params: { id: string 
       okType: 'danger',
       onOk: async () => {
         try {
-          await apiService.patch(`/inventory/cycle-counts/${params.id}`, {
+          await apiService.patch(`/inventory/cycle-counts/${cycleCountId}`, {
             status: 'CANCELLED',
           });
           msg.success('Cycle count cancelled');

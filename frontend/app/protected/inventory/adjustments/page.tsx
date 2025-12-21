@@ -128,7 +128,7 @@ export default function AdjustmentsPage() {
       filtered = filtered.filter(a =>
         a.referenceNumber?.toLowerCase().includes(search) ||
         a.reason?.toLowerCase().includes(search) ||
-        a.items?.some(item => item.product?.name.toLowerCase().includes(search))
+        a.items?.some(item => item.product?.name?.toLowerCase().includes(search))
       );
     }
 

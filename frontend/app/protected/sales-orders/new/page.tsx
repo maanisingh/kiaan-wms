@@ -26,6 +26,8 @@ interface Product {
   sku: string;
   name: string;
   sellingPrice?: number;
+  availableQuantity?: number;
+  totalQuantity?: number;
 }
 
 interface OrderItem {
@@ -36,6 +38,7 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  availableQuantity?: number;
 }
 
 export default function NewSalesOrderPage() {
@@ -89,19 +92,29 @@ export default function NewSalesOrderPage() {
       if (item.key === key) {
         const updated = { ...item, [field]: value };
 
-        // If product changed, update price
+        // If product changed, update price and available quantity
         if (field === 'productId') {
           const product = products.find(p => p.id === value);
           if (product) {
             updated.productName = product.name;
             updated.sku = product.sku;
             updated.unitPrice = product.sellingPrice || 0;
+            updated.availableQuantity = product.availableQuantity || 0;
+            // Reset quantity to 1 or max available
+            updated.quantity = Math.min(1, product.availableQuantity || 1);
             updated.total = updated.quantity * updated.unitPrice;
           }
         }
 
         // Recalculate total if quantity or price changed
         if (field === 'quantity' || field === 'unitPrice') {
+          // Validate quantity doesn't exceed available
+          if (field === 'quantity' && updated.availableQuantity !== undefined) {
+            if (value > updated.availableQuantity) {
+              message.warning(`Only ${updated.availableQuantity} units available for ${updated.productName}`);
+              updated.quantity = updated.availableQuantity;
+            }
+          }
           updated.total = updated.quantity * updated.unitPrice;
         }
 
@@ -163,7 +176,8 @@ export default function NewSalesOrderPage() {
       router.push('/protected/sales-orders');
     } catch (error: any) {
       console.error('Error creating sales order:', error);
-      message.error(error?.message || 'Failed to create sales order. Please try again.');
+      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to create sales order. Please try again.';
+      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -186,8 +200,18 @@ export default function NewSalesOrderPage() {
           loading={loadingData}
         >
           {products.map(product => (
-            <Option key={product.id} value={product.id} label={`${product.name} - ${product.sku}`}>
-              {product.name} - {product.sku}
+            <Option
+              key={product.id}
+              value={product.id}
+              label={`${product.name} - ${product.sku}`}
+              disabled={(product.availableQuantity || 0) <= 0}
+            >
+              <div className="flex justify-between items-center">
+                <span>{product.name} - {product.sku}</span>
+                <span className={`text-xs font-medium ${(product.availableQuantity || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  Stock: {product.availableQuantity || 0}
+                </span>
+              </div>
             </Option>
           ))}
         </Select>
@@ -197,20 +221,33 @@ export default function NewSalesOrderPage() {
       title: 'SKU',
       dataIndex: 'sku',
       key: 'sku',
-      width: '15%',
+      width: '12%',
       render: (sku: string) => <span className="font-mono text-sm">{sku || '-'}</span>,
+    },
+    {
+      title: 'Available',
+      dataIndex: 'availableQuantity',
+      key: 'availableQuantity',
+      width: '10%',
+      render: (qty: number) => (
+        <span className={`font-medium ${(qty || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+          {qty || 0}
+        </span>
+      ),
     },
     {
       title: 'Quantity',
       dataIndex: 'quantity',
       key: 'quantity',
-      width: '15%',
+      width: '12%',
       render: (value: number, record: OrderItem) => (
         <InputNumber
           min={1}
+          max={record.availableQuantity || 9999}
           value={value}
           onChange={(val) => handleItemChange(record.key, 'quantity', val || 1)}
           style={{ width: '100%' }}
+          status={value > (record.availableQuantity || 0) ? 'error' : undefined}
         />
       ),
     },
@@ -394,7 +431,7 @@ export default function NewSalesOrderPage() {
             summary={() => (
               <Table.Summary fixed>
                 <Table.Summary.Row>
-                  <Table.Summary.Cell index={0} colSpan={4} align="right">
+                  <Table.Summary.Cell index={0} colSpan={5} align="right">
                     <strong>Total:</strong>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={1}>

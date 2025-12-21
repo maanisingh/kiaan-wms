@@ -163,15 +163,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       icon: <UndoOutlined />,
       label: <Link href="/returns">Returns</Link>,
     },
-    {
-      key: '/transfers',
-      icon: <SwapOutlined />,
-      label: 'Transfers',
-      children: [
-        { key: '/transfers', label: <Link href="/transfers">Stock Transfers</Link> },
-        { key: '/fba-transfers', label: <Link href="/fba-transfers">FBA Transfers</Link> },
-      ],
-    },
+    // Transfers hidden - handled by Inventory Movements and Replenishment
+    // {
+    //   key: '/transfers',
+    //   icon: <SwapOutlined />,
+    //   label: 'Transfers',
+    //   children: [
+    //     { key: '/transfers', label: <Link href="/transfers">Stock Transfers</Link> },
+    //     { key: '/fba-transfers', label: <Link href="/fba-transfers">FBA Transfers</Link> },
+    //   ],
+    // },
     {
       key: '/replenishment',
       icon: <InboxOutlined />,

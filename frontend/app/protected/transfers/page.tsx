@@ -28,7 +28,10 @@ export default function TransfersPage() {
   const [transfers, setTransfers] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [availableInventory, setAvailableInventory] = useState<any[]>([]);
+  const [selectedFromWarehouse, setSelectedFromWarehouse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const addModal = useModal();
   const editModal = useModal();
@@ -69,6 +72,39 @@ export default function TransfersPage() {
     }
   };
 
+  // Fetch available inventory for a warehouse
+  const fetchAvailableInventory = async (warehouseId: string) => {
+    try {
+      setLoadingInventory(true);
+      const data = await apiService.get(`/transfers/available-inventory/${warehouseId}`);
+      setAvailableInventory(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error fetching available inventory:', err);
+      message.error('Failed to fetch available inventory');
+      setAvailableInventory([]);
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  // Handle source warehouse change
+  const handleFromWarehouseChange = (warehouseId: string) => {
+    setSelectedFromWarehouse(warehouseId);
+    // Reset destination and items when source warehouse changes
+    form.setFieldsValue({ toWarehouseId: undefined, transferItems: [{}] });
+    if (warehouseId) {
+      fetchAvailableInventory(warehouseId);
+    } else {
+      setAvailableInventory([]);
+    }
+  };
+
+  // Get max quantity for a product
+  const getMaxQuantity = (productId: string) => {
+    const item = availableInventory.find(inv => inv.productId === productId);
+    return item?.availableQty || 0;
+  };
+
   useEffect(() => {
     fetchTransfers();
     fetchWarehouses();
@@ -104,12 +140,18 @@ export default function TransfersPage() {
           fbaDestination: values.fbaDestination || null,
           shipmentBuilt: values.shipmentBuilt || false,
           notes: values.notes || null,
-          transferItems: values.transferItems || [],
+          items: values.transferItems?.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            notes: item.notes
+          })) || [],
         };
 
         await apiService.post('/transfers', payload);
         message.success('Transfer created successfully!');
         addModal.close();
+        setSelectedFromWarehouse(null);
+        setAvailableInventory([]);
       }
 
       form.resetFields();
@@ -529,6 +571,7 @@ export default function TransfersPage() {
                 <Select
                   placeholder="Select source warehouse"
                   showSearch
+                  onChange={handleFromWarehouseChange}
                   filterOption={(input, option: any) =>
                     option.children.toLowerCase().includes(input.toLowerCase())
                   }
@@ -544,7 +587,17 @@ export default function TransfersPage() {
               <Form.Item
                 label="To Warehouse"
                 name="toWarehouseId"
-                rules={[{ required: true, message: 'Please select destination warehouse' }]}
+                rules={[
+                  { required: true, message: 'Please select destination warehouse' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (value && value === getFieldValue('fromWarehouseId')) {
+                        return Promise.reject(new Error('Destination must be different from source'));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
               >
                 <Select
                   placeholder="Select destination warehouse"
@@ -553,11 +606,13 @@ export default function TransfersPage() {
                     option.children.toLowerCase().includes(input.toLowerCase())
                   }
                 >
-                  {warehouses.map((wh: any) => (
-                    <Option key={wh.id} value={wh.id}>
-                      {wh.name} ({wh.code})
-                    </Option>
-                  ))}
+                  {warehouses
+                    .filter((wh: any) => wh.id !== selectedFromWarehouse)
+                    .map((wh: any) => (
+                      <Option key={wh.id} value={wh.id}>
+                        {wh.name} ({wh.code})
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
             </div>
@@ -597,69 +652,107 @@ export default function TransfersPage() {
             {!selectedTransfer && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold mb-3">Transfer Items</h4>
-                <Form.List name="transferItems">
-                  {(fields, { add, remove }) => (
-                    <>
-                      {fields.map(({ key, name, ...restField }) => (
-                        <div key={key} className="grid grid-cols-12 gap-2 mb-2">
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'productId']}
-                            rules={[{ required: true, message: 'Select product' }]}
-                            className="col-span-5"
-                          >
-                            <Select
-                              placeholder="Select product"
-                              showSearch
-                              filterOption={(input, option: any) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                              }
-                            >
-                              {products.map((p: any) => (
-                                <Option key={p.id} value={p.id}>
-                                  {p.name} ({p.sku})
-                                </Option>
-                              ))}
-                            </Select>
-                          </Form.Item>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'quantity']}
-                            rules={[{ required: true, message: 'Qty' }]}
-                            className="col-span-2"
-                          >
-                            <InputNumber placeholder="Qty" min={1} style={{ width: '100%' }} />
-                          </Form.Item>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'fbaSku']}
-                            className="col-span-3"
-                          >
-                            <Input placeholder="FBA SKU (opt)" />
-                          </Form.Item>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'isFBABundle']}
-                            valuePropName="checked"
-                            className="col-span-2"
-                          >
-                            <Switch checkedChildren="FBA Bundle" unCheckedChildren="Regular" />
-                          </Form.Item>
-                          <Button
-                            type="link"
-                            danger
-                            icon={<MinusCircleOutlined />}
-                            onClick={() => remove(name)}
-                            className="col-span-1"
-                          />
-                        </div>
-                      ))}
-                      <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                        Add Transfer Item
-                      </Button>
-                    </>
-                  )}
-                </Form.List>
+                {!selectedFromWarehouse ? (
+                  <div className="text-gray-500 text-center py-4 bg-gray-50 rounded">
+                    Please select a source warehouse first to see available inventory
+                  </div>
+                ) : loadingInventory ? (
+                  <div className="text-gray-500 text-center py-4 bg-gray-50 rounded">
+                    Loading available inventory...
+                  </div>
+                ) : availableInventory.length === 0 ? (
+                  <div className="text-orange-500 text-center py-4 bg-orange-50 rounded">
+                    No inventory available in the selected warehouse
+                  </div>
+                ) : (
+                  <Form.List name="transferItems">
+                    {(fields, { add, remove }) => (
+                      <>
+                        {fields.map(({ key, name, ...restField }) => {
+                          const selectedProductId = form.getFieldValue(['transferItems', name, 'productId']);
+                          const maxQty = getMaxQuantity(selectedProductId);
+                          return (
+                            <div key={key} className="grid grid-cols-12 gap-2 mb-2 items-start">
+                              <Form.Item
+                                {...restField}
+                                name={[name, 'productId']}
+                                rules={[{ required: true, message: 'Select product' }]}
+                                className="col-span-6"
+                              >
+                                <Select
+                                  placeholder="Select product from available inventory"
+                                  showSearch
+                                  filterOption={(input, option: any) =>
+                                    option?.label?.toLowerCase().includes(input.toLowerCase())
+                                  }
+                                  options={availableInventory.map((inv: any) => ({
+                                    value: inv.productId,
+                                    label: `${inv.productName} (${inv.productSku}) - Available: ${inv.availableQty}`
+                                  }))}
+                                  onChange={() => {
+                                    // Reset quantity when product changes
+                                    const items = form.getFieldValue('transferItems');
+                                    items[name].quantity = undefined;
+                                    form.setFieldsValue({ transferItems: items });
+                                  }}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                {...restField}
+                                name={[name, 'quantity']}
+                                rules={[
+                                  { required: true, message: 'Qty required' },
+                                  {
+                                    validator: (_, value) => {
+                                      const productId = form.getFieldValue(['transferItems', name, 'productId']);
+                                      const max = getMaxQuantity(productId);
+                                      if (value > max) {
+                                        return Promise.reject(`Max: ${max}`);
+                                      }
+                                      return Promise.resolve();
+                                    }
+                                  }
+                                ]}
+                                className="col-span-2"
+                                help={selectedProductId ? `Max: ${maxQty}` : ''}
+                              >
+                                <InputNumber
+                                  placeholder="Qty"
+                                  min={1}
+                                  max={maxQty || 1}
+                                  style={{ width: '100%' }}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                {...restField}
+                                name={[name, 'notes']}
+                                className="col-span-3"
+                              >
+                                <Input placeholder="Notes (optional)" />
+                              </Form.Item>
+                              <Button
+                                type="link"
+                                danger
+                                icon={<MinusCircleOutlined />}
+                                onClick={() => remove(name)}
+                                className="col-span-1"
+                              />
+                            </div>
+                          );
+                        })}
+                        <Button
+                          type="dashed"
+                          onClick={() => add()}
+                          block
+                          icon={<PlusOutlined />}
+                          disabled={availableInventory.length === 0}
+                        >
+                          Add Transfer Item
+                        </Button>
+                      </>
+                    )}
+                  </Form.List>
+                )}
               </div>
             )}
 

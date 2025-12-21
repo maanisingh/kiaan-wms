@@ -685,40 +685,76 @@ export default function InventoryMovementsPage() {
             />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="fromLocationId" label="From Location">
-                <Select
-                  placeholder="Select source location"
-                  loading={locationsLoading}
-                  showSearch
-                  allowClear
-                  optionFilterProp="label"
-                  options={locations.map((location) => ({
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) =>
+              prevValues.type !== currentValues.type || prevValues.productId !== currentValues.productId
+            }
+          >
+            {({ getFieldValue }) => {
+              const movementType = getFieldValue('type');
+              const selectedProductId = getFieldValue('productId');
+              const outboundTypes = ['PICK', 'TRANSFER', 'SHIPMENT', 'DAMAGE', 'LOSS'];
+              const isOutbound = outboundTypes.includes(movementType);
+
+              // For outbound movements, only show locations where the product has stock
+              const fromLocationOptions = isOutbound && selectedProductId
+                ? inventory
+                    .filter(inv => inv.productId === selectedProductId && (inv.availableQuantity > 0 || inv.quantity > 0))
+                    .map(inv => inv.location)
+                    .filter((loc, index, self) => loc && self.findIndex(l => l?.id === loc?.id) === index)
+                    .map(loc => ({
+                      key: loc.id,
+                      value: loc.id,
+                      label: `${loc.name || loc.code || 'Location'} (${loc.aisle || '?'}-${loc.rack || '?'}-${loc.bin || '?'}) - Has Stock`
+                    }))
+                : locations.map((location) => ({
                     key: location.id,
                     value: location.id,
                     label: `${location.name || location.code} (${location.aisle}-${location.rack}-${location.bin})`
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="toLocationId" label="To Location">
-                <Select
-                  placeholder="Select destination location"
-                  loading={locationsLoading}
-                  showSearch
-                  allowClear
-                  optionFilterProp="label"
-                  options={locations.map((location) => ({
-                    key: location.id,
-                    value: location.id,
-                    label: `${location.name || location.code} (${location.aisle}-${location.rack}-${location.bin})`
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+                  }));
+
+              return (
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="fromLocationId"
+                      label="From Location"
+                      extra={isOutbound && selectedProductId && fromLocationOptions.length === 0 ?
+                        <span className="text-orange-500">No locations with stock for this product</span> :
+                        isOutbound && selectedProductId ? <span className="text-gray-500">Showing locations with available stock</span> : null
+                      }
+                    >
+                      <Select
+                        placeholder={isOutbound ? "Select location with stock" : "Select source location"}
+                        loading={locationsLoading || inventoryLoading}
+                        showSearch
+                        allowClear
+                        optionFilterProp="label"
+                        options={fromLocationOptions}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="toLocationId" label="To Location">
+                      <Select
+                        placeholder="Select destination location"
+                        loading={locationsLoading}
+                        showSearch
+                        allowClear
+                        optionFilterProp="label"
+                        options={locations.map((location) => ({
+                          key: location.id,
+                          value: location.id,
+                          label: `${location.name || location.code} (${location.aisle}-${location.rack}-${location.bin})`
+                        }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              );
+            }}
+          </Form.Item>
 
           <Form.Item
             name="quantity"

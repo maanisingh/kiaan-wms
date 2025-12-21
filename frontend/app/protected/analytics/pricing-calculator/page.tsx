@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Select, InputNumber, Button, Space, Divider, Statistic, Row, Col, Tag } from 'antd';
-import { CalculatorOutlined, DollarOutlined } from '@ant-design/icons';
+import { Card, Form, Select, InputNumber, Button, Space, Divider, Statistic, Row, Col, Tag, message } from 'antd';
+import { CalculatorOutlined, DollarOutlined, ReloadOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 
 const CHANNELS = [
-  { value: 'Amazon_FBA', label: 'Amazon FBA' },
-  { value: 'Amazon_UK_FBA', label: 'Amazon UK FBA' },
-  { value: 'Amazon_UK_MFN', label: 'Amazon UK MFN' },
-  { value: 'Shopify', label: 'Shopify' },
-  { value: 'eBay', label: 'eBay' },
-  { value: 'TikTok', label: 'TikTok Shop' },
-  { value: 'Temu', label: 'Temu' },
+  { value: 'Amazon_FBA', label: 'Amazon FBA', feePercent: 15, fulfillment: 3.50 },
+  { value: 'Amazon_UK_FBA', label: 'Amazon UK FBA', feePercent: 15.3, fulfillment: 3.25 },
+  { value: 'Amazon_UK_MFN', label: 'Amazon UK MFN', feePercent: 13.5, fulfillment: 0 },
+  { value: 'Shopify', label: 'Shopify', feePercent: 2.9, fulfillment: 0 },
+  { value: 'eBay', label: 'eBay', feePercent: 12.8, fulfillment: 0 },
+  { value: 'TikTok', label: 'TikTok Shop', feePercent: 5.0, fulfillment: 0 },
+  { value: 'Temu', label: 'Temu', feePercent: 8.0, fulfillment: 0 },
+  { value: 'Direct', label: 'Direct / Website', feePercent: 0, fulfillment: 0 },
 ];
 
 export default function PricingCalculatorPage() {
@@ -21,6 +22,7 @@ export default function PricingCalculatorPage() {
   const [result, setResult] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [consumables, setConsumables] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -30,7 +32,23 @@ export default function PricingCalculatorPage() {
   const fetchProducts = async () => {
     try {
       const data = await apiService.get('/products');
-      setProducts(Array.isArray(data) ? data : []);
+      const productList = Array.isArray(data) ? data : [];
+      setProducts(productList);
+      // Auto-select first product
+      if (productList.length > 0) {
+        const first = productList[0];
+        setSelectedProduct(first);
+        form.setFieldsValue({
+          productId: first.id,
+          channelType: 'Amazon_UK_FBA',
+          productCost: first.costPrice || 0,
+          sellingPrice: first.sellingPrice || 0,
+          shippingCost: 3.50,
+          laborCost: 0.50,
+          packagingCost: 0.25,
+          desiredMargin: 0.20,
+        });
+      }
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -45,13 +63,58 @@ export default function PricingCalculatorPage() {
     }
   };
 
+  const handleProductChange = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      form.setFieldsValue({
+        productCost: product.costPrice || 0,
+        sellingPrice: product.sellingPrice || 0,
+      });
+    }
+  };
+
   const handleCalculate = async (values: any) => {
     try {
       setLoading(true);
-      const response = await apiService.post('/pricing/calculate', values);
-      setResult(response);
+      // Calculate locally for instant feedback
+      const productCost = values.productCost || 0;
+      const packagingCost = values.packagingCost || 0;
+      const shippingCost = values.shippingCost || 0;
+      const laborCost = values.laborCost || 0;
+      const desiredMargin = values.desiredMargin || 0.20;
+
+      const channelConfig = CHANNELS.find(c => c.value === values.channelType) || CHANNELS[0];
+      const feePercent = channelConfig.feePercent / 100;
+      const fulfillmentFee = channelConfig.fulfillment;
+
+      const baseCost = productCost + packagingCost + shippingCost + laborCost + fulfillmentFee;
+      const recommendedSellingPrice = baseCost / (1 - desiredMargin - feePercent);
+      const channelFee = recommendedSellingPrice * feePercent;
+      const totalCost = baseCost + channelFee;
+      const profit = recommendedSellingPrice - totalCost;
+      const actualMargin = recommendedSellingPrice > 0 ? profit / recommendedSellingPrice : 0;
+
+      setResult({
+        productCost,
+        consumablesCost: packagingCost,
+        shippingCost,
+        laborCost,
+        fulfillmentFee,
+        fees: channelFee + fulfillmentFee,
+        totalCost,
+        recommendedSellingPrice,
+        profit,
+        margin: actualMargin,
+        breakdown: {
+          channelFeePercent: channelConfig.feePercent,
+          fulfillmentFee: channelConfig.fulfillment,
+        }
+      });
+      message.success('Price calculated successfully!');
     } catch (error: any) {
       console.error('Failed to calculate price:', error);
+      message.error('Failed to calculate price');
     } finally {
       setLoading(false);
     }
@@ -59,29 +122,32 @@ export default function PricingCalculatorPage() {
 
   return (
     <div style={{ padding: '24px' }}>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Marketplace Price Calculator</h1>
+        <p className="text-gray-500">Calculate optimal selling prices with full cost breakdown</p>
+      </div>
+
       <Row gutter={16}>
         <Col span={12}>
           <Card
             title={
               <Space>
                 <CalculatorOutlined />
-                Marketplace Price Calculator
+                Cost Configuration
               </Space>
             }
+            extra={<Button icon={<ReloadOutlined />} onClick={fetchProducts}>Refresh</Button>}
           >
-            <p style={{ marginBottom: '24px', color: '#666' }}>
-              Calculate the optimal selling price for your product on different marketplaces.
-              Enter costs and desired margin to get recommended pricing.
-            </p>
-
             <Form
               form={form}
               layout="vertical"
               onFinish={handleCalculate}
               initialValues={{
                 desiredMargin: 0.20,
-                shippingCost: 0,
-                laborCost: 0
+                shippingCost: 3.50,
+                laborCost: 0.50,
+                packagingCost: 0.25,
+                channelType: 'Amazon_UK_FBA',
               }}
             >
               <Form.Item
@@ -93,6 +159,7 @@ export default function PricingCalculatorPage() {
                   placeholder="Select product"
                   showSearch
                   optionFilterProp="children"
+                  onChange={handleProductChange}
                   filterOption={(input, option: any) =>
                     option.children.toLowerCase().includes(input.toLowerCase())
                   }
@@ -100,7 +167,6 @@ export default function PricingCalculatorPage() {
                   {products.map(p => (
                     <Select.Option key={p.id} value={p.id}>
                       {p.sku} - {p.name}
-                      {p.costPrice && ` (£${p.costPrice.toFixed(2)})`}
                     </Select.Option>
                   ))}
                 </Select>
@@ -114,70 +180,87 @@ export default function PricingCalculatorPage() {
                 <Select placeholder="Select marketplace">
                   {CHANNELS.map(c => (
                     <Select.Option key={c.value} value={c.value}>
-                      {c.label}
+                      {c.label} ({c.feePercent}% + £{c.fulfillment.toFixed(2)})
                     </Select.Option>
                   ))}
                 </Select>
               </Form.Item>
 
-              <Form.Item
-                name="consumableIds"
-                label="Consumables (Packaging)"
-              >
-                <Select
-                  mode="multiple"
-                  placeholder="Select consumables"
-                  showSearch
-                  optionFilterProp="children"
-                >
-                  {consumables.map(c => (
-                    <Select.Option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.costPriceEach && ` (£${c.costPriceEach.toFixed(2)})`}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
+              <Divider orientation="left">Editable Costs</Divider>
 
-              <Form.Item
-                name="shippingCost"
-                label="Shipping Cost (£)"
-              >
-                <InputNumber
-                  min={0}
-                  step={0.01}
-                  style={{ width: '100%' }}
-                  prefix="£"
-                  placeholder="3.50"
-                />
-              </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="productCost"
+                    label="Product Cost (£)"
+                    rules={[{ required: true, message: 'Required' }]}
+                  >
+                    <InputNumber
+                      min={0}
+                      step={0.01}
+                      style={{ width: '100%' }}
+                      precision={2}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="packagingCost"
+                    label="Packaging Cost (£)"
+                  >
+                    <InputNumber
+                      min={0}
+                      step={0.01}
+                      style={{ width: '100%' }}
+                      precision={2}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-              <Form.Item
-                name="laborCost"
-                label="Labor Cost (£)"
-              >
-                <InputNumber
-                  min={0}
-                  step={0.01}
-                  style={{ width: '100%' }}
-                  prefix="£"
-                  placeholder="0.75"
-                />
-              </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="shippingCost"
+                    label="Shipping Cost (£)"
+                  >
+                    <InputNumber
+                      min={0}
+                      step={0.01}
+                      style={{ width: '100%' }}
+                      precision={2}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="laborCost"
+                    label="Labor/Pick Cost (£)"
+                  >
+                    <InputNumber
+                      min={0}
+                      step={0.01}
+                      style={{ width: '100%' }}
+                      precision={2}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
               <Form.Item
                 name="desiredMargin"
-                label="Desired Margin (%)"
-                tooltip="Target profit margin percentage"
+                label="Target Profit Margin"
+                tooltip="The profit margin you want to achieve"
               >
-                <InputNumber
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  style={{ width: '100%' }}
-                  formatter={value => `${(parseFloat(value as string) * 100).toFixed(0)}%`}
-                  parser={value => (parseFloat(value?.replace('%', '') || '0') / 100).toString()}
-                />
+                <Select style={{ width: '100%' }}>
+                  <Select.Option value={0.10}>10% - Low Margin</Select.Option>
+                  <Select.Option value={0.15}>15% - Budget</Select.Option>
+                  <Select.Option value={0.20}>20% - Standard</Select.Option>
+                  <Select.Option value={0.25}>25% - Good</Select.Option>
+                  <Select.Option value={0.30}>30% - Premium</Select.Option>
+                  <Select.Option value={0.35}>35% - High</Select.Option>
+                  <Select.Option value={0.40}>40% - Luxury</Select.Option>
+                </Select>
               </Form.Item>
 
               <Form.Item>
@@ -189,7 +272,7 @@ export default function PricingCalculatorPage() {
                   size="large"
                   icon={<CalculatorOutlined />}
                 >
-                  Calculate Price
+                  Calculate Optimal Price
                 </Button>
               </Form.Item>
             </Form>

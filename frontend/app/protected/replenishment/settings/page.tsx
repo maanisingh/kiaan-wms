@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 
-import { Table, Card, Tag, Statistic, Row, Col, Button, Space, Modal, Form, Select, InputNumber, Switch, message } from 'antd';
-import { SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Card, Tag, Statistic, Row, Col, Button, Space, Modal, Form, Select, InputNumber, Switch, message, Tooltip } from 'antd';
+import { SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import apiService from '@/services/api';
 
 export default function ReplenishmentSettingsPage() {
@@ -103,6 +103,19 @@ export default function ReplenishmentSettingsPage() {
       fetchConfigs();
     } catch (error) {
       message.error(`Failed to ${isEditMode ? 'update' : 'create'} configuration`);
+    }
+  };
+
+  const handleRunAutoCheck = async () => {
+    try {
+      const result = await apiService.post('/replenishment/check', {});
+      if (result.tasksCreated > 0) {
+        message.success(`Created ${result.tasksCreated} replenishment task(s)`);
+      } else {
+        message.info('No replenishment tasks needed at this time');
+      }
+    } catch (error) {
+      message.error('Failed to run auto-replenishment check');
     }
   };
 
@@ -209,6 +222,11 @@ export default function ReplenishmentSettingsPage() {
             <p className="text-gray-500">Configure proactive replenishment limits and reorder points</p>
           </div>
           <Space>
+            <Tooltip title="Check all products and create tasks for those below reorder point">
+              <Button onClick={handleRunAutoCheck} icon={<ThunderboltOutlined />} type="default">
+                Run Auto-Check
+              </Button>
+            </Tooltip>
             <Button onClick={fetchConfigs} icon={<SyncOutlined />}>
               Refresh
             </Button>

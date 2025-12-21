@@ -159,11 +159,23 @@ export default function CustomersPage() {
       dataIndex: 'name',
       key: 'name',
       width: 200,
-      render: (text: string) => (
-        <div className="flex items-center gap-2">
+      render: (text: string, record: Customer) => (
+        <div
+          className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
+          onClick={() => router.push(`/protected/customers/${record.id}`)}
+        >
           <UserOutlined className="text-blue-500" />
-          <span className="font-medium">{text}</span>
+          <span className="font-medium text-blue-600 hover:underline">{text}</span>
         </div>
+      ),
+    },
+    {
+      title: 'Orders',
+      dataIndex: '_count',
+      key: 'orders',
+      width: 80,
+      render: (_count: any) => (
+        <Tag color="blue">{_count?.orders || 0}</Tag>
       ),
     },
     {
