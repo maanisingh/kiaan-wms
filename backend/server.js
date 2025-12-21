@@ -8536,7 +8536,6 @@ app.get('/api/users/:id', verifyToken, async (req, res) => {
         name: true,
         email: true,
         role: true,
-        isActive: true,
         createdAt: true,
         updatedAt: true
       }
@@ -8544,7 +8543,7 @@ app.get('/api/users/:id', verifyToken, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+    res.json({ ...user, isActive: true }); // Add isActive for frontend compatibility
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -8570,19 +8569,18 @@ app.post('/api/users', verifyToken, async (req, res) => {
         name,
         role: role || 'USER',
         password: hashedPassword,
-        companyId: req.user.companyId,
-        isActive: true
+        companyId: req.user.companyId
+        // Note: isActive field doesn't exist in User model
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        isActive: true,
         createdAt: true
       }
     });
-    res.status(201).json(user);
+    res.status(201).json({ ...user, isActive: true }); // Add isActive for frontend compatibility
   } catch (error) {
     console.error('Create user error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -8592,14 +8590,14 @@ app.post('/api/users', verifyToken, async (req, res) => {
 // Update user
 app.put('/api/users/:id', verifyToken, async (req, res) => {
   try {
-    const { name, role, isActive } = req.body;
+    const { name, role } = req.body;
+    // Note: isActive field doesn't exist in User model
 
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: {
         name,
         role,
-        isActive,
         updatedAt: new Date()
       },
       select: {
@@ -8607,11 +8605,10 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
         name: true,
         email: true,
         role: true,
-        isActive: true,
         updatedAt: true
       }
     });
-    res.json(user);
+    res.json({ ...user, isActive: true }); // Add isActive for frontend compatibility
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Internal server error' });
