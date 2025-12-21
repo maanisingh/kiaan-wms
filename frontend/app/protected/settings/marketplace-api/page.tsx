@@ -423,9 +423,14 @@ export default function MarketplaceAPISettingsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 250,
+      width: 300,
       render: (_: any, record: MarketplaceConnection) => (
         <Space size="small" wrap>
+          <Tooltip title="Test Connection">
+            <Button size="small" type="primary" ghost icon={<ApiOutlined />} onClick={() => handleTestConnection(record.id, 'marketplace')}>
+              Test
+            </Button>
+          </Tooltip>
           <Tooltip title="Sync Orders">
             <Button size="small" icon={<SyncOutlined />} onClick={() => handleSyncMarketplace(record.id, 'orders')}>
               Orders
@@ -502,9 +507,14 @@ export default function MarketplaceAPISettingsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 200,
       render: (_: any, record: CourierConnection) => (
         <Space size="small">
+          <Tooltip title="Test Connection">
+            <Button size="small" type="primary" ghost icon={<ApiOutlined />} onClick={() => handleTestConnection(record.id, 'courier')}>
+              Test
+            </Button>
+          </Tooltip>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEditCourier(record)} />
           <Popconfirm
             title="Delete this connection?"
@@ -573,6 +583,24 @@ export default function MarketplaceAPISettingsPage() {
         )}
       </Form.Item>
     ));
+  };
+
+  // Handle testing connection
+  const handleTestConnection = async (id: string, type: 'marketplace' | 'courier') => {
+    try {
+      setLoading(true);
+      const endpoint = type === 'marketplace' ? `/marketplace-connections/${id}/test` : `/courier-connections/${id}/test`;
+      const result = await apiService.post(endpoint);
+      if (result.success) {
+        message.success(result.message || 'Connection test successful');
+      } else {
+        message.warning(result.message || 'Connection test completed with issues');
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Connection test failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

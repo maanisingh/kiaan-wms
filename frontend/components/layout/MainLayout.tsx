@@ -187,10 +187,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       icon: <ApiOutlined />,
       label: 'Integrations',
       children: [
-        { key: '/settings/marketplace-api', label: <Link href="/settings/marketplace-api">API Credentials</Link> },
-        { key: '/integrations/channels', label: <Link href="/integrations/channels">Channels</Link> },
+        { key: '/settings/marketplace-api', label: <Link href="/settings/marketplace-api">API Connections</Link> },
+        { key: '/integrations/channels', label: <Link href="/integrations/channels">Sales Channels</Link> },
         { key: '/integrations/mappings', label: <Link href="/integrations/mappings">SKU Mappings</Link> },
-        { key: '/settings/integrations', label: <Link href="/settings/integrations">Shipping Carriers</Link> },
       ],
     },
     {
