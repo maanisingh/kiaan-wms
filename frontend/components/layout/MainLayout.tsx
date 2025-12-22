@@ -35,7 +35,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
-import { hasRoutePermission } from '@/lib/permissions';
+import { hasRoutePermission, isPicker, isPacker, isViewer, normalizeRole } from '@/lib/permissions';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -66,6 +66,78 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return true;
     });
   };
+
+  // Role-specific menu for Pickers (minimal - only picking tasks)
+  const getPickerMenu = () => [
+    {
+      key: '/dashboards/picker',
+      icon: <DashboardOutlined />,
+      label: <Link href="/dashboards/picker">My Dashboard</Link>,
+    },
+    {
+      key: '/picking',
+      icon: <BoxPlotOutlined />,
+      label: <Link href="/picking">Pick Lists</Link>,
+    },
+    {
+      key: '/scanner',
+      icon: <AppstoreOutlined />,
+      label: <Link href="/scanner">Scanner</Link>,
+    },
+  ];
+
+  // Role-specific menu for Packers (packing, shipments, labels)
+  const getPackerMenu = () => [
+    {
+      key: '/dashboards/packer',
+      icon: <DashboardOutlined />,
+      label: <Link href="/dashboards/packer">My Dashboard</Link>,
+    },
+    {
+      key: '/packing',
+      icon: <BoxPlotOutlined />,
+      label: <Link href="/packing">Packing Tasks</Link>,
+    },
+    {
+      key: '/shipments',
+      icon: <CarOutlined />,
+      label: <Link href="/shipments">Shipments</Link>,
+    },
+    {
+      key: '/labels',
+      icon: <PrinterOutlined />,
+      label: <Link href="/labels">Label Printing</Link>,
+    },
+    {
+      key: '/scanner',
+      icon: <AppstoreOutlined />,
+      label: <Link href="/scanner">Scanner</Link>,
+    },
+  ];
+
+  // Role-specific menu for Viewers (read-only reports and analytics)
+  const getViewerMenu = () => [
+    {
+      key: '/dashboard',
+      icon: <DashboardOutlined />,
+      label: <Link href="/dashboard">Dashboard</Link>,
+    },
+    {
+      key: '/reports',
+      icon: <BarChartOutlined />,
+      label: <Link href="/reports">Reports</Link>,
+    },
+    {
+      key: '/analytics',
+      icon: <BarChartOutlined />,
+      label: 'Analytics',
+      children: [
+        { key: '/analytics/pricing-calculator', label: <Link href="/analytics/pricing-calculator">Pricing Calculator</Link> },
+        { key: '/analytics/channels', label: <Link href="/analytics/channels">Channel Pricing</Link> },
+        { key: '/analytics/margins', label: <Link href="/analytics/margins">Margin Analysis</Link> },
+      ],
+    },
+  ];
 
   const allMenuItems = [
     {
@@ -225,22 +297,46 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     },
   ];
 
-  // Filter menu items based on user permissions
-  const menuItems = allMenuItems.map(item => {
-    // If item has children, filter them
-    if (item.children) {
-      const filteredChildren = filterMenuChildren(item.children);
-      // Only show parent if it has accessible children
-      return filteredChildren.length > 0 ? { ...item, children: filteredChildren } : null;
+  // Get menu items based on user role
+  // For restricted roles (picker, packer, viewer), return role-specific minimal menus
+  // For management roles, return full menu filtered by permissions
+  const getMenuItems = () => {
+    const userRole = user?.role || '';
+
+    // Pickers get minimal menu - only picking tasks
+    if (isPicker(userRole)) {
+      return getPickerMenu();
     }
 
-    // Check if user has permission for this route
-    if (typeof item.key === 'string' && item.key.startsWith('/')) {
-      return canAccessMenuItem(item.key) ? item : null;
+    // Packers get focused menu - packing, shipments, labels
+    if (isPacker(userRole)) {
+      return getPackerMenu();
     }
 
-    return item;
-  }).filter(Boolean); // Remove null items
+    // Viewers get read-only menu - reports and analytics
+    if (isViewer(userRole)) {
+      return getViewerMenu();
+    }
+
+    // Management/Admin roles get full menu filtered by permissions
+    return allMenuItems.map(item => {
+      // If item has children, filter them
+      if (item.children) {
+        const filteredChildren = filterMenuChildren(item.children);
+        // Only show parent if it has accessible children
+        return filteredChildren.length > 0 ? { ...item, children: filteredChildren } : null;
+      }
+
+      // Check if user has permission for this route
+      if (typeof item.key === 'string' && item.key.startsWith('/')) {
+        return canAccessMenuItem(item.key) ? item : null;
+      }
+
+      return item;
+    }).filter(Boolean);
+  };
+
+  const menuItems = getMenuItems();
 
   const userMenuItems = [
     {

@@ -374,35 +374,46 @@ export default function PackingDetailPage() {
   };
 
   const handleScanSubmit = async (values: any) => {
-    if (!currentItem) return;
+    if (!currentItem || !packingTask) return;
 
     const scannedBarcode = values.barcode.trim();
 
-    // Verify barcode matches
-    if (scannedBarcode !== currentItem.barcode && scannedBarcode !== currentItem.sku) {
-      message.error(`Barcode mismatch! Expected ${currentItem.barcode || currentItem.sku}, got ${scannedBarcode}`);
+    try {
+      setProcessing(true);
+
+      // Call the backend API to pack the item
+      const response = await apiService.patch(
+        `/packing/${packingTask.id}/items/${currentItem.id}/pack`,
+        {
+          quantityPacked: currentItem.quantity,
+          scannedBarcode: scannedBarcode
+        }
+      );
+
+      message.success(`Item ${currentItem.name} verified and packed`);
+
+      // Check if all items are packed
+      if (response.allItemsPacked) {
+        message.info('All items packed! Ready to complete packing.');
+      }
+
+      // Refresh the packing task to get updated data
+      fetchPackingTask();
+
+      setScanModalVisible(false);
+      scanForm.resetFields();
+    } catch (err: any) {
+      // Handle barcode mismatch error from backend
+      if (err.response?.data?.error?.includes('Barcode does not match')) {
+        message.error(`Barcode mismatch! Expected ${err.response?.data?.expectedBarcode || currentItem.barcode || currentItem.sku}, got ${scannedBarcode}`);
+      } else {
+        message.error(err.message || 'Failed to pack item');
+      }
       scanForm.resetFields();
       scanInputRef.current?.focus();
-      return;
+    } finally {
+      setProcessing(false);
     }
-
-    // Mark item as packed (simulate - in real app this would update backend)
-    message.success(`Item ${currentItem.name} verified and packed`);
-
-    // Update local state
-    if (packingTask) {
-      const updatedItems = packingTask.items.map(item =>
-        item.id === currentItem.id ? { ...item, status: 'packed' as const, quantityPacked: item.quantity } : item
-      );
-      setPackingTask({
-        ...packingTask,
-        items: updatedItems,
-        packedItems: updatedItems.filter(i => i.status === 'packed').reduce((sum, i) => sum + i.quantity, 0)
-      });
-    }
-
-    setScanModalVisible(false);
-    scanForm.resetFields();
   };
 
   const getStatusColor = (status: string) => {

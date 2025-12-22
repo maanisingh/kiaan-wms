@@ -21,23 +21,37 @@ const ADMIN_ROLES: Role[] = ['super_admin', 'company_admin', 'admin'];
 // Management roles (can manage operations) - includes warehouse_manager
 const MANAGEMENT_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 'inventory_manager', 'admin', 'manager'];
 
-// Operational roles (can perform daily operations) - includes packer, picker
-const OPERATIONAL_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 'inventory_manager', 'admin', 'manager', 'picker', 'packer', 'warehouse_staff'];
+// Roles that can access full operational features
+const FULL_ACCESS_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 'inventory_manager', 'admin', 'manager', 'warehouse_staff'];
 
-// View-only access (read-only) - viewer can see everything
-const VIEW_ROLES: Role[] = ALL_ROLES;
+// Picker-specific routes ONLY
+const PICKER_ROUTES: Role[] = ['picker', ...MANAGEMENT_ROLES];
+
+// Packer-specific routes
+const PACKER_ROUTES: Role[] = ['packer', ...MANAGEMENT_ROLES];
+
+// View-only roles (for reports and analytics)
+const VIEWER_ROUTES: Role[] = ['viewer', ...MANAGEMENT_ROLES];
 
 // Define which roles can access which routes
-// CLIENT REQUIREMENT: All logged-in users should be able to view pages based on their role
+// STRICT MODE: Only allow roles explicitly listed
 export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  // Dashboard - everyone can access their dashboard
-  '/dashboard': ALL_ROLES,
+  // ============================================
+  // ROLE-SPECIFIC DASHBOARDS
+  // ============================================
+  '/dashboards/picker': PICKER_ROUTES,
+  '/dashboards/packer': PACKER_ROUTES,
+  '/dashboards/manager': MANAGEMENT_ROLES,
+  '/dashboards/warehouse-staff': ['warehouse_staff', ...MANAGEMENT_ROLES],
+
+  // Main dashboard - managers and admins only (pickers/packers have their own)
+  '/dashboard': FULL_ACCESS_ROLES,
   '/profile': ALL_ROLES,
 
   // ============================================
   // ADMIN ROUTES (Super Admin, Company Admin, Admin)
   // ============================================
-  '/settings': ALL_ROLES,  // Everyone can view settings
+  '/settings': FULL_ACCESS_ROLES,
   '/settings/carriers': MANAGEMENT_ROLES,
   '/settings/marketplace-api': MANAGEMENT_ROLES,
   '/settings/integrations': MANAGEMENT_ROLES,
@@ -50,83 +64,89 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/companies': ['super_admin', 'company_admin'],
 
   // ============================================
-  // WAREHOUSE MANAGEMENT - Warehouse Manager has full access
+  // WAREHOUSE MANAGEMENT - Management only
   // ============================================
-  '/warehouses': ALL_ROLES,
-  '/warehouses/zones': ALL_ROLES,
-  '/warehouses/locations': ALL_ROLES,
+  '/warehouses': FULL_ACCESS_ROLES,
+  '/warehouses/zones': FULL_ACCESS_ROLES,
+  '/warehouses/locations': FULL_ACCESS_ROLES,
 
   // ============================================
-  // INVENTORY MANAGEMENT - All roles can view
+  // INVENTORY MANAGEMENT - Management + Staff only
   // ============================================
-  '/inventory': ALL_ROLES,
-  '/inventory/by-best-before-date': ALL_ROLES,
-  '/inventory/by-location': ALL_ROLES,
-  '/inventory/movements': ALL_ROLES,
-  '/inventory/batches': ALL_ROLES,
-  '/inventory/adjustments': OPERATIONAL_ROLES,
-  '/inventory/cycle-counts': OPERATIONAL_ROLES,
+  '/inventory': FULL_ACCESS_ROLES,
+  '/inventory/by-best-before-date': FULL_ACCESS_ROLES,
+  '/inventory/by-location': FULL_ACCESS_ROLES,
+  '/inventory/movements': FULL_ACCESS_ROLES,
+  '/inventory/batches': FULL_ACCESS_ROLES,
+  '/inventory/adjustments': MANAGEMENT_ROLES,
+  '/inventory/cycle-counts': FULL_ACCESS_ROLES,
 
   // ============================================
-  // PRODUCTS - All roles can view
+  // PRODUCTS - Management only
   // ============================================
-  '/products': ALL_ROLES,
-  '/products/categories': ALL_ROLES,
-  '/products/bundles': ALL_ROLES,
+  '/products': FULL_ACCESS_ROLES,
+  '/products/categories': FULL_ACCESS_ROLES,
+  '/products/bundles': FULL_ACCESS_ROLES,
   '/products/import': MANAGEMENT_ROLES,
 
   // ============================================
   // INBOUND (Purchase Orders, Goods Receiving)
   // ============================================
-  '/purchase-orders': ALL_ROLES,
-  '/goods-receiving': OPERATIONAL_ROLES,
-  '/suppliers': ALL_ROLES,
+  '/purchase-orders': FULL_ACCESS_ROLES,
+  '/goods-receiving': FULL_ACCESS_ROLES,
+  '/suppliers': FULL_ACCESS_ROLES,
 
   // ============================================
   // OUTBOUND (Sales Orders, Customers)
   // ============================================
-  '/sales-orders': ALL_ROLES,
-  '/customers': ALL_ROLES,
-  '/clients': ALL_ROLES,
+  '/sales-orders': FULL_ACCESS_ROLES,
+  '/customers': FULL_ACCESS_ROLES,
+  '/clients': FULL_ACCESS_ROLES,
 
   // ============================================
-  // FULFILLMENT (Picking & Packing) - Packer has full access
+  // FULFILLMENT (Picking & Packing)
   // ============================================
-  '/picking': ALL_ROLES,
-  '/packing': ALL_ROLES,
+  '/picking': PICKER_ROUTES,  // Pickers + Management
+  '/packing': PACKER_ROUTES,  // Packers + Management
 
   // ============================================
-  // SHIPPING & LOGISTICS - Packer has full access
+  // SHIPPING & LOGISTICS - Packers + Management
   // ============================================
-  '/shipments': ALL_ROLES,
-  '/returns': ALL_ROLES,
-  '/transfers': ALL_ROLES,
-  '/fba-transfers': ALL_ROLES,
-  '/labels': ALL_ROLES,
+  '/shipments': PACKER_ROUTES,
+  '/returns': FULL_ACCESS_ROLES,
+  '/transfers': FULL_ACCESS_ROLES,
+  '/fba-transfers': FULL_ACCESS_ROLES,
+  '/labels': PACKER_ROUTES,
 
   // ============================================
   // REPLENISHMENT
   // ============================================
-  '/replenishment': ALL_ROLES,
-  '/replenishment/tasks': ALL_ROLES,
+  '/replenishment': FULL_ACCESS_ROLES,
+  '/replenishment/tasks': FULL_ACCESS_ROLES,
   '/replenishment/settings': MANAGEMENT_ROLES,
 
   // ============================================
   // INTEGRATIONS & CHANNELS
   // ============================================
-  '/integrations': ALL_ROLES,
-  '/integrations/channels': ALL_ROLES,
-  '/integrations/mappings': ALL_ROLES,
+  '/integrations': MANAGEMENT_ROLES,
+  '/integrations/channels': MANAGEMENT_ROLES,
+  '/integrations/mappings': MANAGEMENT_ROLES,
 
   // ============================================
-  // ANALYTICS & REPORTS - All roles can view
+  // ANALYTICS & REPORTS - Viewer can see
   // ============================================
-  '/analytics': ALL_ROLES,
-  '/analytics/pricing-calculator': ALL_ROLES,
-  '/analytics/channels': ALL_ROLES,
-  '/analytics/optimizer': ALL_ROLES,
-  '/analytics/margins': ALL_ROLES,
-  '/reports': ALL_ROLES,
+  '/analytics': VIEWER_ROUTES,
+  '/analytics/pricing-calculator': VIEWER_ROUTES,
+  '/analytics/channels': VIEWER_ROUTES,
+  '/analytics/optimizer': VIEWER_ROUTES,
+  '/analytics/margins': VIEWER_ROUTES,
+  '/reports': VIEWER_ROUTES,
+
+  // ============================================
+  // BARCODES - Pickers and Packers need this
+  // ============================================
+  '/barcode': [...PICKER_ROUTES, 'packer'],
+  '/scanner': ALL_ROLES,
 
   // ============================================
   // AUTH PAGES (public - no restrictions)
@@ -144,22 +164,40 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
 };
 
 /**
+ * Get the default redirect path for a role after login
+ */
+export function getDefaultRouteForRole(role: string): string {
+  const normalizedRole = normalizeRole(role);
+  switch (normalizedRole) {
+    case 'picker':
+      return '/dashboards/picker';
+    case 'packer':
+      return '/dashboards/packer';
+    case 'viewer':
+      return '/reports';
+    case 'warehouse_staff':
+      return '/dashboards/warehouse-staff';
+    default:
+      return '/dashboard';
+  }
+}
+
+/**
  * Normalize role to lowercase for comparison
  * Backend may send SUPER_ADMIN, frontend uses super_admin
  */
-function normalizeRole(role: string): string {
+export function normalizeRole(role: string): string {
   return role.toLowerCase().replace(/-/g, '_');
 }
 
 /**
  * Check if a user role has permission to access a route
- * CLIENT REQUIREMENT: All logged-in users should be able to access pages
- * Allow access by default for any authenticated user
+ * STRICT MODE: Only allow explicitly defined routes for operational roles
  */
 export function hasRoutePermission(userRole: string, route: string): boolean {
   if (!userRole) return false;
 
-  const normalizedRole = normalizeRole(userRole);
+  const normalizedRole = normalizeRole(userRole) as Role;
 
   // Check exact match first
   let allowedRoles = ROUTE_PERMISSIONS[route];
@@ -169,17 +207,24 @@ export function hasRoutePermission(userRole: string, route: string): boolean {
     // Find the best matching parent route
     const parentRoutes = Object.keys(ROUTE_PERMISSIONS)
       .filter(r => route.startsWith(r) && r !== '/')
-      .sort((a, b) => b.length - a.length); // Sort by length descending to get most specific first
+      .sort((a, b) => b.length - a.length);
 
     if (parentRoutes.length > 0) {
       allowedRoles = ROUTE_PERMISSIONS[parentRoutes[0]];
     }
   }
 
-  // PERMISSIVE DEFAULT: If route is not found, allow access for any authenticated user
-  // This ensures users don't get unexpectedly redirected to login
+  // For picker and packer roles, be STRICT - only allow explicitly defined routes
+  if (normalizedRole === 'picker' || normalizedRole === 'packer' || normalizedRole === 'viewer') {
+    if (!allowedRoles) {
+      return false; // No permission for undefined routes
+    }
+    return allowedRoles.some(role => normalizeRole(role) === normalizedRole);
+  }
+
+  // For management/admin roles, be permissive for undefined routes
   if (!allowedRoles) {
-    return true; // Allow access for any authenticated user
+    return FULL_ACCESS_ROLES.some(role => normalizeRole(role) === normalizedRole);
   }
 
   return allowedRoles.some(role => normalizeRole(role) === normalizedRole);
@@ -218,6 +263,35 @@ export function isAdmin(userRole: string): boolean {
  */
 export function isManagement(userRole: string): boolean {
   return hasAnyRole(userRole, MANAGEMENT_ROLES);
+}
+
+/**
+ * Check if user is a picker
+ */
+export function isPicker(userRole: string): boolean {
+  return normalizeRole(userRole) === 'picker';
+}
+
+/**
+ * Check if user is a packer
+ */
+export function isPacker(userRole: string): boolean {
+  return normalizeRole(userRole) === 'packer';
+}
+
+/**
+ * Check if user is a viewer
+ */
+export function isViewer(userRole: string): boolean {
+  return normalizeRole(userRole) === 'viewer';
+}
+
+/**
+ * Check if user has restricted access (picker, packer, viewer)
+ */
+export function hasRestrictedAccess(userRole: string): boolean {
+  const normalized = normalizeRole(userRole);
+  return ['picker', 'packer', 'viewer'].includes(normalized);
 }
 
 /**
@@ -260,10 +334,10 @@ export function getRoleDescription(role: string): string {
     'inventory_manager': 'Manage inventory, products, and stock',
     'admin': 'Administrative access to system settings',
     'manager': 'Manage daily operations and reports',
-    'picker': 'Access to picking tasks and sales orders',
-    'packer': 'Access to packing tasks and shipments',
+    'picker': 'Picking tasks only - simple scan and pick interface',
+    'packer': 'Packing and shipping - pack, label, and ship orders',
     'warehouse_staff': 'General warehouse operations access',
-    'viewer': 'Read-only access to view data and reports',
+    'viewer': 'Read-only access to reports and analytics',
   };
   return descriptions[normalizedRole] || 'Standard user access';
 }

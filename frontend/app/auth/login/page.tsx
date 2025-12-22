@@ -2,17 +2,18 @@
 
 import React from 'react';
 import { Form, Input, Button, Card, Checkbox, message, Tag, Divider } from 'antd';
-import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingOutlined, ShoppingCartOutlined, SolutionOutlined, EyeOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingCartOutlined, EyeOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
+import { getDefaultRouteForRole } from '@/lib/permissions';
 
 // Quick login users - Real backend accounts
 const DEMO_USERS = [
   { email: 'admin@kiaan-wms.com', password: 'Admin@123', role: 'SUPER_ADMIN', name: 'Super Admin', icon: <CrownOutlined />, color: 'gold' },
   { email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', role: 'COMPANY_ADMIN', name: 'Company Admin', icon: <TeamOutlined />, color: 'blue' },
-  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MGR', name: 'Warehouse Mgr', icon: <BoxPlotOutlined />, color: 'green' },
+  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MANAGER', name: 'Warehouse Mgr', icon: <BoxPlotOutlined />, color: 'green' },
   { email: 'picker@kiaan-wms.com', password: 'Admin@123', role: 'PICKER', name: 'Picker', icon: <InboxOutlined />, color: 'orange' },
   { email: 'packer@kiaan-wms.com', password: 'Admin@123', role: 'PACKER', name: 'Packer', icon: <ShoppingCartOutlined />, color: 'magenta' },
   { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer', icon: <EyeOutlined />, color: 'purple' },
@@ -20,7 +21,7 @@ const DEMO_USERS = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, user } = useAuthStore();
   const [loading, setLoading] = React.useState(false);
   const [quickLoginLoading, setQuickLoginLoading] = React.useState<string | null>(null);
 
@@ -29,7 +30,12 @@ export default function LoginPage() {
     try {
       await login(values.email, values.password);
       message.success('Login successful!');
-      router.push('/dashboard');
+
+      // Get user from store after login
+      const authState = useAuthStore.getState();
+      const userRole = authState.user?.role || 'viewer';
+      const redirectPath = getDefaultRouteForRole(userRole);
+      router.push(redirectPath);
     } catch (error) {
       message.error('Login failed. Please check your credentials.');
     } finally {
@@ -37,12 +43,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickLogin = async (user: typeof DEMO_USERS[0]) => {
-    setQuickLoginLoading(user.email);
+  const handleQuickLogin = async (demoUser: typeof DEMO_USERS[0]) => {
+    setQuickLoginLoading(demoUser.email);
     try {
-      await login(user.email, user.password);
-      message.success(`Logged in as ${user.name}!`);
-      router.push('/dashboard');
+      await login(demoUser.email, demoUser.password);
+      message.success(`Logged in as ${demoUser.name}!`);
+
+      // Redirect based on role
+      const redirectPath = getDefaultRouteForRole(demoUser.role);
+      router.push(redirectPath);
     } catch (error) {
       message.error('Quick login failed.');
     } finally {
@@ -135,26 +144,26 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <p className="text-xs text-center text-gray-600 mb-3">Click any role to auto-login:</p>
-          {DEMO_USERS.map((user) => (
+          {DEMO_USERS.map((demoUser) => (
             <Button
-              key={user.email}
+              key={demoUser.email}
               block
               size="middle"
-              icon={user.icon}
-              loading={quickLoginLoading === user.email}
-              onClick={() => handleQuickLogin(user)}
+              icon={demoUser.icon}
+              loading={quickLoginLoading === demoUser.email}
+              onClick={() => handleQuickLogin(demoUser)}
               className="flex items-center justify-between"
-              data-testid={`quick-login-${user.role.toLowerCase()}`}
+              data-testid={`quick-login-${demoUser.role.toLowerCase()}`}
             >
-              <span>{user.name}</span>
-              <Tag color={user.color}>{user.role.replace('_', ' ').toUpperCase()}</Tag>
+              <span>{demoUser.name}</span>
+              <Tag color={demoUser.color}>{demoUser.role.replace('_', ' ')}</Tag>
             </Button>
           ))}
         </div>
 
         <div className="mt-6 pt-4 border-t border-gray-200">
           <p className="text-xs text-center text-gray-500">
-            🔐 Click above to login instantly • Password: <strong>Admin@123</strong>
+            Click above to login instantly - Password: <strong>Admin@123</strong>
           </p>
         </div>
       </Card>
