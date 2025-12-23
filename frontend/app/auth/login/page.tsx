@@ -2,21 +2,22 @@
 
 import React from 'react';
 import { Form, Input, Button, Card, Checkbox, message, Tag, Divider } from 'antd';
-import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingCartOutlined, EyeOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, BoxPlotOutlined, CrownOutlined, TeamOutlined, InboxOutlined, ShoppingCartOutlined, EyeOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
 import { getDefaultRouteForRole } from '@/lib/permissions';
 
-// Quick login users - Real backend accounts
+// Quick login users - Real backend accounts matching seed.js
 const DEMO_USERS = [
-  { email: 'admin@kiaan-wms.com', password: 'Admin@123', role: 'SUPER_ADMIN', name: 'Super Admin', icon: <CrownOutlined />, color: 'gold' },
-  { email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', role: 'COMPANY_ADMIN', name: 'Company Admin', icon: <TeamOutlined />, color: 'blue' },
-  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MANAGER', name: 'Warehouse Mgr', icon: <BoxPlotOutlined />, color: 'green' },
-  { email: 'picker@kiaan-wms.com', password: 'Admin@123', role: 'PICKER', name: 'Picker', icon: <InboxOutlined />, color: 'orange' },
-  { email: 'packer@kiaan-wms.com', password: 'Admin@123', role: 'PACKER', name: 'Packer', icon: <ShoppingCartOutlined />, color: 'magenta' },
-  { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer', icon: <EyeOutlined />, color: 'purple' },
+  { email: 'admin@kiaan-wms.com', password: 'Admin@123', role: 'SUPER_ADMIN', name: 'Super Admin', icon: <CrownOutlined />, color: 'gold', access: 'Full system access' },
+  { email: 'companyadmin@kiaan-wms.com', password: 'Admin@123', role: 'COMPANY_ADMIN', name: 'Company Admin', icon: <TeamOutlined />, color: 'blue', access: 'Company management' },
+  { email: 'warehousemanager@kiaan-wms.com', password: 'Admin@123', role: 'WAREHOUSE_MANAGER', name: 'Warehouse Mgr', icon: <BoxPlotOutlined />, color: 'green', access: 'Warehouse operations' },
+  { email: 'inventorymanager@kiaan-wms.com', password: 'Admin@123', role: 'INVENTORY_MANAGER', name: 'Inventory Mgr', icon: <DatabaseOutlined />, color: 'cyan', access: 'Inventory control' },
+  { email: 'picker@kiaan-wms.com', password: 'Admin@123', role: 'PICKER', name: 'Picker', icon: <InboxOutlined />, color: 'orange', access: 'Pick lists only' },
+  { email: 'packer@kiaan-wms.com', password: 'Admin@123', role: 'PACKER', name: 'Packer', icon: <ShoppingCartOutlined />, color: 'magenta', access: 'Packing & shipments' },
+  { email: 'viewer@kiaan-wms.com', password: 'Admin@123', role: 'VIEWER', name: 'Viewer', icon: <EyeOutlined />, color: 'purple', access: 'Read-only reports' },
 ];
 
 export default function LoginPage() {
@@ -143,7 +144,7 @@ export default function LoginPage() {
         <Divider className="my-6">Quick Login (Demo)</Divider>
 
         <div className="space-y-2">
-          <p className="text-xs text-center text-gray-600 mb-3">Click any role to auto-login:</p>
+          <p className="text-xs text-center text-gray-600 mb-3">Click any role to auto-login and test RBAC:</p>
           {DEMO_USERS.map((demoUser) => (
             <Button
               key={demoUser.email}
@@ -152,19 +153,24 @@ export default function LoginPage() {
               icon={demoUser.icon}
               loading={quickLoginLoading === demoUser.email}
               onClick={() => handleQuickLogin(demoUser)}
-              className="flex items-center justify-between"
+              className="flex items-center justify-between text-left"
               data-testid={`quick-login-${demoUser.role.toLowerCase()}`}
+              title={`${demoUser.email} - ${demoUser.access}`}
             >
-              <span>{demoUser.name}</span>
-              <Tag color={demoUser.color}>{demoUser.role.replace('_', ' ')}</Tag>
+              <div className="flex flex-col items-start">
+                <span className="font-medium">{demoUser.name}</span>
+                <span className="text-xs text-gray-500">{demoUser.access}</span>
+              </div>
+              <Tag color={demoUser.color} className="ml-2">{demoUser.role.replace(/_/g, ' ')}</Tag>
             </Button>
           ))}
         </div>
 
         <div className="mt-6 pt-4 border-t border-gray-200">
-          <p className="text-xs text-center text-gray-500">
-            Click above to login instantly - Password: <strong>Admin@123</strong>
-          </p>
+          <div className="text-xs text-center text-gray-500 space-y-1">
+            <p><strong>All Accounts:</strong> Password is <code className="bg-gray-100 px-1 rounded">Admin@123</code></p>
+            <p className="text-gray-400">Each role has different menu access - test RBAC by switching accounts</p>
+          </div>
         </div>
       </Card>
     </div>

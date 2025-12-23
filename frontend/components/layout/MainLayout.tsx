@@ -36,6 +36,7 @@ import { useUIStore } from '@/store/uiStore';
 import Link from 'next/link';
 import { APP_NAME } from '@/lib/constants';
 import { hasRoutePermission, isPicker, isPacker, isViewer, normalizeRole } from '@/lib/permissions';
+import MobileBottomNav from './MobileBottomNav';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -80,9 +81,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: <Link href="/picking">Pick Lists</Link>,
     },
     {
-      key: '/scanner',
+      key: '/barcode',
       icon: <AppstoreOutlined />,
-      label: <Link href="/scanner">Scanner</Link>,
+      label: <Link href="/barcode">Scanner</Link>,
     },
   ];
 
@@ -109,9 +110,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       label: <Link href="/labels">Label Printing</Link>,
     },
     {
-      key: '/scanner',
+      key: '/barcode',
       icon: <AppstoreOutlined />,
-      label: <Link href="/scanner">Scanner</Link>,
+      label: <Link href="/barcode">Scanner</Link>,
     },
   ];
 
@@ -372,8 +373,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         trigger={null}
         collapsible
         collapsed={sidebarCollapsed}
-        className="shadow-lg ant-layout-sider-fixed"
+        className="shadow-lg ant-layout-sider-fixed hidden md:block"
         width={250}
+        collapsedWidth={80}
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -403,7 +405,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         />
       </Sider>
 
-      <Layout style={{ marginLeft: sidebarCollapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
+      <Layout
+        className="md:transition-[margin-left] md:duration-200"
+        style={{ marginLeft: 0 }}
+      >
+        {/* Desktop margin handled by CSS */}
+        <style jsx global>{`
+          @media (min-width: 768px) {
+            .ant-layout-has-sider > .ant-layout {
+              margin-left: ${sidebarCollapsed ? '80px' : '250px'} !important;
+            }
+          }
+        `}</style>
         <Header
           className="bg-white shadow-sm px-4 flex items-center justify-between h-16"
           style={{
@@ -457,7 +470,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {children}
         </Content>
 
-        <Footer className="bg-white text-center border-t border-gray-200">
+        <Footer className="bg-white text-center border-t border-gray-200 hidden md:block">
           <div className="container mx-auto px-4 py-4">
             <div className="text-gray-600">
               © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
@@ -471,6 +484,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
         </Footer>
       </Layout>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </Layout>
   );
 };
