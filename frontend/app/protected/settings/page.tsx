@@ -1698,16 +1698,6 @@ export default function SystemSettingsPage() {
       children: renderScannerSettings(),
     },
     {
-      key: 'carriers',
-      label: <span className="flex items-center gap-2">🚚 Carriers ({carriers.length})</span>,
-      children: renderCarrierSettings(),
-    },
-    {
-      key: 'marketplaces',
-      label: <span className="flex items-center gap-2">🛒 Marketplaces ({marketplaces.length})</span>,
-      children: renderMarketplaceSettings(),
-    },
-    {
       key: 'payments',
       label: <span className="flex items-center gap-2">💳 Payments & Invoicing</span>,
       children: renderPaymentSettings(),

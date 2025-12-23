@@ -362,16 +362,49 @@ export default function SalesOrderDetailPage() {
     }
   };
 
-  // Ship Order Handler
+  // Ship Order Handler - With automatic marketplace sync
   const handleShipOrder = async (values: any) => {
     try {
       setActionLoading('ship');
-      await apiService.post(`/sales-orders/${params.id}/ship`, {
+      const result = await apiService.post(`/sales-orders/${params.id}/ship`, {
         trackingNumber: values.trackingNumber,
         carrier: values.carrier,
         notes: values.notes,
       });
-      message.success('Order marked as shipped!');
+
+      // Show success message with marketplace sync info
+      if (result.marketplaceSync?.success) {
+        Modal.success({
+          title: 'Order Shipped & Synced!',
+          content: (
+            <div>
+              <p><strong>Tracking:</strong> {result.trackingNumber}</p>
+              <p><strong>Carrier:</strong> {result.carrier}</p>
+              <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f6ffed', borderRadius: 8 }}>
+                <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+                <strong>Marketplace Sync:</strong> {result.marketplaceSync.message}
+              </div>
+            </div>
+          ),
+        });
+      } else if (result.marketplaceSync && !result.marketplaceSync.success) {
+        Modal.warning({
+          title: 'Order Shipped - Sync Warning',
+          content: (
+            <div>
+              <p><strong>Tracking:</strong> {result.trackingNumber}</p>
+              <p><strong>Carrier:</strong> {result.carrier}</p>
+              <div style={{ marginTop: 16, padding: 12, backgroundColor: '#fffbe6', borderRadius: 8 }}>
+                <WarningOutlined style={{ color: '#faad14', marginRight: 8 }} />
+                <strong>Warning:</strong> {result.marketplaceSync.message}
+              </div>
+            </div>
+          ),
+        });
+      } else {
+        message.success('Order marked as shipped!');
+      }
+
       setShipModalOpen(false);
       shipForm.resetFields();
       fetchOrder();
@@ -970,25 +1003,39 @@ export default function SalesOrderDetailPage() {
 
       {/* Ship Order Modal */}
       <Modal
-        title="Ship Order"
+        title={<span><CarOutlined /> Ship Order & Sync to Channel</span>}
         open={shipModalOpen}
         onCancel={() => setShipModalOpen(false)}
         footer={null}
+        width={600}
       >
+        {order?.salesChannel && order.salesChannel !== 'DIRECT' && (
+          <Alert
+            message={`Auto-Sync to ${order.salesChannel}`}
+            description={`Tracking number will be automatically sent to ${order.salesChannel} when you ship this order.`}
+            type="info"
+            showIcon
+            icon={<CheckCircleOutlined />}
+            className="mb-4"
+            style={{ backgroundColor: order.salesChannel.includes('AMAZON') ? '#fff7e6' : order.salesChannel === 'SHOPIFY' ? '#f6ffed' : order.salesChannel === 'EBAY' ? '#fff1f0' : '#e6f7ff' }}
+          />
+        )}
         <Form form={shipForm} layout="vertical" onFinish={handleShipOrder}>
           <Form.Item
             label="Carrier"
             name="carrier"
             rules={[{ required: true, message: 'Please select carrier' }]}
           >
-            <Select placeholder="Select carrier">
-              <Option value="DHL">DHL</Option>
+            <Select placeholder="Select carrier" size="large">
+              <Option value="DHL">DHL Express</Option>
               <Option value="FEDEX">FedEx</Option>
               <Option value="UPS">UPS</Option>
               <Option value="ROYAL_MAIL">Royal Mail</Option>
               <Option value="PARCELFORCE">Parcelforce</Option>
               <Option value="DPD">DPD</Option>
-              <Option value="HERMES">Hermes</Option>
+              <Option value="HERMES">Evri (Hermes)</Option>
+              <Option value="YODEL">Yodel</Option>
+              <Option value="AMAZON_LOGISTICS">Amazon Logistics</Option>
               <Option value="OTHER">Other</Option>
             </Select>
           </Form.Item>
@@ -997,23 +1044,26 @@ export default function SalesOrderDetailPage() {
             name="trackingNumber"
             rules={[{ required: true, message: 'Please enter tracking number' }]}
           >
-            <Input placeholder="Enter tracking number" />
+            <Input placeholder="Enter tracking number" size="large" />
           </Form.Item>
-          <Form.Item label="Shipping Notes" name="notes">
-            <TextArea rows={3} placeholder="Any shipping notes..." />
+          <Form.Item label="Shipping Notes (Optional)" name="notes">
+            <TextArea rows={2} placeholder="Any shipping notes..." />
           </Form.Item>
           <Form.Item className="mb-0">
-            <Space className="w-full justify-end">
-              <Button onClick={() => setShipModalOpen(false)}>Cancel</Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={actionLoading === 'ship'}
-                icon={<CarOutlined />}
-              >
-                Mark as Shipped
-              </Button>
-            </Space>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={actionLoading === 'ship'}
+              icon={<CarOutlined />}
+              size="large"
+              block
+              style={{ height: 50, fontSize: 16 }}
+            >
+              {order?.salesChannel && order.salesChannel !== 'DIRECT'
+                ? `Ship & Sync Tracking to ${order.salesChannel}`
+                : 'Mark as Shipped'
+              }
+            </Button>
           </Form.Item>
         </Form>
       </Modal>

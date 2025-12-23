@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, App } from 'antd';
+import { Table, Button, Input, Tag, Space, Card, Tabs, Spin, Alert, Modal, App, Select } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -14,6 +14,10 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
+  AmazonOutlined,
+  ShoppingOutlined,
+  ShopOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
@@ -56,6 +60,7 @@ export default function SalesOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [channelFilter, setChannelFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
 
   // Fetch sales orders from REST API
@@ -77,19 +82,28 @@ export default function SalesOrdersPage() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Filter orders by search text and status
+  // Filter orders by search text, status, and channel
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       !searchText ||
       order.orderNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
       order.customer?.name?.toLowerCase().includes(searchText.toLowerCase());
 
+    // Filter by channel
+    const matchesChannel = channelFilter === 'all' ||
+      (order.salesChannel?.toUpperCase() || 'DIRECT') === channelFilter.toUpperCase();
+
     // Filter by tab status
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'in_progress') {
-      return matchesSearch && ['PICKING', 'PACKING', 'ALLOCATED'].includes(order.status?.toUpperCase());
+    let matchesStatus = true;
+    if (activeTab !== 'all') {
+      if (activeTab === 'in_progress') {
+        matchesStatus = ['PICKING', 'PACKING', 'ALLOCATED'].includes(order.status?.toUpperCase());
+      } else {
+        matchesStatus = order.status?.toUpperCase() === activeTab.toUpperCase();
+      }
     }
-    return matchesSearch && order.status?.toUpperCase() === activeTab.toUpperCase();
+
+    return matchesSearch && matchesChannel && matchesStatus;
   });
 
   const handleDelete = (id: string, orderNumber: string) => {
@@ -146,12 +160,23 @@ export default function SalesOrdersPage() {
       title: 'Channel',
       dataIndex: 'salesChannel',
       key: 'channel',
-      width: 120,
-      render: (channel: string) => (
-        <Tag color="blue" className="uppercase">
-          {channel || 'DIRECT'}
-        </Tag>
-      ),
+      width: 140,
+      render: (channel: string) => {
+        const channelConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
+          'AMAZON_FBA': { color: '#ff9900', icon: <AmazonOutlined />, label: 'Amazon FBA' },
+          'AMAZON_MFN': { color: '#ff9900', icon: <AmazonOutlined />, label: 'Amazon MFN' },
+          'SHOPIFY': { color: '#95bf47', icon: <ShoppingOutlined />, label: 'Shopify' },
+          'SHOPIFY_WHOLESALE': { color: '#5c6ac4', icon: <ShoppingOutlined />, label: 'Shopify WS' },
+          'EBAY': { color: '#e53238', icon: <ShopOutlined />, label: 'eBay' },
+          'DIRECT': { color: '#1890ff', icon: <GlobalOutlined />, label: 'Direct' },
+        };
+        const config = channelConfig[channel?.toUpperCase()] || channelConfig['DIRECT'];
+        return (
+          <Tag color={config.color} icon={config.icon} style={{ backgroundColor: config.color, color: '#fff', border: 'none' }}>
+            {config.label}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Order Date',
@@ -305,8 +330,67 @@ export default function SalesOrdersPage() {
         </Space>
       </div>
 
-      {/* Filters */}
+      {/* Channel Filter */}
       <Card className="mb-4">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <span className="font-medium text-gray-600">Sales Channel:</span>
+          <Space wrap>
+            <Button
+              type={channelFilter === 'all' ? 'primary' : 'default'}
+              icon={<GlobalOutlined />}
+              onClick={() => setChannelFilter('all')}
+            >
+              All Channels ({orders.length})
+            </Button>
+            <Button
+              type={channelFilter === 'AMAZON_FBA' ? 'primary' : 'default'}
+              style={channelFilter === 'AMAZON_FBA' ? { backgroundColor: '#ff9900', borderColor: '#ff9900' } : {}}
+              icon={<AmazonOutlined />}
+              onClick={() => setChannelFilter('AMAZON_FBA')}
+            >
+              Amazon FBA ({orders.filter(o => o.salesChannel === 'AMAZON_FBA').length})
+            </Button>
+            <Button
+              type={channelFilter === 'AMAZON_MFN' ? 'primary' : 'default'}
+              style={channelFilter === 'AMAZON_MFN' ? { backgroundColor: '#ff9900', borderColor: '#ff9900' } : {}}
+              icon={<AmazonOutlined />}
+              onClick={() => setChannelFilter('AMAZON_MFN')}
+            >
+              Amazon MFN ({orders.filter(o => o.salesChannel === 'AMAZON_MFN').length})
+            </Button>
+            <Button
+              type={channelFilter === 'SHOPIFY' ? 'primary' : 'default'}
+              style={channelFilter === 'SHOPIFY' ? { backgroundColor: '#95bf47', borderColor: '#95bf47' } : {}}
+              icon={<ShoppingOutlined />}
+              onClick={() => setChannelFilter('SHOPIFY')}
+            >
+              Shopify ({orders.filter(o => o.salesChannel === 'SHOPIFY').length})
+            </Button>
+            <Button
+              type={channelFilter === 'SHOPIFY_WHOLESALE' ? 'primary' : 'default'}
+              style={channelFilter === 'SHOPIFY_WHOLESALE' ? { backgroundColor: '#5c6ac4', borderColor: '#5c6ac4' } : {}}
+              icon={<ShoppingOutlined />}
+              onClick={() => setChannelFilter('SHOPIFY_WHOLESALE')}
+            >
+              Shopify Wholesale ({orders.filter(o => o.salesChannel === 'SHOPIFY_WHOLESALE').length})
+            </Button>
+            <Button
+              type={channelFilter === 'EBAY' ? 'primary' : 'default'}
+              style={channelFilter === 'EBAY' ? { backgroundColor: '#e53238', borderColor: '#e53238' } : {}}
+              icon={<ShopOutlined />}
+              onClick={() => setChannelFilter('EBAY')}
+            >
+              eBay ({orders.filter(o => o.salesChannel === 'EBAY').length})
+            </Button>
+            <Button
+              type={channelFilter === 'DIRECT' ? 'primary' : 'default'}
+              icon={<GlobalOutlined />}
+              onClick={() => setChannelFilter('DIRECT')}
+            >
+              Direct ({orders.filter(o => !o.salesChannel || o.salesChannel === 'DIRECT').length})
+            </Button>
+          </Space>
+        </div>
         <Search
           placeholder="Search by order number or customer name..."
           allowClear

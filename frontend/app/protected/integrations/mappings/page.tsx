@@ -27,7 +27,12 @@ export default function IntegrationMappingsPage() {
     setLoading(true);
     try {
       const data = await apiService.get('/sku-mappings');
-      setMappings(data || []);
+      // Map type from API format (PRODUCT/CUSTOMER/ORDER) to display format
+      const formattedData = (Array.isArray(data) ? data : []).map((m: any) => ({
+        ...m,
+        type: m.type === 'PRODUCT' ? 'Product' : m.type === 'CUSTOMER' ? 'Customer' : m.type === 'ORDER' ? 'Order' : m.type
+      }));
+      setMappings(formattedData);
     } catch (error) {
       console.error('Error fetching mappings:', error);
       message.error('Failed to fetch SKU mappings');

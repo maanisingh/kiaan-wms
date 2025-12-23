@@ -67,6 +67,12 @@ export default function DashboardPage() {
       { status: 'PACKING', count: 18, color: '#eb2f96' },
       { status: 'SHIPPED', count: 156, color: '#52c41a' },
     ],
+    ordersByChannel: [
+      { channel: 'Amazon FBA', orders: 45, revenue: 12500, color: '#ff9900' },
+      { channel: 'Shopify', orders: 32, revenue: 8900, color: '#95bf47' },
+      { channel: 'eBay', orders: 18, revenue: 4200, color: '#e53238' },
+      { channel: 'Direct', orders: 28, revenue: 7800, color: '#1890ff' },
+    ],
     recentOrders: [
       { id: 1, orderNumber: 'ORD-2024-001', customer: 'Tech Solutions Ltd', items: 5, total: 1250, status: 'pending', date: new Date().toISOString() },
       { id: 2, orderNumber: 'ORD-2024-002', customer: 'Global Imports Co', items: 12, total: 3400, status: 'picking', date: new Date().toISOString() },
@@ -93,6 +99,7 @@ export default function DashboardPage() {
     salesTrend: [] as { date: string; orders: number; revenue: number }[],
     topProducts: [] as { name: string; sold: number; revenue: number }[],
     ordersByStatus: [] as { status: string; count: number; color: string }[],
+    ordersByChannel: [] as { channel: string; orders: number; revenue: number; color: string }[],
     recentOrders: [] as { id: number; orderNumber: string; customer: string; items: number; total: number; status: string; date: string }[],
     lowStockAlerts: [] as { id: number; sku: string; name: string; current: number; reorderPoint: number; status: string }[],
     recentActivity: [] as { id: number; action: string; user: string; entity: string; time: string; icon: React.ReactNode; color: string }[],
@@ -133,6 +140,7 @@ export default function DashboardPage() {
                 salesTrend: statsData.salesTrend || demoData.salesTrend,
                 topProducts: statsData.topProducts || demoData.topProducts,
                 ordersByStatus: statsData.ordersByStatus || demoData.ordersByStatus,
+                ordersByChannel: statsData.ordersByChannel || demoData.ordersByChannel,
                 recentOrders: statsData.recentOrders || demoData.recentOrders,
                 lowStockAlerts: statsData.lowStockAlerts || demoData.lowStockAlerts,
                 recentActivity: [
@@ -299,6 +307,7 @@ export default function DashboardPage() {
           ordersByStatus: ordersByStatus.length > 0 ? ordersByStatus : [
             { status: 'No Orders', count: 0, color: '#8c8c8c' },
           ],
+          ordersByChannel: demoData.ordersByChannel,
           recentOrders,
           lowStockAlerts,
           recentActivity: [
@@ -553,7 +562,7 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
-      {/* Orders by Status and Recent Activity */}
+      {/* Orders by Status and Orders by Channel */}
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} lg={8}>
           <Card title="Orders by Status">
@@ -579,7 +588,45 @@ export default function DashboardPage() {
           </Card>
         </Col>
 
-        <Col xs={24} lg={16}>
+        <Col xs={24} lg={8}>
+          <Card title="Orders by Sales Channel" extra={<Link href="/protected/integrations/channels"><Button type="link">Manage Channels</Button></Link>}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={dashboardData.ordersByChannel}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(entry) => `${entry.channel}: ${entry.orders}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="orders"
+                >
+                  {dashboardData.ordersByChannel.map((entry, index) => (
+                    <Cell key={`cell-channel-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name, props) => [
+                  name === 'orders' ? `${value} orders` : `$${Number(value).toLocaleString()}`,
+                  props.payload.channel
+                ]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-2">
+              {dashboardData.ordersByChannel.map((c, i) => (
+                <div key={i} className="flex justify-between items-center text-sm py-1 border-b last:border-0">
+                  <span className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }}></span>
+                    {c.channel}
+                  </span>
+                  <span className="font-medium">${c.revenue.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={8}>
           <Card title="Recent Activity" extra={<Button type="link">View All</Button>}>
             <Timeline
               items={dashboardData.recentActivity.map((activity) => ({

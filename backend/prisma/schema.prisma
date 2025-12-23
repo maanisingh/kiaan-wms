@@ -1635,3 +1635,33 @@ model CourierShipment {
   @@index([trackingNumber])
   @@index([companyId])
 }
+
+// ===================================
+// SKU/FIELD MAPPINGS FOR INTEGRATIONS
+// ===================================
+
+model SkuMapping {
+  id              String   @id @default(uuid())
+  companyId       String
+  field           String   // Display name (e.g., "SKU", "Title", "Price")
+  external        String   // External field name from marketplace (e.g., "seller-sku", "item-name")
+  internal        String   // Internal WMS field name (e.g., "sku", "name")
+  channel         String   // Channel name (e.g., "Amazon", "Shopify", "eBay")
+  type            SkuMappingType @default(PRODUCT)
+  status          String   @default("active")
+  description     String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, channel, external, type])
+  @@index([companyId])
+  @@index([channel])
+  @@index([type])
+}
+
+enum SkuMappingType {
+  PRODUCT
+  CUSTOMER
+  ORDER
+}

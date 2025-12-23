@@ -28,8 +28,40 @@ export default function SystemIntegrationsPage() {
   const fetchIntegrations = async () => {
     setLoading(true);
     try {
-      const data = await apiService.get('/integrations');
-      setIntegrations(data || []);
+      // Fetch real data from marketplace and courier connections
+      const [marketplaceData, courierData] = await Promise.all([
+        apiService.get('/marketplace-connections').catch(() => []),
+        apiService.get('/courier-connections').catch(() => []),
+      ]);
+
+      // Transform marketplace connections to integrations format
+      const marketplaceIntegrations = (Array.isArray(marketplaceData) ? marketplaceData : []).map((mc: any) => ({
+        id: mc.id,
+        name: mc.accountName || mc.marketplace,
+        type: mc.marketplace === 'AMAZON_FBA' || mc.marketplace === 'AMAZON_MFN' ? 'Marketplace' :
+              mc.marketplace === 'SHOPIFY' ? 'E-Commerce' : 'Marketplace',
+        apiKey: mc.apiKey ? '••••••••' : '-',
+        apiUrl: mc.shopUrl || mc.region || '-',
+        syncFrequency: `${mc.syncFrequency || 15} min`,
+        status: mc.isActive ? 'active' : 'inactive',
+        lastSync: mc.lastSyncAt ? new Date(mc.lastSyncAt).toLocaleString() : '-',
+        marketplace: mc.marketplace,
+      }));
+
+      // Transform courier connections to integrations format
+      const courierIntegrations = (Array.isArray(courierData) ? courierData : []).map((cc: any) => ({
+        id: cc.id,
+        name: cc.accountName || cc.courier,
+        type: 'Shipping',
+        apiKey: cc.apiKey ? '••••••••' : '-',
+        apiUrl: '-',
+        syncFrequency: 'Real-time',
+        status: cc.isActive ? 'active' : 'inactive',
+        lastSync: '-',
+        courier: cc.courier,
+      }));
+
+      setIntegrations([...marketplaceIntegrations, ...courierIntegrations]);
     } catch (error) {
       console.error('Error fetching integrations:', error);
       message.error('Failed to fetch integrations');

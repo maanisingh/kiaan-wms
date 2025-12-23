@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Descriptions, Tag, Button, Tabs, Timeline, Table, Space, Modal, Form, Input, Select, message, Spin, Progress, Alert, Tooltip, Divider } from 'antd';
+import { Card, Descriptions, Tag, Button, Tabs, Timeline, Table, Space, Modal, Form, Input, Select, message, Spin, Progress, Alert, Tooltip, Divider, InputNumber, Row, Col, Statistic } from 'antd';
 import {
   ArrowLeftOutlined, CheckCircleOutlined, PrinterOutlined, UserOutlined, RocketOutlined,
   BarcodeOutlined, ScanOutlined, InboxOutlined, EnvironmentOutlined, PhoneOutlined,
   MailOutlined, CalendarOutlined, ClockCircleOutlined, CarOutlined, ReloadOutlined,
-  ExclamationCircleOutlined, CheckOutlined, CloseOutlined
+  ExclamationCircleOutlined, CheckOutlined, CloseOutlined, EditOutlined, ScissorOutlined
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
@@ -87,10 +87,15 @@ export default function PackingDetailPage() {
   const [carriers, setCarriers] = useState<any[]>([]);
   const [shippingRates, setShippingRates] = useState<any[]>([]);
   const [loadingRates, setLoadingRates] = useState(false);
+  const [weightBreakdown, setWeightBreakdown] = useState<any>(null);
+  const [manualWeight, setManualWeight] = useState<number | null>(null);
+  const [weightModalVisible, setWeightModalVisible] = useState(false);
+  const [loadingWeight, setLoadingWeight] = useState(false);
   const scanInputRef = useRef<any>(null);
   const [scanForm] = Form.useForm();
   const [trackingForm] = Form.useForm();
   const [shippingForm] = Form.useForm();
+  const [weightForm] = Form.useForm();
 
   const fetchPackingTask = async () => {
     try {
@@ -126,6 +131,45 @@ export default function PackingDetailPage() {
     } catch (err) {
       console.error('Failed to fetch carriers:', err);
     }
+  };
+
+  // Fetch weight calculation from backend
+  const fetchWeightCalculation = async (orderId: string, customWeight?: number | null) => {
+    setLoadingWeight(true);
+    try {
+      const payload: any = { orderId };
+      if (customWeight && customWeight > 0) {
+        payload.manualWeight = customWeight;
+      }
+      const response = await apiService.post('/shipping/rates', payload);
+      if (response?.weightBreakdown) {
+        setWeightBreakdown(response.weightBreakdown);
+      }
+    } catch (err) {
+      console.error('Failed to fetch weight calculation:', err);
+    } finally {
+      setLoadingWeight(false);
+    }
+  };
+
+  // Handle saving manual weight
+  const handleSaveWeight = async (values: any) => {
+    const newWeight = values.weight;
+    setManualWeight(newWeight);
+    if (packingTask?.orderId) {
+      await fetchWeightCalculation(packingTask.orderId, newWeight);
+    }
+    setWeightModalVisible(false);
+    message.success('Weight updated successfully');
+  };
+
+  // Reset to auto-calculated weight
+  const handleResetWeight = async () => {
+    setManualWeight(null);
+    if (packingTask?.orderId) {
+      await fetchWeightCalculation(packingTask.orderId, null);
+    }
+    message.success('Weight reset to auto-calculated value');
   };
 
   // Fetch shipping rates from Karrio
@@ -184,6 +228,13 @@ export default function PackingDetailPage() {
       fetchCarriers(token);
     }
   }, [params.id]);
+
+  // Fetch weight calculation when packing task is loaded
+  useEffect(() => {
+    if (packingTask?.orderId) {
+      fetchWeightCalculation(packingTask.orderId, manualWeight);
+    }
+  }, [packingTask?.orderId]);
 
   const handleStartPacking = async () => {
     try {
@@ -759,7 +810,29 @@ export default function PackingDetailPage() {
                   <span className="text-gray-400">Not assigned</span>
                 )}
               </Descriptions.Item>
-              <Descriptions.Item label="Weight">{packingTask.weight}</Descriptions.Item>
+              <Descriptions.Item label="Weight">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {weightBreakdown ? `${weightBreakdown.total?.toFixed(2)} kg` : packingTask.weight}
+                  </span>
+                  {weightBreakdown && (
+                    <span className="text-xs text-gray-400">
+                      ({weightBreakdown.products?.toFixed(2)} + {weightBreakdown.packaging?.toFixed(2)} packaging)
+                    </span>
+                  )}
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                      weightForm.setFieldsValue({ weight: weightBreakdown?.total || 0 });
+                      setWeightModalVisible(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </Descriptions.Item>
             </Descriptions>
             {!packingTask.trackingNumber && (packingTask.status === 'packed' || packingTask.status === 'ready_to_ship') && (
               <Button
@@ -910,10 +983,26 @@ export default function PackingDetailPage() {
             <p className="text-xs text-gray-400">of {packingTask.totalItems}</p>
           </div>
         </Card>
-        <Card className="border-t-4 border-t-purple-500">
+        <Card
+          className="border-t-4 border-t-purple-500 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            weightForm.setFieldsValue({ weight: weightBreakdown?.total || 0 });
+            setWeightModalVisible(true);
+          }}
+        >
           <div className="text-center">
-            <p className="text-gray-500 text-sm">Weight</p>
-            <p className="text-2xl font-bold text-purple-600">{packingTask.weight}</p>
+            <p className="text-gray-500 text-sm flex items-center justify-center gap-1">
+              Weight <EditOutlined className="text-xs" />
+            </p>
+            <p className="text-2xl font-bold text-purple-600">
+              {loadingWeight ? <Spin size="small" /> : `${(weightBreakdown?.total || 0).toFixed(2)} kg`}
+            </p>
+            {weightBreakdown && !weightBreakdown.isManual && (
+              <p className="text-xs text-gray-400">Auto-calculated</p>
+            )}
+            {weightBreakdown?.isManual && (
+              <p className="text-xs text-blue-500">Manual override</p>
+            )}
           </div>
         </Card>
         <Card className="border-t-4 border-t-orange-500">
@@ -1265,6 +1354,132 @@ export default function PackingDetailPage() {
             </Form>
           </div>
         )}
+      </Modal>
+
+      {/* Weight Edit Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <ScissorOutlined className="text-purple-500" />
+            Package Weight
+          </div>
+        }
+        open={weightModalVisible}
+        onCancel={() => setWeightModalVisible(false)}
+        footer={null}
+        width={550}
+      >
+        <div className="space-y-4">
+          {/* Weight Breakdown */}
+          {weightBreakdown && !weightBreakdown.isManual && (
+            <Card size="small" className="bg-gray-50">
+              <div className="text-sm font-medium mb-3">Auto-Calculated Weight Breakdown</div>
+              <Row gutter={[16, 16]}>
+                <Col span={8}>
+                  <Statistic
+                    title={<span className="text-xs">Products</span>}
+                    value={weightBreakdown.products?.toFixed(2) || '0.00'}
+                    suffix="kg"
+                    valueStyle={{ fontSize: '18px', color: '#3b82f6' }}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title={<span className="text-xs">Packaging</span>}
+                    value={weightBreakdown.packaging?.toFixed(2) || '0.00'}
+                    suffix="kg"
+                    valueStyle={{ fontSize: '18px', color: '#8b5cf6' }}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title={<span className="text-xs font-bold">Total</span>}
+                    value={weightBreakdown.total?.toFixed(2) || '0.00'}
+                    suffix="kg"
+                    valueStyle={{ fontSize: '18px', color: '#059669', fontWeight: 'bold' }}
+                  />
+                </Col>
+              </Row>
+              {weightBreakdown.details && (
+                <div className="mt-3 pt-3 border-t">
+                  <div className="text-xs text-gray-500 mb-2">Packaging Details:</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between">
+                      <span>Box ({weightBreakdown.boxType || weightBreakdown.details.boxType}):</span>
+                      <span className="font-medium">{weightBreakdown.details.boxWeight?.toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Bubble Wrap:</span>
+                      <span className="font-medium">{weightBreakdown.details.bubbleWrap?.toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Paper Fill:</span>
+                      <span className="font-medium">{weightBreakdown.details.paperFill?.toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tape & Label:</span>
+                      <span className="font-medium">{weightBreakdown.details.tapeAndLabel?.toFixed(2)} kg</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-400">
+                    {weightBreakdown.itemCount} item(s) in package
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {weightBreakdown?.isManual && (
+            <Alert
+              type="info"
+              message="Manual Weight Override"
+              description={`Using manually entered weight of ${weightBreakdown.total?.toFixed(2)} kg`}
+              showIcon
+              action={
+                <Button size="small" onClick={handleResetWeight}>
+                  Reset to Auto
+                </Button>
+              }
+            />
+          )}
+
+          <Form form={weightForm} onFinish={handleSaveWeight} layout="vertical">
+            <Form.Item
+              name="weight"
+              label="Override Total Weight (kg)"
+              rules={[{ required: true, message: 'Please enter weight' }]}
+              extra="Enter total package weight including products and packaging materials"
+            >
+              <InputNumber
+                min={0.01}
+                max={100}
+                step={0.01}
+                precision={2}
+                style={{ width: '100%' }}
+                size="large"
+                placeholder="e.g., 2.50"
+                addonAfter="kg"
+              />
+            </Form.Item>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              {weightBreakdown?.isManual && (
+                <Button onClick={handleResetWeight}>
+                  Reset to Auto-Calculated
+                </Button>
+              )}
+              <Button onClick={() => setWeightModalVisible(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
+                Save Weight
+              </Button>
+            </div>
+          </Form>
+
+          <div className="text-xs text-gray-400 mt-4">
+            <strong>Tip:</strong> Auto-calculated weight includes product weights from inventory plus estimated packaging materials.
+            You can override this if you've weighed the actual package.
+          </div>
+        </div>
       </Modal>
     </div>
   );
