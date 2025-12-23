@@ -10139,9 +10139,11 @@ app.get('/api/analytics/channels', verifyToken, async (req, res) => {
       }
     });
 
-    // Get inventory totals
+    // Get inventory totals (filter through product relation)
     const inventory = await prisma.inventory.findMany({
-      where: { companyId: req.user.companyId },
+      where: {
+        product: { companyId: req.user.companyId }
+      },
       select: { productId: true, quantity: true }
     });
 
@@ -10195,9 +10197,11 @@ app.get('/api/analytics/pricing-optimizer', verifyToken, async (req, res) => {
       }
     });
 
-    // Get inventory totals
+    // Get inventory totals (filter through product relation)
     const inventory = await prisma.inventory.findMany({
-      where: { companyId: req.user.companyId },
+      where: {
+        product: { companyId: req.user.companyId }
+      },
       select: { productId: true, quantity: true }
     });
 
@@ -10255,9 +10259,11 @@ app.get('/api/analytics/margins', verifyToken, async (req, res) => {
       }
     });
 
-    // Get inventory totals
+    // Get inventory totals (filter through product relation)
     const inventory = await prisma.inventory.findMany({
-      where: { companyId: req.user.companyId },
+      where: {
+        product: { companyId: req.user.companyId }
+      },
       select: { productId: true, quantity: true }
     });
 
@@ -10269,7 +10275,6 @@ app.get('/api/analytics/margins', verifyToken, async (req, res) => {
     // Get sales data for return rates
     const orders = await prisma.salesOrder.findMany({
       where: {
-        companyId: req.user.companyId,
         createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
       },
       include: {
