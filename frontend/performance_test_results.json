@@ -1,0 +1,240 @@
+{
+  "timestamp": "2025-12-17T14:47:16.389738",
+  "base_url": "https://wms.alexandratechlab.com",
+  "response_time_tests": {
+    "homepage": {
+      "endpoint": "/",
+      "total_requests": 10,
+      "successful": 10,
+      "failed": 0,
+      "min_ms": 29.32,
+      "max_ms": 40.9,
+      "avg_ms": 34.11,
+      "median_ms": 33.89,
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "std_dev_ms": 3.56
+    },
+    "api_health": {
+      "endpoint": "/api/health",
+      "total_requests": 10,
+      "successful": 10,
+      "failed": 0,
+      "min_ms": 26.82,
+      "max_ms": 33.52,
+      "avg_ms": 29.64,
+      "median_ms": 29.16,
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "std_dev_ms": 1.98
+    }
+  },
+  "asset_loading": [
+    {
+      "path": "/",
+      "status_code": 200,
+      "response_time_ms": 38.11,
+      "size_bytes": 112765,
+      "size_kb": 110.12,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "s-maxage=31536000",
+      "etag": "\"4klnx56nhz2f02\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/static/css/main.css",
+      "status_code": 404,
+      "response_time_ms": 48.16,
+      "size_bytes": 10839,
+      "size_kb": 10.58,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": "\"1402l9t24o8d3\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/static/js/main.js",
+      "status_code": 404,
+      "response_time_ms": 49.8,
+      "size_bytes": 10839,
+      "size_kb": 10.58,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": "\"1402l9t24o8d3\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/favicon.ico",
+      "status_code": 200,
+      "response_time_ms": 53.23,
+      "size_bytes": 25931,
+      "size_kb": 25.32,
+      "content_type": "image/x-icon",
+      "cache_control": "public, max-age=0, must-revalidate",
+      "etag": "Not Set",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/logo.png",
+      "status_code": 404,
+      "response_time_ms": 36.35,
+      "size_bytes": 10839,
+      "size_kb": 10.58,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": "\"1402l9t24o8d3\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/assets/index.js",
+      "status_code": 404,
+      "response_time_ms": 40.23,
+      "size_bytes": 10839,
+      "size_kb": 10.58,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": "\"1402l9t24o8d3\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    },
+    {
+      "path": "/assets/index.css",
+      "status_code": 404,
+      "response_time_ms": 32.56,
+      "size_bytes": 10839,
+      "size_kb": 10.58,
+      "content_type": "text/html; charset=utf-8",
+      "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "etag": "\"1402l9t24o8d3\"",
+      "last_modified": "Not Set",
+      "server": "nginx/1.24.0 (Ubuntu)"
+    }
+  ],
+  "api_response_sizes": [
+    {
+      "endpoint": "/api/health",
+      "status_code": 200,
+      "response_time_ms": 27.99,
+      "size_bytes": 79,
+      "size_kb": 0.08,
+      "content_type": "application/json; charset=utf-8",
+      "content_encoding": "None",
+      "is_json": true,
+      "json_keys": [
+        "status",
+        "message",
+        "database"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/health",
+      "status_code": 404,
+      "response_time_ms": 26.87,
+      "size_bytes": 152,
+      "size_kb": 0.15,
+      "content_type": "text/html; charset=utf-8",
+      "content_encoding": "gzip",
+      "is_json": false
+    },
+    {
+      "endpoint": "/api/auth/login",
+      "status_code": 404,
+      "response_time_ms": 29.13,
+      "size_bytes": 153,
+      "size_kb": 0.15,
+      "content_type": "text/html; charset=utf-8",
+      "content_encoding": "gzip",
+      "is_json": false
+    },
+    {
+      "endpoint": "/api/products",
+      "status_code": 401,
+      "response_time_ms": 34.91,
+      "size_bytes": 29,
+      "size_kb": 0.03,
+      "content_type": "application/json; charset=utf-8",
+      "content_encoding": "None",
+      "is_json": true,
+      "json_keys": [
+        "error"
+      ]
+    },
+    {
+      "endpoint": "/api/inventory",
+      "status_code": 401,
+      "response_time_ms": 35.47,
+      "size_bytes": 29,
+      "size_kb": 0.03,
+      "content_type": "application/json; charset=utf-8",
+      "content_encoding": "None",
+      "is_json": true,
+      "json_keys": [
+        "error"
+      ]
+    },
+    {
+      "endpoint": "/api/orders",
+      "status_code": 401,
+      "response_time_ms": 37.24,
+      "size_bytes": 29,
+      "size_kb": 0.03,
+      "content_type": "application/json; charset=utf-8",
+      "content_encoding": "None",
+      "is_json": true,
+      "json_keys": [
+        "error"
+      ]
+    },
+    {
+      "endpoint": "/api/users",
+      "status_code": 401,
+      "response_time_ms": 28.93,
+      "size_bytes": 29,
+      "size_kb": 0.03,
+      "content_type": "application/json; charset=utf-8",
+      "content_encoding": "None",
+      "is_json": true,
+      "json_keys": [
+        "error"
+      ]
+    }
+  ],
+  "concurrent_tests": {
+    "endpoint": "/",
+    "total_requests": 15,
+    "successful": 15,
+    "failed": 0,
+    "concurrent_level": 5,
+    "rounds": 3,
+    "min_ms": 79.34,
+    "max_ms": 168.68,
+    "avg_ms": 108.57,
+    "median_ms": 103.96,
+    "std_dev_ms": 25.67
+  }
+}

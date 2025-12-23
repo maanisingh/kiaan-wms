@@ -1,0 +1,409 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "box-plot Kiaan WMS" [ref=e7] [cursor=pointer]:
+          - /url: /dashboard
+          - img "box-plot" [ref=e8]:
+            - img [ref=e9]
+          - generic [ref=e11]: Kiaan WMS
+        - menu [ref=e12]:
+          - menuitem "dashboard Dashboard" [ref=e13] [cursor=pointer]:
+            - img "dashboard" [ref=e14]:
+              - img [ref=e15]
+            - link "Dashboard" [ref=e18]:
+              - /url: /dashboard
+          - menuitem "shop Companies" [ref=e19] [cursor=pointer]:
+            - img "shop" [ref=e20]:
+              - img [ref=e21]
+            - generic [ref=e23]: Companies
+          - menuitem "home Warehouses" [ref=e24] [cursor=pointer]:
+            - img "home" [ref=e25]:
+              - img [ref=e26]
+            - generic [ref=e28]: Warehouses
+          - menuitem "appstore Products" [ref=e29] [cursor=pointer]:
+            - img "appstore" [ref=e30]:
+              - img [ref=e31]
+            - generic [ref=e33]: Products
+          - menuitem "database Inventory" [ref=e34] [cursor=pointer]:
+            - img "database" [ref=e35]:
+              - img [ref=e36]
+            - generic [ref=e38]: Inventory
+          - menuitem "inbox Inbound" [ref=e39] [cursor=pointer]:
+            - img "inbox" [ref=e40]:
+              - img [ref=e41]
+            - generic [ref=e43]: Inbound
+          - menuitem "contacts Suppliers" [ref=e44] [cursor=pointer]:
+            - img "contacts" [ref=e45]:
+              - img [ref=e46]
+            - link "Suppliers" [ref=e49]:
+              - /url: /suppliers
+          - menuitem "shopping-cart Outbound" [ref=e50] [cursor=pointer]:
+            - img "shopping-cart" [ref=e51]:
+              - img [ref=e52]
+            - generic [ref=e54]: Outbound
+          - menuitem "usergroup-add Clients" [ref=e55] [cursor=pointer]:
+            - img "usergroup-add" [ref=e56]:
+              - img [ref=e57]
+            - link "Clients" [ref=e60]:
+              - /url: /clients
+          - menuitem "box-plot Fulfillment" [ref=e61] [cursor=pointer]:
+            - img "box-plot" [ref=e62]:
+              - img [ref=e63]
+            - generic [ref=e65]: Fulfillment
+          - menuitem "car Shipments" [ref=e66] [cursor=pointer]:
+            - img "car" [ref=e67]:
+              - img [ref=e68]
+            - link "Shipments" [ref=e71]:
+              - /url: /shipments
+          - menuitem "undo Returns" [ref=e72] [cursor=pointer]:
+            - img "undo" [ref=e73]:
+              - img [ref=e74]
+            - link "Returns" [ref=e77]:
+              - /url: /returns
+          - menuitem "swap Transfers" [ref=e78] [cursor=pointer]:
+            - img "swap" [ref=e79]:
+              - img [ref=e80]
+            - generic [ref=e82]: Transfers
+          - menuitem "inbox Replenishment" [ref=e83] [cursor=pointer]:
+            - img "inbox" [ref=e84]:
+              - img [ref=e85]
+            - generic [ref=e87]: Replenishment
+          - menuitem "api Integrations" [ref=e88] [cursor=pointer]:
+            - img "api" [ref=e89]:
+              - img [ref=e90]
+            - generic [ref=e92]: Integrations
+          - menuitem "bar-chart Analytics & Revenue" [ref=e93] [cursor=pointer]:
+            - img "bar-chart" [ref=e94]:
+              - img [ref=e95]
+            - generic [ref=e97]: Analytics & Revenue
+          - menuitem "printer Label Printing" [ref=e98] [cursor=pointer]:
+            - img "printer" [ref=e99]:
+              - img [ref=e100]
+            - link "Label Printing" [ref=e103]:
+              - /url: /labels
+          - menuitem "bar-chart Reports" [ref=e104] [cursor=pointer]:
+            - img "bar-chart" [ref=e105]:
+              - img [ref=e106]
+            - link "Reports" [ref=e109]:
+              - /url: /reports
+          - menuitem "team Users & Access" [ref=e110] [cursor=pointer]:
+            - img "team" [ref=e111]:
+              - img [ref=e112]
+            - link "Users & Access" [ref=e115]:
+              - /url: /users
+          - menuitem "setting Settings" [ref=e116] [cursor=pointer]:
+            - img "setting" [ref=e117]:
+              - img [ref=e118]
+            - link "Settings" [ref=e121]:
+              - /url: /settings
+    - generic [ref=e122]:
+      - banner [ref=e123]:
+        - generic [ref=e124]:
+          - button "menu-fold" [ref=e125] [cursor=pointer]:
+            - img "menu-fold" [ref=e127]:
+              - img [ref=e128]
+          - generic [ref=e130]:
+            - img "search" [ref=e132]:
+              - img [ref=e133]
+            - textbox "Search orders, products, customers..." [ref=e135]
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - button "bell" [ref=e138] [cursor=pointer]:
+              - img "bell" [ref=e140]:
+                - img [ref=e141]
+            - superscript [ref=e143]:
+              - generic [ref=e145]: "5"
+          - generic [ref=e146] [cursor=pointer]:
+            - img "user" [ref=e148]:
+              - img [ref=e149]
+            - generic [ref=e151]:
+              - generic [ref=e152]: Super Administrator
+              - generic [ref=e153]: super_admin
+      - main [ref=e154]:
+        - generic [ref=e155]:
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - heading "Dashboard" [level=1] [ref=e159]
+              - paragraph [ref=e160]: Welcome back, Super Administrator!
+            - generic [ref=e161]:
+              - generic [ref=e163]:
+                - textbox "Start date" [ref=e165]: Nov 17, 2025
+                - generic "to" [ref=e167]:
+                  - img "swap-right" [ref=e168]:
+                    - img [ref=e169]
+                - textbox "End date" [ref=e172]: Dec 17, 2025
+                - generic:
+                  - img "calendar":
+                    - img
+                - button "close-circle" [ref=e173] [cursor=pointer]:
+                  - img "close-circle" [ref=e174]:
+                    - img [ref=e175]
+              - button "plus Quick Add" [ref=e178] [cursor=pointer]:
+                - img "plus" [ref=e180]:
+                  - img [ref=e181]
+                - generic [ref=e184]: Quick Add
+          - generic [ref=e185]:
+            - generic [ref=e189]:
+              - generic [ref=e190]: Total Stock
+              - generic [ref=e191]:
+                - img "database" [ref=e193]:
+                  - img [ref=e194]
+                - generic [ref=e196]: "2"
+                - generic [ref=e198]:
+                  - img "arrow-down" [ref=e199]:
+                    - img [ref=e200]
+                  - text: 0%
+            - generic [ref=e205]:
+              - generic [ref=e206]: Low Stock Items
+              - generic [ref=e207]:
+                - img "warning" [ref=e209]:
+                  - img [ref=e210]
+                - generic [ref=e212]: "1"
+                - generic [ref=e214]:
+                  - img "arrow-down" [ref=e215]:
+                    - img [ref=e216]
+                  - text: 0%
+            - generic [ref=e221]:
+              - generic [ref=e222]: Pending Orders
+              - generic [ref=e223]:
+                - img "shopping-cart" [ref=e225]:
+                  - img [ref=e226]
+                - generic [ref=e228]: "0"
+                - generic [ref=e230]:
+                  - img "arrow-up" [ref=e231]:
+                    - img [ref=e232]
+                  - text: 0%
+            - generic [ref=e237]:
+              - generic [ref=e238]: Active Pick Lists
+              - generic [ref=e239]:
+                - img "box-plot" [ref=e241]:
+                  - img [ref=e242]
+                - generic [ref=e244]: "0"
+                - generic [ref=e246]:
+                  - img "arrow-down" [ref=e247]:
+                    - img [ref=e248]
+                  - text: 0%
+            - generic [ref=e252]:
+              - generic [ref=e253]:
+                - generic [ref=e254]: Warehouse Utilization
+                - generic [ref=e255]:
+                  - img "shop" [ref=e257]:
+                    - img [ref=e258]
+                  - generic [ref=e260]: "0"
+                  - generic [ref=e261]: "%"
+              - progressbar [ref=e262]:
+                - generic "0%" [ref=e265]
+            - generic [ref=e269]:
+              - generic [ref=e270]: Orders Today
+              - generic [ref=e271]:
+                - img "clock-circle" [ref=e273]:
+                  - img [ref=e274]
+                - generic [ref=e277]: "0"
+                - generic [ref=e279]:
+                  - img "arrow-up" [ref=e280]:
+                    - img [ref=e281]
+                  - text: 0%
+          - generic [ref=e283]:
+            - generic [ref=e286]: Quick Actions
+            - generic [ref=e288]:
+              - link "plus Create Order" [ref=e290] [cursor=pointer]:
+                - /url: /protected/sales-orders/new
+                - generic [ref=e292]:
+                  - img "plus" [ref=e294]:
+                    - img [ref=e295]
+                  - generic [ref=e298]: Create Order
+              - link "inbox Receive Goods" [ref=e300] [cursor=pointer]:
+                - /url: /protected/goods-receiving/new
+                - generic [ref=e302]:
+                  - img "inbox" [ref=e304]:
+                    - img [ref=e305]
+                  - generic [ref=e307]: Receive Goods
+              - link "car Create Transfer" [ref=e309] [cursor=pointer]:
+                - /url: /protected/transfers/new
+                - generic [ref=e311]:
+                  - img "car" [ref=e313]:
+                    - img [ref=e314]
+                  - generic [ref=e316]: Create Transfer
+              - link "box-plot Add Product" [ref=e318] [cursor=pointer]:
+                - /url: /protected/products/new
+                - generic [ref=e320]:
+                  - img "box-plot" [ref=e322]:
+                    - img [ref=e323]
+                  - generic [ref=e325]: Add Product
+          - generic [ref=e326]:
+            - generic [ref=e328]:
+              - generic [ref=e330]:
+                - generic [ref=e331]: Sales Trend (Last 7 Days)
+                - button "View Report" [ref=e333] [cursor=pointer]:
+                  - generic [ref=e334]: View Report
+              - generic [ref=e337]:
+                - list [ref=e339]:
+                  - listitem [ref=e340]:
+                    - img "Orders legend icon" [ref=e341]
+                    - text: Orders
+                  - listitem [ref=e343]:
+                    - img "Revenue ($) legend icon" [ref=e344]
+                    - text: Revenue ($)
+                - application [ref=e346]:
+                  - generic [ref=e374]:
+                    - generic [ref=e375]:
+                      - generic [ref=e377]: Mon
+                      - generic [ref=e379]: Tue
+                      - generic [ref=e381]: Wed
+                      - generic [ref=e383]: Thu
+                      - generic [ref=e385]: Fri
+                      - generic [ref=e387]: Sat
+                      - generic [ref=e389]: Sun
+                    - generic [ref=e390]:
+                      - generic [ref=e392]: "0"
+                      - generic [ref=e394]: "20"
+                      - generic [ref=e396]: "40"
+                      - generic [ref=e398]: "60"
+                      - generic [ref=e400]: "80"
+                    - generic [ref=e401]:
+                      - generic [ref=e403]: "0"
+                      - generic [ref=e405]: "5000"
+                      - generic [ref=e407]: "10000"
+                      - generic [ref=e409]: "15000"
+                      - generic [ref=e411]: "20000"
+            - generic [ref=e413]:
+              - generic [ref=e415]:
+                - generic [ref=e416]: Top Products (Units Sold)
+                - button "View All" [ref=e418] [cursor=pointer]:
+                  - generic [ref=e419]: View All
+              - generic [ref=e422]:
+                - list [ref=e424]:
+                  - listitem [ref=e425]:
+                    - img "Units Sold legend icon" [ref=e426]
+                    - text: Units Sold
+                - application [ref=e428]:
+                  - generic [ref=e454]:
+                    - generic [ref=e455]:
+                      - generic [ref=e457]: Smart Gadget
+                      - generic [ref=e459]: Wireless Mouse
+                    - generic [ref=e460]:
+                      - generic [ref=e462]: "0"
+                      - generic [ref=e464]: "60"
+                      - generic [ref=e466]: "120"
+                      - generic [ref=e468]: "180"
+                      - generic [ref=e470]: "240"
+          - generic [ref=e471]:
+            - generic [ref=e473]:
+              - generic [ref=e476]: Orders by Status
+              - application [ref=e480]
+            - generic [ref=e482]:
+              - generic [ref=e484]:
+                - generic [ref=e485]: Recent Activity
+                - button "View All" [ref=e487] [cursor=pointer]:
+                  - generic [ref=e488]: View All
+              - list [ref=e490]:
+                - listitem [ref=e491]:
+                  - img "check-circle" [ref=e494]:
+                    - img [ref=e495]
+                  - generic [ref=e499]:
+                    - generic [ref=e500]: Dashboard loaded from API
+                    - generic [ref=e501]: Super Administrator • Dashboard • Just now
+          - generic [ref=e502]:
+            - generic [ref=e504]:
+              - generic [ref=e506]:
+                - generic [ref=e507]:
+                  - img "warning" [ref=e508]:
+                    - img [ref=e509]
+                  - text: Low Stock Alerts
+                - button "View All" [ref=e512] [cursor=pointer]:
+                  - generic [ref=e513]: View All
+              - list [ref=e518]:
+                - listitem [ref=e519]:
+                  - generic [ref=e521]:
+                    - heading "Widget Pro X CRITICAL" [level=4] [ref=e522]:
+                      - generic [ref=e523]:
+                        - text: Widget Pro X
+                        - generic [ref=e524]: CRITICAL
+                    - generic [ref=e525]: "SKU: SKU-001 • Current: 5 • Reorder Point: 20"
+                  - list [ref=e526]:
+                    - listitem [ref=e527]:
+                      - button "Reorder" [ref=e528] [cursor=pointer]:
+                        - generic [ref=e529]: Reorder
+                - listitem [ref=e530]:
+                  - generic [ref=e532]:
+                    - heading "Smart Gadget WARNING" [level=4] [ref=e533]:
+                      - generic [ref=e534]:
+                        - text: Smart Gadget
+                        - generic [ref=e535]: WARNING
+                    - generic [ref=e536]: "SKU: SKU-002 • Current: 12 • Reorder Point: 15"
+                  - list [ref=e537]:
+                    - listitem [ref=e538]:
+                      - button "Reorder" [ref=e539] [cursor=pointer]:
+                        - generic [ref=e540]: Reorder
+                - listitem [ref=e541]:
+                  - generic [ref=e543]:
+                    - heading "Power Cable 2m LOW" [level=4] [ref=e544]:
+                      - generic [ref=e545]:
+                        - text: Power Cable 2m
+                        - generic [ref=e546]: LOW
+                    - generic [ref=e547]: "SKU: SKU-003 • Current: 8 • Reorder Point: 10"
+                  - list [ref=e548]:
+                    - listitem [ref=e549]:
+                      - button "Reorder" [ref=e550] [cursor=pointer]:
+                        - generic [ref=e551]: Reorder
+            - generic [ref=e553]:
+              - generic [ref=e555]:
+                - generic [ref=e556]: Recent Orders
+                - button "View All" [ref=e558] [cursor=pointer]:
+                  - generic [ref=e559]: View All
+              - table [ref=e567]:
+                - rowgroup [ref=e568]:
+                  - 'row "Order # Customer Items Total Status Date" [ref=e569]':
+                    - 'columnheader "Order #" [ref=e570]'
+                    - columnheader "Customer" [ref=e571]
+                    - columnheader "Items" [ref=e572]
+                    - columnheader "Total" [ref=e573]
+                    - columnheader "Status" [ref=e574]
+                    - columnheader "Date" [ref=e575]
+                - rowgroup [ref=e576]:
+                  - row "ORD-2024-001 Tech Solutions Ltd 5 $1,250 PENDING Dec 17, 2025" [ref=e577]:
+                    - cell "ORD-2024-001" [ref=e578]
+                    - cell "Tech Solutions Ltd" [ref=e579]
+                    - cell "5" [ref=e580]
+                    - cell "$1,250" [ref=e581]
+                    - cell "PENDING" [ref=e582]:
+                      - generic [ref=e583]: PENDING
+                    - cell "Dec 17, 2025" [ref=e584]
+                  - row "ORD-2024-002 Global Imports Co 12 $3,400 PICKING Dec 17, 2025" [ref=e585]:
+                    - cell "ORD-2024-002" [ref=e586]
+                    - cell "Global Imports Co" [ref=e587]
+                    - cell "12" [ref=e588]
+                    - cell "$3,400" [ref=e589]
+                    - cell "PICKING" [ref=e590]:
+                      - generic [ref=e591]: PICKING
+                    - cell "Dec 17, 2025" [ref=e592]
+                  - row "ORD-2024-003 Retail Express 3 $890 SHIPPED Dec 17, 2025" [ref=e593]:
+                    - cell "ORD-2024-003" [ref=e594]
+                    - cell "Retail Express" [ref=e595]
+                    - cell "3" [ref=e596]
+                    - cell "$890" [ref=e597]
+                    - cell "SHIPPED" [ref=e598]:
+                      - generic [ref=e599]: SHIPPED
+                    - cell "Dec 17, 2025" [ref=e600]
+      - contentinfo [ref=e601]:
+        - generic [ref=e602]:
+          - generic [ref=e603]: © 2025 Kiaan WMS. All rights reserved.
+          - generic [ref=e604]:
+            - link "Demo" [ref=e605] [cursor=pointer]:
+              - /url: /demo
+            - text: "|"
+            - link "About" [ref=e606] [cursor=pointer]:
+              - /url: /about
+            - text: "|"
+            - link "Contact" [ref=e607] [cursor=pointer]:
+              - /url: /contact
+            - text: "|"
+            - link "Privacy" [ref=e608] [cursor=pointer]:
+              - /url: /privacy
+  - alert [ref=e609]
+  - generic [ref=e610]: "120"
+```

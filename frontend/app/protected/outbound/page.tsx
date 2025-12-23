@@ -1,44 +1,90 @@
 'use client';
 
-import React, { useState } from 'react';
-
-import { Table, Button, Tag, Tabs, Card, Space } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Table, Button, Tag, Tabs, Card, Space, Spin, message } from 'antd';
 import {
   PlusOutlined,
   ShoppingCartOutlined,
   InboxOutlined,
   TruckOutlined,
   CheckCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import { formatDate, getStatusColor } from '@/lib/utils';
+import api from '@/services/api';
 
 export default function OutboundPage() {
   const [activeTab, setActiveTab] = useState('picking');
+  const [loading, setLoading] = useState(true);
+  const [pickingData, setPickingData] = useState([]);
+  const [packingData, setPackingData] = useState([]);
+  const [shippingData, setShippingData] = useState([]);
+  const [stats, setStats] = useState({ pickingPending: 0, packingInProgress: 0, readyToShip: 0, shippedToday: 0 });
 
-  const mockPickingData = [
-    { id: 'PICK-001', orderNumber: 'SO-2024-001', customer: 'Acme Corp', items: 5, status: 'pending', priority: 'high', assignedTo: null, dueDate: '2024-11-20' },
-    { id: 'PICK-002', orderNumber: 'SO-2024-002', customer: 'Tech Solutions', items: 3, status: 'in-progress', priority: 'medium', assignedTo: 'John Doe', dueDate: '2024-11-21' },
-    { id: 'PICK-003', orderNumber: 'SO-2024-003', customer: 'Global Trade', items: 8, status: 'completed', priority: 'low', assignedTo: 'Jane Smith', dueDate: '2024-11-19' },
-  ];
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch pick lists
+      const pickListRes = await api.get('/api/pick-lists');
+      const pickLists = pickListRes.data || [];
+      setPickingData(pickLists.map((pl: any) => ({
+        id: pl.id,
+        orderNumber: pl.order?.orderNumber || pl.pickListNumber || '-',
+        customer: pl.order?.customer?.name || 'N/A',
+        items: pl.items?.length || 0,
+        status: pl.status?.toLowerCase() || 'pending',
+        priority: pl.priority?.toLowerCase() || 'medium',
+        assignedTo: pl.assignedUser?.name || null,
+        dueDate: pl.dueDate || pl.createdAt
+      })));
 
-  const mockPackingData = [
-    { id: 'PACK-001', orderNumber: 'SO-2024-001', customer: 'Acme Corp', items: 5, status: 'pending', packages: 0, assignedTo: null },
-    { id: 'PACK-002', orderNumber: 'SO-2024-002', customer: 'Tech Solutions', items: 3, status: 'in-progress', packages: 1, assignedTo: 'Mike Johnson' },
-    { id: 'PACK-003', orderNumber: 'SO-2024-003', customer: 'Global Trade', items: 8, status: 'completed', packages: 3, assignedTo: 'Sarah Lee' },
-  ];
+      // Fetch packing tasks
+      const packingRes = await api.get('/api/packing');
+      const packingTasks = packingRes.data || [];
+      setPackingData(packingTasks.map((pt: any) => ({
+        id: pt.id,
+        orderNumber: pt.order?.orderNumber || '-',
+        customer: pt.order?.customer?.name || 'N/A',
+        items: pt.itemsCount || pt.order?.items?.length || 0,
+        status: pt.status?.toLowerCase() || 'pending',
+        packages: pt.packagesCount || 0,
+        assignedTo: pt.assignedUser?.name || null
+      })));
 
-  const mockShippingData = [
-    { id: 'SHIP-001', orderNumber: 'SO-2024-001', customer: 'Acme Corp', carrier: 'FedEx', trackingNumber: 'FX1234567890', status: 'pending', shipDate: null },
-    { id: 'SHIP-002', orderNumber: 'SO-2024-002', customer: 'Tech Solutions', carrier: 'UPS', trackingNumber: 'UPS9876543210', status: 'shipped', shipDate: '2024-11-18' },
-    { id: 'SHIP-003', orderNumber: 'SO-2024-003', customer: 'Global Trade', carrier: 'DHL', trackingNumber: 'DHL5555555555', status: 'delivered', shipDate: '2024-11-15' },
-  ];
+      // Fetch shipments
+      const shipmentsRes = await api.get('/api/shipments');
+      const shipments = shipmentsRes.data || [];
+      setShippingData(shipments.map((s: any) => ({
+        id: s.id,
+        orderNumber: s.orderNumbers || '-',
+        customer: s.destination?.substring(0, 30) || 'N/A',
+        carrier: s.carrier || 'Royal Mail',
+        trackingNumber: s.tracking || s.shipmentNumber,
+        status: s.status?.toLowerCase() || 'pending',
+        shipDate: s.shipDate || s.createdAt
+      })));
 
-  const mockWaveData = [
-    { id: 'WAVE-001', name: 'Morning Wave', orders: 15, items: 45, status: 'in-progress', startTime: '2024-11-17T08:00:00', completedOrders: 8 },
-    { id: 'WAVE-002', name: 'Afternoon Wave', orders: 22, items: 67, status: 'pending', startTime: '2024-11-17T14:00:00', completedOrders: 0 },
-    { id: 'WAVE-003', name: 'Express Wave', orders: 10, items: 28, status: 'completed', startTime: '2024-11-17T10:00:00', completedOrders: 10 },
-  ];
+      // Calculate stats
+      const pickPending = pickLists.filter((p: any) => p.status === 'PENDING' || p.status === 'pending').length;
+      const packInProgress = packingTasks.filter((p: any) => p.status === 'IN_PROGRESS' || p.status === 'in_progress').length;
+      const readyShip = packingTasks.filter((p: any) => p.status === 'COMPLETED' || p.status === 'completed').length;
+      const today = new Date().toISOString().split('T')[0];
+      const shippedToday = shipments.filter((s: any) => s.createdAt?.split('T')[0] === today).length;
+
+      setStats({ pickingPending: pickPending, packingInProgress: packInProgress, readyToShip: readyShip, shippedToday: shippedToday });
+
+    } catch (error: any) {
+      console.error('Error fetching outbound data:', error);
+      message.error('Failed to load outbound data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const pickingColumns = [
     { title: 'Pick ID', dataIndex: 'id', key: 'id', width: 120 },
@@ -74,51 +120,31 @@ export default function OutboundPage() {
     { title: 'Actions', key: 'actions', width: 150, render: () => <Space><Button type="link" size="small">Track</Button><Button type="link" size="small">Manifest</Button></Space> },
   ];
 
-  const waveColumns = [
-    { title: 'Wave ID', dataIndex: 'id', key: 'id', width: 120 },
-    { title: 'Wave Name', dataIndex: 'name', key: 'name', width: 180 },
-    { title: 'Orders', dataIndex: 'orders', key: 'orders', width: 80 },
-    { title: 'Items', dataIndex: 'items', key: 'items', width: 80 },
-    { title: 'Completed', dataIndex: 'completedOrders', key: 'completed', width: 120, render: (completed: number, record: any) => `${completed}/${record.orders}` },
-    { title: 'Start Time', dataIndex: 'startTime', key: 'startTime', width: 180, render: (date: string) => formatDate(date) },
-    { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag> },
-    { title: 'Actions', key: 'actions', width: 150, render: () => <Space><Button type="link" size="small">View</Button><Button type="link" size="small">Release</Button></Space> },
-  ];
-
   const tabItems = [
     {
       key: 'picking',
-      label: <span className="flex items-center gap-2"><ShoppingCartOutlined />Picking</span>,
+      label: <span className="flex items-center gap-2"><ShoppingCartOutlined />Picking ({pickingData.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockPickingData} columns={pickingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={pickingData} columns={pickingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
     {
       key: 'packing',
-      label: <span className="flex items-center gap-2"><InboxOutlined />Packing</span>,
+      label: <span className="flex items-center gap-2"><InboxOutlined />Packing ({packingData.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockPackingData} columns={packingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={packingData} columns={packingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
     {
       key: 'shipping',
-      label: <span className="flex items-center gap-2"><TruckOutlined />Shipping</span>,
+      label: <span className="flex items-center gap-2"><TruckOutlined />Shipping ({shippingData.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockShippingData} columns={shippingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
-        </div>
-      ),
-    },
-    {
-      key: 'waves',
-      label: <span className="flex items-center gap-2"><FileTextOutlined />Wave Picking</span>,
-      children: (
-        <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockWaveData} columns={waveColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={shippingData} columns={shippingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
@@ -140,25 +166,25 @@ export default function OutboundPage() {
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Picking Pending</p>
-              <p className="text-3xl font-bold text-blue-600">18</p>
+              <p className="text-3xl font-bold text-blue-600">{loading ? '...' : stats.pickingPending}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Packing In Progress</p>
-              <p className="text-3xl font-bold text-orange-600">12</p>
+              <p className="text-3xl font-bold text-orange-600">{loading ? '...' : stats.packingInProgress}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Ready to Ship</p>
-              <p className="text-3xl font-bold text-green-600">25</p>
+              <p className="text-3xl font-bold text-green-600">{loading ? '...' : stats.readyToShip}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Shipped Today</p>
-              <p className="text-3xl font-bold text-purple-600">45</p>
+              <p className="text-3xl font-bold text-purple-600">{loading ? '...' : stats.shippedToday}</p>
             </div>
           </Card>
         </div>

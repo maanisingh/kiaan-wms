@@ -1,70 +1,113 @@
 'use client';
 
-import React, { useState } from 'react';
-
-import { Table, Button, Tag, Tabs, Card, Space } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Table, Button, Tag, Tabs, Card, Space, message } from 'antd';
 import {
   PlusOutlined,
   InboxOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   TruckOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import { formatDate, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
+import api from '@/services/api';
 
 export default function InboundPage() {
   const [activeTab, setActiveTab] = useState('receiving');
+  const [loading, setLoading] = useState(true);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [stockAdjustments, setStockAdjustments] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [stats, setStats] = useState({ pendingReceipts: 0, inTransit: 0, qcInProgress: 0, putawayPending: 0 });
 
-  const mockReceivingData = [
-    { id: 'RCV-001', poNumber: 'PO-2024-001', supplier: 'Global Suppliers Inc', status: 'pending', items: 5, expectedDate: '2024-11-20', receivedDate: null },
-    { id: 'RCV-002', poNumber: 'PO-2024-002', supplier: 'TechParts Ltd', status: 'partial', items: 8, expectedDate: '2024-11-22', receivedDate: '2024-11-22' },
-    { id: 'RCV-003', poNumber: 'PO-2024-003', supplier: 'Manufacturing Co', status: 'completed', items: 12, expectedDate: '2024-11-15', receivedDate: '2024-11-15' },
-  ];
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch purchase orders for receiving
+      const poRes = await api.get('/api/purchase-orders');
+      const pos = poRes.data || [];
+      setPurchaseOrders(pos.map((po: any) => ({
+        id: po.id,
+        poNumber: po.orderNumber || po.poNumber || `PO-${po.id?.substring(0, 8)}`,
+        supplier: po.supplier?.name || 'Unknown Supplier',
+        status: po.status?.toLowerCase() || 'pending',
+        items: po.items?.length || 0,
+        expectedDate: po.expectedDeliveryDate || po.createdAt,
+        receivedDate: po.receivedDate
+      })));
 
-  const mockASNData = [
-    { id: 'ASN-001', shipmentId: 'SHP-001', supplier: 'Global Suppliers Inc', status: 'in-transit', items: 15, shipDate: '2024-11-10', eta: '2024-11-20' },
-    { id: 'ASN-002', shipmentId: 'SHP-002', supplier: 'TechParts Ltd', status: 'arrived', items: 25, shipDate: '2024-11-12', eta: '2024-11-22' },
-  ];
+      // Fetch stock adjustments for quality control
+      const saRes = await api.get('/api/inventory/adjustments');
+      const adjustments = saRes.data || [];
+      setStockAdjustments(adjustments.map((sa: any) => ({
+        id: sa.id,
+        poNumber: sa.referenceNumber || `ADJ-${sa.id?.substring(0, 8)}`,
+        product: sa.product?.name || 'N/A',
+        quantity: sa.adjustedQuantity || 0,
+        status: sa.status?.toLowerCase() || 'pending',
+        inspector: sa.user?.name || 'System',
+        date: sa.createdAt
+      })));
 
-  const mockQualityData = [
-    { id: 'QC-001', poNumber: 'PO-2024-001', product: 'Laptop Computer', quantity: 50, status: 'passed', inspector: 'John Doe', date: '2024-11-15' },
-    { id: 'QC-002', poNumber: 'PO-2024-002', product: 'Office Chair', quantity: 30, status: 'failed', inspector: 'Jane Smith', date: '2024-11-16' },
-    { id: 'QC-003', poNumber: 'PO-2024-003', product: 'Wireless Mouse', quantity: 100, status: 'in-progress', inspector: 'Mike Johnson', date: '2024-11-17' },
-  ];
+      // Fetch transfers for putaway
+      const trRes = await api.get('/api/transfers');
+      const transferList = trRes.data || [];
+      setTransfers(transferList.map((tr: any) => ({
+        id: tr.id,
+        product: tr.product?.name || 'N/A',
+        quantity: tr.quantity || 0,
+        fromLocation: tr.fromWarehouse?.name || tr.fromLocation || 'N/A',
+        toLocation: tr.toWarehouse?.name || tr.toLocation || 'N/A',
+        status: tr.status?.toLowerCase() || 'pending',
+        user: tr.user?.name || null,
+        date: tr.createdAt
+      })));
 
-  const mockPutawayData = [
-    { id: 'PUT-001', product: 'Laptop Computer', quantity: 50, fromLocation: 'RECV-01', toLocation: 'A-01-01', status: 'completed', user: 'John Doe', date: '2024-11-15' },
-    { id: 'PUT-002', product: 'Office Chair', quantity: 30, fromLocation: 'RECV-02', toLocation: 'B-02-03', status: 'in-progress', user: 'Jane Smith', date: '2024-11-16' },
-    { id: 'PUT-003', product: 'Wireless Mouse', quantity: 100, fromLocation: 'RECV-01', toLocation: 'C-03-05', status: 'pending', user: null, date: null },
-  ];
+      // Calculate stats
+      const pending = pos.filter((p: any) => p.status === 'PENDING' || p.status === 'pending').length;
+      const inTransit = pos.filter((p: any) => p.status === 'IN_TRANSIT' || p.status === 'ORDERED' || p.status === 'ordered').length;
+      const qcProgress = adjustments.filter((s: any) => s.status === 'IN_PROGRESS' || s.status === 'pending').length;
+      const putaway = transferList.filter((t: any) => t.status === 'PENDING' || t.status === 'pending').length;
+
+      setStats({
+        pendingReceipts: pending,
+        inTransit: inTransit,
+        qcInProgress: qcProgress,
+        putawayPending: putaway
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching inbound data:', error);
+      message.error('Failed to load inbound data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const receivingColumns = [
-    { title: 'Receipt ID', dataIndex: 'id', key: 'id', width: 120 },
     { title: 'PO Number', dataIndex: 'poNumber', key: 'poNumber', width: 150 },
     { title: 'Supplier', dataIndex: 'supplier', key: 'supplier', width: 200 },
     { title: 'Items', dataIndex: 'items', key: 'items', width: 80 },
     { title: 'Expected Date', dataIndex: 'expectedDate', key: 'expected', width: 130, render: (date: string) => formatDate(date) },
     { title: 'Received Date', dataIndex: 'receivedDate', key: 'received', width: 130, render: (date: string) => date ? formatDate(date) : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag> },
-    { title: 'Actions', key: 'actions', width: 150, render: () => <Space><Button type="link" size="small">View</Button><Button type="link" size="small">Process</Button></Space> },
-  ];
-
-  const asnColumns = [
-    { title: 'ASN Number', dataIndex: 'id', key: 'id', width: 120 },
-    { title: 'Shipment ID', dataIndex: 'shipmentId', key: 'shipmentId', width: 120 },
-    { title: 'Supplier', dataIndex: 'supplier', key: 'supplier', width: 200 },
-    { title: 'Items', dataIndex: 'items', key: 'items', width: 80 },
-    { title: 'Ship Date', dataIndex: 'shipDate', key: 'shipDate', width: 120, render: (date: string) => formatDate(date) },
-    { title: 'ETA', dataIndex: 'eta', key: 'eta', width: 120, render: (date: string) => formatDate(date) },
-    { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag> },
-    { title: 'Actions', key: 'actions', width: 150, render: () => <Space><Button type="link" size="small">View</Button><Button type="link" size="small">Track</Button></Space> },
+    { title: 'Actions', key: 'actions', width: 150, render: (_: any, record: any) => (
+      <Space>
+        <Link href={`/protected/purchase-orders/${record.id}`}><Button type="link" size="small">View</Button></Link>
+        <Button type="link" size="small">Process</Button>
+      </Space>
+    )},
   ];
 
   const qualityColumns = [
-    { title: 'QC ID', dataIndex: 'id', key: 'id', width: 100 },
-    { title: 'PO Number', dataIndex: 'poNumber', key: 'poNumber', width: 130 },
+    { title: 'Reference', dataIndex: 'poNumber', key: 'poNumber', width: 130 },
     { title: 'Product', dataIndex: 'product', key: 'product', width: 200 },
     { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', width: 100 },
     { title: 'Inspector', dataIndex: 'inspector', key: 'inspector', width: 150 },
@@ -74,51 +117,46 @@ export default function InboundPage() {
   ];
 
   const putawayColumns = [
-    { title: 'Task ID', dataIndex: 'id', key: 'id', width: 100 },
     { title: 'Product', dataIndex: 'product', key: 'product', width: 200 },
     { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', width: 100 },
-    { title: 'From', dataIndex: 'fromLocation', key: 'from', width: 120 },
-    { title: 'To', dataIndex: 'toLocation', key: 'to', width: 120 },
+    { title: 'From', dataIndex: 'fromLocation', key: 'from', width: 150 },
+    { title: 'To', dataIndex: 'toLocation', key: 'to', width: 150 },
     { title: 'User', dataIndex: 'user', key: 'user', width: 150, render: (user: string) => user || '-' },
     { title: 'Date', dataIndex: 'date', key: 'date', width: 120, render: (date: string) => date ? formatDate(date) : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag> },
-    { title: 'Actions', key: 'actions', width: 150, render: () => <Space><Button type="link" size="small">View</Button><Button type="link" size="small">Complete</Button></Space> },
+    { title: 'Actions', key: 'actions', width: 150, render: (_: any, record: any) => (
+      <Space>
+        <Link href={`/protected/transfers/${record.id}`}><Button type="link" size="small">View</Button></Link>
+        <Button type="link" size="small">Complete</Button>
+      </Space>
+    )},
   ];
 
   const tabItems = [
     {
       key: 'receiving',
-      label: <span className="flex items-center gap-2"><InboxOutlined />Receiving</span>,
+      label: <span className="flex items-center gap-2"><InboxOutlined />Receiving ({purchaseOrders.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockReceivingData} columns={receivingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
-        </div>
-      ),
-    },
-    {
-      key: 'asn',
-      label: <span className="flex items-center gap-2"><FileTextOutlined />Advanced Shipping Notices</span>,
-      children: (
-        <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockASNData} columns={asnColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={purchaseOrders} columns={receivingColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
     {
       key: 'quality',
-      label: <span className="flex items-center gap-2"><CheckCircleOutlined />Quality Control</span>,
+      label: <span className="flex items-center gap-2"><CheckCircleOutlined />Quality Control ({stockAdjustments.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockQualityData} columns={qualityColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={stockAdjustments} columns={qualityColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
     {
       key: 'putaway',
-      label: <span className="flex items-center gap-2"><TruckOutlined />Putaway Tasks</span>,
+      label: <span className="flex items-center gap-2"><TruckOutlined />Putaway Tasks ({transfers.length})</span>,
       children: (
         <div className="bg-white rounded-lg shadow-sm">
-          <Table dataSource={mockPutawayData} columns={putawayColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} />
+          <Table dataSource={transfers} columns={putawayColumns} rowKey="id" scroll={{ x: 1200 }} pagination={{ pageSize: 20 }} loading={loading} />
         </div>
       ),
     },
@@ -131,34 +169,37 @@ export default function InboundPage() {
             <h1 className="text-3xl font-bold">Inbound Operations</h1>
             <p className="text-gray-600 mt-1">Manage receiving, quality control, and putaway</p>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large">
-            Create Receipt
-          </Button>
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>Refresh</Button>
+            <Link href="/protected/purchase-orders/new">
+              <Button type="primary" icon={<PlusOutlined />} size="large">Create Receipt</Button>
+            </Link>
+          </Space>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Pending Receipts</p>
-              <p className="text-3xl font-bold text-orange-600">8</p>
+              <p className="text-3xl font-bold text-orange-600">{loading ? '...' : stats.pendingReceipts}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
-              <p className="text-gray-500 text-sm">In Transit</p>
-              <p className="text-3xl font-bold text-blue-600">12</p>
+              <p className="text-gray-500 text-sm">In Transit / Ordered</p>
+              <p className="text-3xl font-bold text-blue-600">{loading ? '...' : stats.inTransit}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">QC In Progress</p>
-              <p className="text-3xl font-bold text-purple-600">5</p>
+              <p className="text-3xl font-bold text-purple-600">{loading ? '...' : stats.qcInProgress}</p>
             </div>
           </Card>
           <Card>
             <div className="text-center">
               <p className="text-gray-500 text-sm">Putaway Pending</p>
-              <p className="text-3xl font-bold text-green-600">15</p>
+              <p className="text-3xl font-bold text-green-600">{loading ? '...' : stats.putawayPending}</p>
             </div>
           </Card>
         </div>

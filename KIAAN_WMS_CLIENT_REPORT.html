@@ -1,0 +1,941 @@
+<h1 id="kiaan-wms---client-delivery-report">Kiaan WMS - Client Delivery
+Report</h1>
+<h2 id="warehouse-management-system">Warehouse Management System</h2>
+<p><strong>Document Version:</strong> 1.0 <strong>Date:</strong>
+December 23, 2025 <strong>Prepared For:</strong> Kiaan Ltd <strong>Live
+URL:</strong> https://wms.alexandratechlab.com</p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>The Kiaan Warehouse Management System (WMS) is a comprehensive,
+enterprise-grade solution built for multi-channel e-commerce operations.
+The system provides end-to-end warehouse management including inventory
+tracking, order fulfillment, pick/pack operations, and analytics.</p>
+<hr />
+<h2 id="system-architecture">1. System Architecture</h2>
+<h3 id="technology-stack">Technology Stack</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Technology</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Frontend</td>
+<td>Next.js 15, React 18, Ant Design, TypeScript</td>
+</tr>
+<tr class="even">
+<td>Backend</td>
+<td>Node.js, Express, GraphQL, Prisma ORM</td>
+</tr>
+<tr class="odd">
+<td>Database</td>
+<td>PostgreSQL</td>
+</tr>
+<tr class="even">
+<td>Authentication</td>
+<td>JWT with RBAC</td>
+</tr>
+<tr class="odd">
+<td>Deployment</td>
+<td>Dokploy on Azure</td>
+</tr>
+</tbody>
+</table>
+<h3 id="infrastructure">Infrastructure</h3>
+<ul>
+<li><strong>Frontend:</strong> https://wms.alexandratechlab.com</li>
+<li><strong>Backend API:</strong> Port 8010 (internal)</li>
+<li><strong>Database:</strong> PostgreSQL on port 5435</li>
+</ul>
+<hr />
+<h2 id="completed-features">2. Completed Features</h2>
+<h3 id="authentication-authorization">2.1 Authentication &amp;
+Authorization</h3>
+<table>
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 26%" />
+<col style="width: 43%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>User Login</td>
+<td>DONE</td>
+<td>Secure JWT-based authentication</td>
+</tr>
+<tr class="even">
+<td>Role-Based Access (RBAC)</td>
+<td>DONE</td>
+<td>7 user roles with granular permissions</td>
+</tr>
+<tr class="odd">
+<td>Session Management</td>
+<td>DONE</td>
+<td>Secure session handling with auto-logout</td>
+</tr>
+<tr class="even">
+<td>Password Security</td>
+<td>DONE</td>
+<td>Bcrypt hashing, secure password policies</td>
+</tr>
+</tbody>
+</table>
+<p><strong>User Roles Implemented:</strong> - Super Admin - Full system
+access - Company Admin - Company management - Warehouse Manager -
+Warehouse operations - Inventory Manager - Inventory control - Picker -
+Pick list operations only - Packer - Packing and shipment operations -
+Viewer - Read-only access to reports</p>
+<h3 id="dashboard-analytics">2.2 Dashboard &amp; Analytics</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Main Dashboard</td>
+<td>DONE</td>
+<td>KPIs, charts, recent activity</td>
+</tr>
+<tr class="even">
+<td>Picker Dashboard</td>
+<td>DONE</td>
+<td>Role-specific metrics for pickers</td>
+</tr>
+<tr class="odd">
+<td>Packer Dashboard</td>
+<td>DONE</td>
+<td>Role-specific metrics for packers</td>
+</tr>
+<tr class="even">
+<td>Margin Analysis</td>
+<td>DONE</td>
+<td>Profitability analysis per product</td>
+</tr>
+<tr class="odd">
+<td>Channel Analytics</td>
+<td>DONE</td>
+<td>Performance by sales channel</td>
+</tr>
+<tr class="even">
+<td>Price Optimizer</td>
+<td>DONE</td>
+<td>AI-based pricing recommendations</td>
+</tr>
+<tr class="odd">
+<td>Revenue Reports</td>
+<td>DONE</td>
+<td>Revenue tracking and trends</td>
+</tr>
+</tbody>
+</table>
+<h3 id="product-management">2.3 Product Management</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Product Catalog</td>
+<td>DONE</td>
+<td>Full CRUD operations</td>
+</tr>
+<tr class="even">
+<td>Product Variants</td>
+<td>DONE</td>
+<td>Support for product variations</td>
+</tr>
+<tr class="odd">
+<td>Bundle Products</td>
+<td>DONE</td>
+<td>Create product bundles</td>
+</tr>
+<tr class="even">
+<td>Barcode Support</td>
+<td>DONE</td>
+<td>Barcode generation and scanning</td>
+</tr>
+<tr class="odd">
+<td>Brand Management</td>
+<td>DONE</td>
+<td>Brand organization</td>
+</tr>
+<tr class="even">
+<td>Category Management</td>
+<td>DONE</td>
+<td>Category hierarchy</td>
+</tr>
+<tr class="odd">
+<td>Product Images</td>
+<td>DONE</td>
+<td>Multiple image support</td>
+</tr>
+<tr class="even">
+<td>Dimensions &amp; Weight</td>
+<td>DONE</td>
+<td>For shipping calculations</td>
+</tr>
+</tbody>
+</table>
+<h3 id="inventory-management">2.4 Inventory Management</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Stock Levels</td>
+<td>DONE</td>
+<td>Real-time stock tracking</td>
+</tr>
+<tr class="even">
+<td>Multi-Location</td>
+<td>DONE</td>
+<td>Track stock across locations</td>
+</tr>
+<tr class="odd">
+<td>Lot/Batch Tracking</td>
+<td>DONE</td>
+<td>FEFO/FIFO support</td>
+</tr>
+<tr class="even">
+<td>Best Before Dates</td>
+<td>DONE</td>
+<td>Expiry date management</td>
+</tr>
+<tr class="odd">
+<td>Low Stock Alerts</td>
+<td>DONE</td>
+<td>Configurable thresholds</td>
+</tr>
+<tr class="even">
+<td>Stock Adjustments</td>
+<td>DONE</td>
+<td>Manual adjustments with audit</td>
+</tr>
+<tr class="odd">
+<td>Stock Transfers</td>
+<td>DONE</td>
+<td>Between locations/warehouses</td>
+</tr>
+<tr class="even">
+<td>Inventory Reports</td>
+<td>DONE</td>
+<td>Stock valuation, aging</td>
+</tr>
+</tbody>
+</table>
+<h3 id="warehouse-management">2.5 Warehouse Management</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Multi-Warehouse</td>
+<td>DONE</td>
+<td>Support multiple warehouses</td>
+</tr>
+<tr class="even">
+<td>Zone Management</td>
+<td>DONE</td>
+<td>Define zones within warehouse</td>
+</tr>
+<tr class="odd">
+<td>Location Management</td>
+<td>DONE</td>
+<td>Aisle/Rack/Shelf/Bin structure</td>
+</tr>
+<tr class="even">
+<td>Location Types</td>
+<td>DONE</td>
+<td>Picking, storage, dispatch zones</td>
+</tr>
+</tbody>
+</table>
+<h3 id="order-management">2.6 Order Management</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Sales Orders</td>
+<td>DONE</td>
+<td>Full order lifecycle management</td>
+</tr>
+<tr class="even">
+<td>Order Status Tracking</td>
+<td>DONE</td>
+<td>Pending to Delivered states</td>
+</tr>
+<tr class="odd">
+<td>Order Priority</td>
+<td>DONE</td>
+<td>Low, Medium, High, Urgent</td>
+</tr>
+<tr class="even">
+<td>Customer Management</td>
+<td>DONE</td>
+<td>B2B and B2C customers</td>
+</tr>
+<tr class="odd">
+<td>Order History</td>
+<td>DONE</td>
+<td>Full audit trail</td>
+</tr>
+<tr class="even">
+<td>Wholesale Orders</td>
+<td>DONE</td>
+<td>B2B bulk ordering</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pick-pack-ship">2.7 Pick, Pack &amp; Ship</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Pick List Generation</td>
+<td>DONE</td>
+<td>Auto-generate from orders</td>
+</tr>
+<tr class="even">
+<td>FEFO/FIFO Picking</td>
+<td>DONE</td>
+<td>Expiry-based picking algorithm</td>
+</tr>
+<tr class="odd">
+<td>Batch Picking</td>
+<td>DONE</td>
+<td>Multi-order picking</td>
+</tr>
+<tr class="even">
+<td>Packing Station</td>
+<td>DONE</td>
+<td>Pack verification UI</td>
+</tr>
+<tr class="odd">
+<td>Shipment Creation</td>
+<td>DONE</td>
+<td>Create shipments from packed orders</td>
+</tr>
+<tr class="even">
+<td>Shipping Labels</td>
+<td>DONE</td>
+<td>Label generation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="barcode-scanner">2.8 Barcode Scanner</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Product Lookup</td>
+<td>DONE</td>
+<td>Scan to find product</td>
+</tr>
+<tr class="even">
+<td>Inventory Lookup</td>
+<td>DONE</td>
+<td>Scan to check stock</td>
+</tr>
+<tr class="odd">
+<td>Pick Verification</td>
+<td>DONE</td>
+<td>Scan to verify picks</td>
+</tr>
+<tr class="even">
+<td>Receiving</td>
+<td>DONE</td>
+<td>Scan for goods receipt</td>
+</tr>
+<tr class="odd">
+<td>Mobile Optimized</td>
+<td>DONE</td>
+<td>Works on mobile devices</td>
+</tr>
+</tbody>
+</table>
+<h3 id="reports">2.9 Reports</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Inventory Reports</td>
+<td>DONE</td>
+<td>Stock levels, valuation</td>
+</tr>
+<tr class="even">
+<td>Sales Reports</td>
+<td>DONE</td>
+<td>Revenue, orders</td>
+</tr>
+<tr class="odd">
+<td>Picking Reports</td>
+<td>DONE</td>
+<td>Picker performance</td>
+</tr>
+<tr class="even">
+<td>Expiry Reports</td>
+<td>DONE</td>
+<td>Items expiring soon</td>
+</tr>
+<tr class="odd">
+<td>Custom Date Ranges</td>
+<td>DONE</td>
+<td>Flexible reporting periods</td>
+</tr>
+</tbody>
+</table>
+<h3 id="integrations---sku-mappings">2.10 Integrations - SKU
+Mappings</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SKU Mapping UI</td>
+<td>DONE</td>
+<td>Map internal SKUs to channel SKUs</td>
+</tr>
+<tr class="even">
+<td>Alternative SKUs</td>
+<td>DONE</td>
+<td>Multiple SKU aliases</td>
+</tr>
+<tr class="odd">
+<td>Channel Configuration</td>
+<td>DONE</td>
+<td>Setup marketplace connections</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mobile-responsive">2.11 Mobile &amp; Responsive</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Mobile Bottom Nav</td>
+<td>DONE</td>
+<td>Touch-friendly navigation</td>
+</tr>
+<tr class="even">
+<td>Responsive Layout</td>
+<td>DONE</td>
+<td>Works on all screen sizes</td>
+</tr>
+<tr class="odd">
+<td>Touch Scanner</td>
+<td>DONE</td>
+<td>Mobile barcode scanning</td>
+</tr>
+<tr class="even">
+<td>Role-Based Mobile UI</td>
+<td>DONE</td>
+<td>Different nav for different roles</td>
+</tr>
+</tbody>
+</table>
+<h3 id="settings">2.12 Settings</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>General Settings</td>
+<td>DONE</td>
+<td>Company info, currency, timezone</td>
+</tr>
+<tr class="even">
+<td>Notification Settings</td>
+<td>DONE</td>
+<td>Email alerts configuration</td>
+</tr>
+<tr class="odd">
+<td>Inventory Settings</td>
+<td>DONE</td>
+<td>Thresholds, tracking options</td>
+</tr>
+<tr class="even">
+<td>VAT/Tax Rates</td>
+<td>DONE</td>
+<td>Tax configuration</td>
+</tr>
+<tr class="odd">
+<td>Scanner Settings</td>
+<td>DONE</td>
+<td>Scanner behavior options</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="features-in-progress-pending">3. Features In Progress /
+Pending</h2>
+<h3 id="payment-integration">3.1 Payment Integration</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Stripe Integration</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>Invoice Generation</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="odd">
+<td>Payment Processing</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>Subscription Billing</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+</tbody>
+</table>
+<h3 id="marketplace-integrations">3.2 Marketplace Integrations</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Amazon FBA Sync</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>eBay Integration</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="odd">
+<td>Shopify Sync</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>TikTok Shop</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+<tr class="odd">
+<td>WooCommerce</td>
+<td>PENDING</td>
+<td>LOW</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shipping-carrier-integrations">3.3 Shipping Carrier
+Integrations</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Royal Mail API</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>DPD Integration</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="odd">
+<td>UPS Integration</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+<tr class="even">
+<td>FedEx Integration</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+<tr class="odd">
+<td>Evri (Hermes)</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+</tbody>
+</table>
+<h3 id="advanced-features">3.4 Advanced Features</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Purchase Orders</td>
+<td>PARTIAL</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>Supplier Management</td>
+<td>PARTIAL</td>
+<td>HIGH</td>
+</tr>
+<tr class="odd">
+<td>Goods Receipt (GRN)</td>
+<td>PARTIAL</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>Returns Processing</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="odd">
+<td>Cycle Counting</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+<tr class="even">
+<td>Demand Forecasting</td>
+<td>PENDING</td>
+<td>LOW</td>
+</tr>
+<tr class="odd">
+<td>Automated Reordering</td>
+<td>PARTIAL</td>
+<td>MEDIUM</td>
+</tr>
+</tbody>
+</table>
+<h3 id="notifications">3.5 Notifications</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Status</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Email Notifications</td>
+<td>PENDING</td>
+<td>HIGH</td>
+</tr>
+<tr class="even">
+<td>SMS Alerts</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+<tr class="odd">
+<td>Push Notifications</td>
+<td>PENDING</td>
+<td>LOW</td>
+</tr>
+<tr class="even">
+<td>Webhook Integration</td>
+<td>PENDING</td>
+<td>MEDIUM</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="database-schema">4. Database Schema</h2>
+<h3 id="core-tables">Core Tables</h3>
+<ul>
+<li><strong>Company</strong> - Multi-tenant company data</li>
+<li><strong>User</strong> - User accounts with roles</li>
+<li><strong>Warehouse</strong> - Warehouse definitions</li>
+<li><strong>Zone</strong> - Warehouse zones</li>
+<li><strong>Location</strong> - Storage locations</li>
+<li><strong>Product</strong> - Product catalog</li>
+<li><strong>Brand</strong> - Product brands</li>
+<li><strong>Inventory</strong> - Stock records with lots</li>
+<li><strong>SalesOrder</strong> - Customer orders</li>
+<li><strong>SalesOrderItem</strong> - Order line items</li>
+<li><strong>Customer</strong> - B2B/B2C customers</li>
+<li><strong>PickList</strong> - Picking instructions</li>
+<li><strong>PickItem</strong> - Pick line items</li>
+<li><strong>Transfer</strong> - Stock transfers</li>
+<li><strong>Supplier</strong> - Vendor/supplier data</li>
+<li><strong>SalesChannel</strong> - Marketplace channels</li>
+<li><strong>ChannelPrice</strong> - Channel-specific pricing</li>
+</ul>
+<hr />
+<h2 id="api-endpoints">5. API Endpoints</h2>
+<h3 id="graphql-api">GraphQL API</h3>
+<ul>
+<li>Full GraphQL schema with queries and mutations</li>
+<li>Real-time subscriptions support</li>
+<li>Introspection enabled for development</li>
+</ul>
+<h3 id="rest-endpoints">REST Endpoints</h3>
+<ul>
+<li><code>/api/auth/*</code> - Authentication</li>
+<li><code>/api/products/*</code> - Product CRUD</li>
+<li><code>/api/inventory/*</code> - Stock management</li>
+<li><code>/api/orders/*</code> - Order processing</li>
+<li><code>/api/picking/*</code> - Pick operations</li>
+<li><code>/api/reports/*</code> - Report generation</li>
+</ul>
+<hr />
+<h2 id="security-features">6. Security Features</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Password Hashing</td>
+<td>Bcrypt with salt</td>
+</tr>
+<tr class="even">
+<td>JWT Tokens</td>
+<td>Short-lived access tokens</td>
+</tr>
+<tr class="odd">
+<td>RBAC</td>
+<td>Role-based route protection</td>
+</tr>
+<tr class="even">
+<td>Input Validation</td>
+<td>Zod schema validation</td>
+</tr>
+<tr class="odd">
+<td>SQL Injection</td>
+<td>Prisma parameterized queries</td>
+</tr>
+<tr class="even">
+<td>XSS Protection</td>
+<td>React automatic escaping</td>
+</tr>
+<tr class="odd">
+<td>CORS</td>
+<td>Configured allowed origins</td>
+</tr>
+<tr class="even">
+<td>HTTPS</td>
+<td>SSL/TLS encryption</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="user-credentials-demo">7. User Credentials (Demo)</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>Email</th>
+<th>Password</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Super Admin</td>
+<td>admin@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="even">
+<td>Company Admin</td>
+<td>companyadmin@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="odd">
+<td>Warehouse Manager</td>
+<td>warehousemanager@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="even">
+<td>Inventory Manager</td>
+<td>inventorymanager@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="odd">
+<td>Picker</td>
+<td>picker@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="even">
+<td>Packer</td>
+<td>packer@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+<tr class="odd">
+<td>Viewer</td>
+<td>viewer@kiaan-wms.com</td>
+<td>Admin@123</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="deployment-information">8. Deployment Information</h2>
+<h3 id="current-deployment">Current Deployment</h3>
+<ul>
+<li><strong>Platform:</strong> Dokploy on Azure</li>
+<li><strong>Region:</strong> West Europe</li>
+<li><strong>URL:</strong> https://wms.alexandratechlab.com</li>
+<li><strong>SSL:</strong> Let’s Encrypt auto-renewal</li>
+<li><strong>Uptime:</strong> 99.9% target</li>
+</ul>
+<h3 id="scaling">Scaling</h3>
+<ul>
+<li>Horizontal scaling ready</li>
+<li>Database connection pooling</li>
+<li>CDN-ready static assets</li>
+</ul>
+<hr />
+<h2 id="next-steps-recommendations">9. Next Steps / Recommendations</h2>
+<h3 id="immediate-week-1-2">Immediate (Week 1-2)</h3>
+<ol type="1">
+<li>Run database seed for demo data</li>
+<li>Configure email notifications</li>
+<li>Set up Stripe integration</li>
+<li>Connect first marketplace (Amazon/eBay)</li>
+</ol>
+<h3 id="short-term-month-1">Short-term (Month 1)</h3>
+<ol type="1">
+<li>Royal Mail API integration</li>
+<li>Full purchase order workflow</li>
+<li>Returns processing module</li>
+<li>Advanced reporting</li>
+</ol>
+<h3 id="medium-term-month-2-3">Medium-term (Month 2-3)</h3>
+<ol type="1">
+<li>Multi-carrier shipping</li>
+<li>Demand forecasting</li>
+<li>Mobile app (React Native)</li>
+<li>Customer portal</li>
+</ol>
+<hr />
+<h2 id="support-maintenance">10. Support &amp; Maintenance</h2>
+<h3 id="included">Included</h3>
+<ul>
+<li>Bug fixes for 3 months</li>
+<li>Security updates</li>
+<li>Minor feature adjustments</li>
+</ul>
+<h3 id="available-add-ons">Available Add-ons</h3>
+<ul>
+<li>24/7 support package</li>
+<li>Custom integrations</li>
+<li>Training sessions</li>
+<li>Dedicated account manager</li>
+</ul>
+<hr />
+<h2 id="screenshots">11. Screenshots</h2>
+<h3 id="dashboard">Dashboard</h3>
+<p>The main dashboard displays: - Total Orders KPI - Revenue metrics -
+Inventory status - Recent orders table - Activity charts</p>
+<h3 id="products-page">Products Page</h3>
+<p>Product management showing: - Product list with images - SKU,
+barcode, brand columns - Stock levels - Quick actions (edit, delete) -
+Search and filters</p>
+<h3 id="inventory-page">Inventory Page</h3>
+<p>Inventory overview with: - Stock by location - Lot/batch numbers -
+Best before dates - Low stock highlights - Transfer actions</p>
+<h3 id="pick-list-generation">Pick List Generation</h3>
+<p>FEFO/FIFO picking showing: - Order selection - Auto-generated pick
+routes - Expiry prioritization - Location guidance</p>
+<h3 id="analytics---margin-analysis">Analytics - Margin Analysis</h3>
+<p>Profitability view with: - Product margins - Channel comparison -
+Cost breakdown - Optimization suggestions</p>
+<h3 id="mobile-navigation">Mobile Navigation</h3>
+<p>Bottom navigation bar for: - Quick access to key pages -
+Role-specific menu items - Touch-friendly buttons</p>
+<hr />
+<h2 id="technical-documentation">12. Technical Documentation</h2>
+<p>Full technical documentation available: - API Reference (GraphQL
+schema) - Database ERD - Deployment guide - Integration guides</p>
+<hr />
+<h2 id="contact">Contact</h2>
+<p><strong>Development Team:</strong> Alexandra Tech Lab
+<strong>Email:</strong> support@alexandratechlab.com <strong>Project
+URL:</strong> https://wms.alexandratechlab.com
+<strong>Documentation:</strong> https://files.alexandratechlab.com</p>
+<hr />
+<p><em>Document generated on December 23, 2025</em></p>
