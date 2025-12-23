@@ -18,8 +18,12 @@ import {
   SettingOutlined,
   SafetyCertificateOutlined,
   CloudOutlined,
-  LinkOutlined
+  LinkOutlined,
+  LoginOutlined,
+  KeyOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
+import { useSearchParams } from 'next/navigation';
 import apiService from '@/services/api';
 
 const { Title, Text, Paragraph } = Typography;
@@ -196,12 +200,55 @@ export default function MarketplaceAPISettingsPage() {
   const [selectedConnection, setSelectedConnection] = useState<any>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [oauthStatus, setOauthStatus] = useState<Record<string, any>>({});
+  const [authorizingId, setAuthorizingId] = useState<string | null>(null);
   const [marketplaceForm] = Form.useForm();
   const [courierForm] = Form.useForm();
+  const searchParams = useSearchParams();
+
+  // Check for OAuth callback results
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+
+    if (success === 'amazon') {
+      message.success('Amazon account authorized successfully!');
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (success === 'ebay') {
+      message.success('eBay account authorized successfully!');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (error) {
+      message.error(`Authorization failed: ${decodeURIComponent(error)}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchConnections();
   }, []);
+
+  // Check OAuth status for all Amazon/eBay connections
+  useEffect(() => {
+    const checkOAuthStatus = async () => {
+      const amazonEbayConnections = marketplaceConnections.filter(
+        c => c.marketplace.startsWith('AMAZON') || c.marketplace === 'EBAY'
+      );
+
+      for (const conn of amazonEbayConnections) {
+        try {
+          const status = await apiService.get(`/oauth/status/${conn.id}`);
+          setOauthStatus(prev => ({ ...prev, [conn.id]: status }));
+        } catch (error) {
+          console.error(`Failed to check OAuth status for ${conn.id}:`, error);
+        }
+      }
+    };
+
+    if (marketplaceConnections.length > 0) {
+      checkOAuthStatus();
+    }
+  }, [marketplaceConnections]);
 
   const fetchConnections = async () => {
     setLoading(true);
@@ -297,6 +344,55 @@ export default function MarketplaceAPISettingsPage() {
     }
   };
 
+  // OAuth Authorization handler
+  const handleAuthorize = async (connectionId: string, marketplace: string) => {
+    try {
+      setAuthorizingId(connectionId);
+
+      let platform = '';
+      if (marketplace.startsWith('AMAZON')) {
+        platform = 'amazon';
+      } else if (marketplace === 'EBAY') {
+        platform = 'ebay';
+      } else {
+        message.warning('OAuth not required for this marketplace');
+        return;
+      }
+
+      const response = await apiService.get(`/oauth/${platform}/authorize/${connectionId}`);
+
+      if (response.url) {
+        // Redirect to OAuth provider
+        window.location.href = response.url;
+      } else {
+        message.error('Failed to get authorization URL');
+      }
+    } catch (error: any) {
+      console.error('Authorization error:', error);
+      message.error(error.message || 'Failed to start authorization');
+    } finally {
+      setAuthorizingId(null);
+    }
+  };
+
+  // Refresh OAuth token
+  const handleRefreshToken = async (connectionId: string, marketplace: string) => {
+    try {
+      setLoading(true);
+      const platform = marketplace.startsWith('AMAZON') ? 'amazon' : 'ebay';
+      await apiService.post(`/oauth/${platform}/refresh/${connectionId}`);
+      message.success('Token refreshed successfully');
+
+      // Re-check status
+      const status = await apiService.get(`/oauth/status/${connectionId}`);
+      setOauthStatus(prev => ({ ...prev, [connectionId]: status }));
+    } catch (error: any) {
+      message.error(error.message || 'Failed to refresh token');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Courier handlers
   const handleAddCourier = () => {
     setIsEditMode(false);
@@ -386,12 +482,30 @@ export default function MarketplaceAPISettingsPage() {
     {
       title: 'Status',
       key: 'status',
-      width: 100,
-      render: (_: any, record: MarketplaceConnection) => (
-        <Tag color={record.isActive ? 'green' : 'red'} icon={record.isActive ? <CheckCircleOutlined /> : <WarningOutlined />}>
-          {record.isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      )
+      width: 150,
+      render: (_: any, record: MarketplaceConnection) => {
+        const needsOAuth = record.marketplace.startsWith('AMAZON') || record.marketplace === 'EBAY';
+        const status = oauthStatus[record.id];
+        const hasToken = status?.hasToken;
+        const needsReauth = status?.needsReauthorization;
+
+        return (
+          <Space direction="vertical" size={0}>
+            <Tag color={record.isActive ? 'green' : 'red'} icon={record.isActive ? <CheckCircleOutlined /> : <WarningOutlined />}>
+              {record.isActive ? 'Active' : 'Inactive'}
+            </Tag>
+            {needsOAuth && (
+              <Tag
+                color={hasToken ? 'blue' : 'orange'}
+                icon={hasToken ? <KeyOutlined /> : <ExclamationCircleOutlined />}
+                style={{ marginTop: 4 }}
+              >
+                {needsReauth ? 'Re-auth needed' : hasToken ? 'Authorized' : 'Not Authorized'}
+              </Tag>
+            )}
+          </Space>
+        );
+      }
     },
     {
       title: 'Sync Settings',
@@ -423,33 +537,53 @@ export default function MarketplaceAPISettingsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 300,
-      render: (_: any, record: MarketplaceConnection) => (
-        <Space size="small" wrap>
-          <Tooltip title="Test Connection">
-            <Button size="small" type="primary" ghost icon={<ApiOutlined />} onClick={() => handleTestConnection(record.id, 'marketplace')}>
-              Test
-            </Button>
-          </Tooltip>
-          <Tooltip title="Sync Orders">
-            <Button size="small" icon={<SyncOutlined />} onClick={() => handleSyncMarketplace(record.id, 'orders')}>
-              Orders
-            </Button>
-          </Tooltip>
-          <Tooltip title="Sync Stock">
-            <Button size="small" icon={<CloudOutlined />} onClick={() => handleSyncMarketplace(record.id, 'stock')}>
-              Stock
-            </Button>
-          </Tooltip>
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleEditMarketplace(record)} />
-          <Popconfirm
-            title="Delete this connection?"
-            onConfirm={() => handleDeleteMarketplace(record.id, record.accountName)}
-          >
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      )
+      width: 380,
+      render: (_: any, record: MarketplaceConnection) => {
+        const needsOAuth = record.marketplace.startsWith('AMAZON') || record.marketplace === 'EBAY';
+        const status = oauthStatus[record.id];
+        const hasToken = status?.hasToken;
+
+        return (
+          <Space size="small" wrap>
+            {needsOAuth && (
+              <Tooltip title={hasToken ? "Re-authorize Account" : "Authorize Account (Required)"}>
+                <Button
+                  size="small"
+                  type={hasToken ? "default" : "primary"}
+                  icon={<LoginOutlined />}
+                  onClick={() => handleAuthorize(record.id, record.marketplace)}
+                  loading={authorizingId === record.id}
+                  style={!hasToken ? { background: '#fa8c16', borderColor: '#fa8c16' } : {}}
+                >
+                  {hasToken ? 'Re-auth' : 'Authorize'}
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip title="Test Connection">
+              <Button size="small" type="primary" ghost icon={<ApiOutlined />} onClick={() => handleTestConnection(record.id, 'marketplace')}>
+                Test
+              </Button>
+            </Tooltip>
+            <Tooltip title="Sync Orders">
+              <Button size="small" icon={<SyncOutlined />} onClick={() => handleSyncMarketplace(record.id, 'orders')}>
+                Orders
+              </Button>
+            </Tooltip>
+            <Tooltip title="Sync Stock">
+              <Button size="small" icon={<CloudOutlined />} onClick={() => handleSyncMarketplace(record.id, 'stock')}>
+                Stock
+              </Button>
+            </Tooltip>
+            <Button size="small" icon={<EditOutlined />} onClick={() => handleEditMarketplace(record)} />
+            <Popconfirm
+              title="Delete this connection?"
+              onConfirm={() => handleDeleteMarketplace(record.id, record.accountName)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Space>
+        );
+      }
     }
   ];
 

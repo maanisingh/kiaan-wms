@@ -1,13 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Removed standalone output to be compatible with PM2 and next start
   typescript: {
-    // Skip TypeScript checking during build to avoid blocking on test files
     ignoreBuildErrors: true,
   },
   eslint: {
-    // Skip ESLint during build for faster deployments
     ignoreDuringBuilds: true,
   },
   async rewrites() {
@@ -15,6 +12,14 @@ const nextConfig: NextConfig = {
       {
         source: '/api/:path*',
         destination: 'http://91.98.157.75:8010/api/:path*',
+      },
+      {
+        source: '/test-report',
+        destination: 'http://host.docker.internal:8888/',
+      },
+      {
+        source: '/test-report.pdf',
+        destination: 'http://host.docker.internal:8888/',
       },
     ];
   },
