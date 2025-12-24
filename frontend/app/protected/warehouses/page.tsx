@@ -15,6 +15,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -34,6 +35,7 @@ interface Warehouse {
 
 export default function WarehousesPage() {
   const { modal, message } = App.useApp();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -252,9 +254,11 @@ export default function WarehousesPage() {
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Edit
           </Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Descriptions, Tag, Button, Tabs, Timeline, Space, Table, Spin, Alert, Statistic, Row, Col } from 'antd';
 import { ArrowLeftOutlined, PrinterOutlined, TruckOutlined, ReloadOutlined, DollarOutlined } from '@ant-design/icons';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import apiService from '@/services/api';
 
@@ -29,6 +30,7 @@ interface Shipment {
 }
 
 export default function ShipmentDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('details');
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,8 +38,13 @@ export default function ShipmentDetailPage({ params }: { params: { id: string } 
   const [rates, setRates] = useState<any>(null);
 
   useEffect(() => {
+    // Guard against undefined or invalid ID
+    if (!params?.id || params.id === 'undefined' || params.id === 'null') {
+      router.push('/protected/shipments');
+      return;
+    }
     fetchShipment();
-  }, [params.id]);
+  }, [params?.id, router]);
 
   const fetchShipment = async () => {
     try {

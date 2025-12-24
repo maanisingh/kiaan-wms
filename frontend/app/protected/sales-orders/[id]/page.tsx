@@ -106,10 +106,13 @@ export default function SalesOrderDetailPage() {
   }, [params.id]);
 
   useEffect(() => {
-    if (params.id) {
-      fetchOrder();
+    // Guard against undefined or invalid ID
+    if (!params?.id || params.id === 'undefined' || params.id === 'null') {
+      router.push('/protected/sales-orders');
+      return;
     }
-  }, [params.id, fetchOrder]);
+    fetchOrder();
+  }, [params?.id, fetchOrder, router]);
 
   // Process Payment Handler
   const handleProcessPayment = async (values: any) => {

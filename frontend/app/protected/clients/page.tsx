@@ -20,6 +20,7 @@ import {
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -51,6 +52,7 @@ interface Client {
 export default function ClientsPage() {
   const { modal, message } = App.useApp();
   const router = useRouter();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
@@ -307,9 +309,11 @@ export default function ClientsPage() {
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Edit
           </Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },

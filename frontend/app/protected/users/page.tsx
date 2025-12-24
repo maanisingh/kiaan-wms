@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import apiService from '@/services/api';
 import { formatDate } from '@/lib/utils';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -43,6 +44,7 @@ interface Role {
 export default function UserManagementPage() {
   const { modal, message } = App.useApp();
   const router = useRouter();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -394,12 +396,14 @@ export default function UserManagementPage() {
           }}>
             Edit
           </Button>
-          <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => {
-            e.stopPropagation();
-            handleDelete(record);
-          }}>
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(record);
+            }}>
+              Delete
+            </Button>
+          )}
         </div>
       ),
     },

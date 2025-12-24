@@ -88,10 +88,13 @@ export default function PickingDetailPage() {
   };
 
   useEffect(() => {
-    if (params.id) {
-      fetchPickList();
+    // Guard against undefined or invalid ID
+    if (!params?.id || params.id === 'undefined' || params.id === 'null') {
+      router.push('/protected/picking');
+      return;
     }
-  }, [params.id]);
+    fetchPickList();
+  }, [params?.id, router]);
 
   const handleStartPicking = async () => {
     try {
