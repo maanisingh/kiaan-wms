@@ -38,6 +38,7 @@ import { useAuthStore } from '@/store/authStore';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 dayjs.extend(relativeTime);
 
@@ -65,6 +66,7 @@ interface Movement {
 
 export default function InventoryMovementsPage() {
   const { user } = useAuthStore();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [filteredMovements, setFilteredMovements] = useState<Movement[]>([]);
@@ -420,13 +422,15 @@ export default function InventoryMovementsPage() {
             onClick={(e) => { e.stopPropagation(); handleEditMovement(record); }}
             title="Edit Movement"
           />
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={(e) => { e.stopPropagation(); handleDeleteMovement(record); }}
-            title="Delete Movement"
-          />
+          {canDelete() && (
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => { e.stopPropagation(); handleDeleteMovement(record); }}
+              title="Delete Movement"
+            />
+          )}
         </Space>
       ),
     },

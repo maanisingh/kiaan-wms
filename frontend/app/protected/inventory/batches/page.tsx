@@ -43,6 +43,7 @@ import { useAuthStore } from '@/store/authStore';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 dayjs.extend(relativeTime);
 
@@ -75,6 +76,7 @@ interface Batch {
 
 export default function BatchesPage() {
   const { user } = useAuthStore();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [filteredBatches, setFilteredBatches] = useState<Batch[]>([]);
@@ -481,14 +483,16 @@ export default function BatchesPage() {
               onClick={(e) => { e.stopPropagation(); handleEditBatch(record); }}
             />
           </Tooltip>
-          <Tooltip title="Delete Batch">
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={(e) => { e.stopPropagation(); handleDeleteBatch(record); }}
-            />
-          </Tooltip>
+          {canDelete() && (
+            <Tooltip title="Delete Batch">
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={(e) => { e.stopPropagation(); handleDeleteBatch(record); }}
+              />
+            </Tooltip>
+          )}
           <Select
             placeholder="Status"
             style={{ width: 110 }}

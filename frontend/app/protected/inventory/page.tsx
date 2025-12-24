@@ -9,6 +9,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import apiService from '@/services/api';
 import dayjs from 'dayjs';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 
@@ -51,6 +52,7 @@ interface Location {
 
 export default function InventoryPage() {
   const { modal, message } = App.useApp();
+  const { canDelete } = usePermissions();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -411,15 +413,17 @@ export default function InventoryPage() {
           >
             Edit
           </Button>
-          <Button
-            type="link"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record)}
-          >
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button
+              type="link"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            >
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },
