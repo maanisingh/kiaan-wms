@@ -213,14 +213,14 @@ export default function InventoryAlertsPage() {
       render: (record: StockAlert) => (
         <Space>
           <Tooltip title="Create Purchase Order">
-            <Link href="/purchase-orders/new">
+            <Link href="/protected/purchase-orders/new">
               <Button type="primary" size="small" icon={<ShoppingCartOutlined />}>
                 Reorder
               </Button>
             </Link>
           </Tooltip>
           <Tooltip title="Adjust Stock">
-            <Link href="/inventory/adjustments">
+            <Link href="/protected/inventory/adjustments">
               <Button size="small">Adjust</Button>
             </Link>
           </Tooltip>
@@ -309,7 +309,7 @@ export default function InventoryAlertsPage() {
             </Button>
           </Tooltip>
           <Tooltip title="Create adjustment">
-            <Link href="/inventory/adjustments">
+            <Link href="/protected/inventory/adjustments">
               <Button size="small">Adjust</Button>
             </Link>
           </Tooltip>
@@ -370,7 +370,7 @@ export default function InventoryAlertsPage() {
             <Button icon={<ReloadOutlined />} onClick={() => fetchAlerts()}>
               Refresh
             </Button>
-            <Link href="/inventory/adjustments">
+            <Link href="/protected/inventory/adjustments">
               <Button type="primary">Create Adjustment</Button>
             </Link>
           </Space>
@@ -590,7 +590,7 @@ export default function InventoryAlertsPage() {
                 <Button type="primary" danger>
                   Create Clearance Sale
                 </Button>
-                <Link href="/inventory/adjustments">
+                <Link href="/protected/inventory/adjustments">
                   <Button>Adjust Stock</Button>
                 </Link>
               </Space>

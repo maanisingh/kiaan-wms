@@ -44,6 +44,46 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Prisma error handler utility - properly handles different error types
+const handlePrismaError = (error, res, entity) => {
+  // Record not found
+  if (error.code === 'P2025') {
+    return res.status(404).json({ error: `${entity} not found` });
+  }
+  // Foreign key constraint violation - referenced by other records
+  if (error.code === 'P2003') {
+    const field = error.meta?.field_name || 'related records';
+    return res.status(400).json({
+      error: `Cannot delete ${entity}: it is referenced by ${field}. Please remove dependent records first.`
+    });
+  }
+  // Required relation violation
+  if (error.code === 'P2014') {
+    return res.status(400).json({
+      error: `Cannot delete ${entity}: it is required by other records in the system.`
+    });
+  }
+  // Unique constraint violation
+  if (error.code === 'P2002') {
+    const fields = error.meta?.target?.join(', ') || 'field';
+    return res.status(400).json({
+      error: `A ${entity} with this ${fields} already exists.`
+    });
+  }
+  // Invalid data format
+  if (error.code === 'P2006') {
+    return res.status(400).json({
+      error: `Invalid data format provided for ${entity}.`
+    });
+  }
+  // Default: internal server error with details in development
+  console.error(`${entity} error:`, error);
+  return res.status(500).json({
+    error: `Failed to process ${entity}`,
+    ...(process.env.NODE_ENV !== 'production' && { details: error.message })
+  });
+};
+
 // Helper function to calculate bundle cost from components
 async function calculateBundleCost(bundleItems) {
   let totalCost = 0;
@@ -2699,8 +2739,7 @@ app.delete('/api/inventory/movements/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Movement deleted successfully' });
   } catch (error) {
-    console.error('Delete movement error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Inventory movement');
   }
 });
 
@@ -3156,8 +3195,7 @@ app.delete('/api/products/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
-    console.error('Delete product error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Product');
   }
 });
 
@@ -3367,8 +3405,7 @@ app.delete('/api/brands/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Brand deleted successfully' });
   } catch (error) {
-    console.error('Delete brand error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Brand');
   }
 });
 
@@ -3597,11 +3634,7 @@ app.delete('/api/inventory/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Inventory record deleted successfully' });
   } catch (error) {
-    console.error('Delete inventory error:', error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Inventory record not found' });
-    }
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Inventory record');
   }
 });
 
@@ -3745,6 +3778,7 @@ app.post('/api/sales-orders', verifyToken, async (req, res) => {
 
       // Find inventory locations for each product (FIFO allocation)
       const pickItems = [];
+      let sequenceNum = 0;
       for (const item of order.items) {
         const inventory = await prisma.inventory.findFirst({
           where: {
@@ -3755,11 +3789,14 @@ app.post('/api/sales-orders', verifyToken, async (req, res) => {
           orderBy: { createdAt: 'asc' } // FIFO
         });
 
+        sequenceNum++;
         pickItems.push({
           id: require('crypto').randomUUID(),
           productId: item.productId,
-          quantity: item.quantity,
-          pickedQty: 0,
+          quantityRequired: item.quantity,
+          quantityPicked: 0,
+          sequenceNumber: sequenceNum,
+          status: 'PENDING',
           locationId: inventory?.locationId || null
         });
       }
@@ -4104,8 +4141,7 @@ app.delete('/api/locations/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Location deleted successfully' });
   } catch (error) {
-    console.error('Delete location error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Location');
   }
 });
 
@@ -4772,11 +4808,7 @@ app.delete('/api/companies/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Company deleted successfully' });
   } catch (error) {
-    console.error('Delete company error:', error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Company not found' });
-    }
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Company');
   }
 });
 
@@ -6092,8 +6124,8 @@ app.get('/api/picking', verifyToken, async (req, res) => {
         productId: item.productId,
         productName: item.product?.name || 'Unknown',
         productSku: item.product?.sku || 'N/A',
-        quantity: item.quantity,
-        pickedQty: item.pickedQty || 0,
+        quantity: item.quantityRequired || item.quantity,
+        pickedQty: item.quantityPicked || item.pickedQty || 0,
         location: item.location?.code || 'N/A'
       })) || [],
       customer: pl.order?.customer?.name || 'Unknown',
@@ -6290,10 +6322,12 @@ app.post('/api/picking', verifyToken, async (req, res) => {
         status: 'PENDING',
         enforceSingleBBDate: enforceSingleBBDate || order.isWholesale || false,
         items: {
-          create: order.items.map(item => ({
+          create: order.items.map((item, index) => ({
             productId: item.productId,
-            quantity: item.quantity,
-            pickedQty: 0
+            quantityRequired: item.quantity,
+            quantityPicked: 0,
+            sequenceNumber: index + 1,
+            status: 'PENDING'
           }))
         }
       },
@@ -6546,8 +6580,7 @@ app.delete('/api/picking/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Pick list deleted successfully' });
   } catch (error) {
-    console.error('Delete picking task error:', error);
-    res.status(500).json({ error: 'Failed to delete picking task' });
+    return handlePrismaError(error, res, 'Pick list');
   }
 });
 
@@ -6953,8 +6986,7 @@ app.delete('/api/packing/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Packing task deleted successfully' });
   } catch (error) {
-    console.error('Delete packing task error:', error);
-    res.status(500).json({ error: 'Failed to delete packing task' });
+    return handlePrismaError(error, res, 'Packing task');
   }
 });
 
@@ -7561,8 +7593,7 @@ app.delete('/api/returns/:id', verifyToken, async (req, res) => {
 
     res.json({ success: true, message: 'Return deleted successfully' });
   } catch (error) {
-    console.error('Delete return error:', error);
-    res.status(500).json({ error: 'Failed to delete return' });
+    return handlePrismaError(error, res, 'Return');
   }
 });
 
@@ -7839,8 +7870,7 @@ app.delete('/api/purchase-orders/:id', verifyToken, async (req, res) => {
 
     res.json({ success: true, message: 'Purchase order deleted successfully' });
   } catch (error) {
-    console.error('Delete purchase order error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Purchase order');
   }
 });
 
@@ -8015,8 +8045,7 @@ app.delete('/api/purchase-orders/:id/items/:itemId', verifyToken, async (req, re
 
     res.json({ success: true, message: 'Item removed successfully' });
   } catch (error) {
-    console.error('Remove PO item error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'Purchase order item');
   }
 });
 
@@ -8374,8 +8403,7 @@ app.delete('/api/goods-receiving/:id', verifyToken, async (req, res) => {
 
     res.json({ message: 'Goods receipt deleted successfully' });
   } catch (error) {
-    console.error('Delete goods receipt error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    return handlePrismaError(error, res, 'Goods receipt');
   }
 });
 
@@ -8894,8 +8922,7 @@ app.delete('/api/users/:id', verifyToken, async (req, res) => {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return handlePrismaError(error, res, 'User');
   }
 });
 
@@ -9538,8 +9565,7 @@ app.delete('/api/shipping/carriers/:id', verifyToken, async (req, res) => {
     shippingCarriers.splice(index, 1);
     res.json({ message: 'Carrier deleted successfully' });
   } catch (error) {
-    console.error('Delete shipping carrier error:', error);
-    res.status(500).json({ error: 'Failed to delete carrier' });
+    return handlePrismaError(error, res, 'Shipping carrier');
   }
 });
 
@@ -9718,8 +9744,7 @@ app.delete('/api/webhooks/:id', verifyToken, async (req, res) => {
     webhooks.splice(index, 1);
     res.json({ message: 'Webhook deleted successfully' });
   } catch (error) {
-    console.error('Delete webhook error:', error);
-    res.status(500).json({ error: 'Failed to delete webhook' });
+    return handlePrismaError(error, res, 'Webhook');
   }
 });
 
@@ -10502,8 +10527,7 @@ app.delete('/api/warehouses/:id', verifyToken, async (req, res) => {
     await prisma.warehouse.delete({ where: { id: req.params.id } });
     res.json({ message: 'Warehouse deleted successfully' });
   } catch (error) {
-    console.error('Delete warehouse error:', error);
-    res.status(500).json({ error: 'Failed to delete warehouse' });
+    return handlePrismaError(error, res, 'Warehouse');
   }
 });
 
@@ -10617,8 +10641,7 @@ app.delete('/api/customers/:id', verifyToken, async (req, res) => {
     await prisma.customer.delete({ where: { id: req.params.id } });
     res.json({ message: 'Customer deleted successfully' });
   } catch (error) {
-    console.error('Delete customer error:', error);
-    res.status(500).json({ error: 'Failed to delete customer' });
+    return handlePrismaError(error, res, 'Customer');
   }
 });
 
@@ -10722,8 +10745,7 @@ app.delete('/api/categories/:id', verifyToken, async (req, res) => {
     await prisma.brand.delete({ where: { id: req.params.id } });
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
-    console.error('Delete category error:', error);
-    res.status(500).json({ error: 'Failed to delete category' });
+    return handlePrismaError(error, res, 'Category');
   }
 });
 
@@ -10810,10 +10832,12 @@ app.put('/api/sales-orders/:id', verifyToken, async (req, res) => {
           status: 'PENDING',
           enforceSingleBBDate: order.isWholesale || false,
           items: {
-            create: existing.items.map(item => ({
+            create: existing.items.map((item, index) => ({
               productId: item.productId,
-              quantity: item.quantity,
-              pickedQty: 0
+              quantityRequired: item.quantity,
+              quantityPicked: 0,
+              sequenceNumber: index + 1,
+              status: 'PENDING'
             }))
           }
         }
@@ -10876,8 +10900,7 @@ app.delete('/api/sales-orders/:id', verifyToken, async (req, res) => {
     await prisma.salesOrder.delete({ where: { id: req.params.id } });
     res.json({ message: 'Sales order deleted successfully' });
   } catch (error) {
-    console.error('Delete sales order error:', error);
-    res.status(500).json({ error: 'Failed to delete sales order' });
+    return handlePrismaError(error, res, 'Sales order');
   }
 });
 
@@ -10988,10 +11011,12 @@ app.post('/api/sales-orders/:id/create-pick-list', verifyToken, async (req, res)
         priority: order.priority || 'NORMAL',
         createdById: req.user.id,
         items: {
-          create: order.salesOrderItems.map(item => ({
+          create: order.salesOrderItems.map((item, index) => ({
             productId: item.productId,
-            orderedQty: item.quantity,
-            pickedQty: 0,
+            quantityRequired: item.quantity,
+            quantityPicked: 0,
+            sequenceNumber: index + 1,
+            status: 'PENDING'
           }))
         }
       }
@@ -11296,8 +11321,7 @@ app.delete('/api/transfers/:id', verifyToken, async (req, res) => {
     await prisma.transfer.delete({ where: { id: req.params.id } });
     res.json({ message: 'Transfer deleted successfully' });
   } catch (error) {
-    console.error('Delete transfer error:', error);
-    res.status(500).json({ error: 'Failed to delete transfer' });
+    return handlePrismaError(error, res, 'Transfer');
   }
 });
 
@@ -11407,8 +11431,7 @@ app.delete('/api/channels/:id', verifyToken, async (req, res) => {
     await prisma.salesChannel.delete({ where: { id: req.params.id } });
     res.json({ message: 'Channel deleted successfully' });
   } catch (error) {
-    console.error('Delete channel error:', error);
-    res.status(500).json({ error: 'Failed to delete channel' });
+    return handlePrismaError(error, res, 'Channel');
   }
 });
 
@@ -11536,8 +11559,7 @@ app.delete('/api/suppliers/:id', verifyToken, async (req, res) => {
     await prisma.supplier.delete({ where: { id: req.params.id } });
     res.json({ message: 'Supplier deleted successfully' });
   } catch (error) {
-    console.error('Delete supplier error:', error);
-    res.status(500).json({ error: 'Failed to delete supplier' });
+    return handlePrismaError(error, res, 'Supplier');
   }
 });
 
@@ -11704,8 +11726,7 @@ app.delete('/api/clients/:id', verifyToken, async (req, res) => {
     await prisma.client.delete({ where: { id: req.params.id } });
     res.json({ message: 'Client deleted successfully' });
   } catch (error) {
-    console.error('Delete client error:', error);
-    res.status(500).json({ error: 'Failed to delete client', details: error.message });
+    return handlePrismaError(error, res, 'Client');
   }
 });
 
@@ -11917,8 +11938,7 @@ app.delete('/api/orders/:id', verifyToken, async (req, res) => {
     await prisma.salesOrder.delete({ where: { id: req.params.id } });
     res.json({ message: 'Order deleted successfully' });
   } catch (error) {
-    console.error('Delete order error:', error);
-    res.status(500).json({ error: 'Failed to delete order' });
+    return handlePrismaError(error, res, 'Order');
   }
 });
 
@@ -12058,8 +12078,7 @@ app.delete('/api/zones/:id', verifyToken, async (req, res) => {
     await prisma.zone.delete({ where: { id: req.params.id } });
     res.json({ message: 'Zone deleted successfully' });
   } catch (error) {
-    console.error('Delete zone error:', error);
-    res.status(500).json({ error: 'Failed to delete zone' });
+    return handlePrismaError(error, res, 'Zone');
   }
 });
 
@@ -12141,8 +12160,7 @@ app.delete('/api/pick-lists/:id', verifyToken, async (req, res) => {
     await prisma.pickList.delete({ where: { id: req.params.id } });
     res.json({ message: 'Pick list deleted successfully' });
   } catch (error) {
-    console.error('Delete pick list error:', error);
-    res.status(500).json({ error: 'Failed to delete pick list' });
+    return handlePrismaError(error, res, 'Pick list');
   }
 });
 
@@ -12268,8 +12286,7 @@ app.delete('/api/replenishment/tasks/:id', verifyToken, async (req, res) => {
     await prisma.replenishmentTask.delete({ where: { id: req.params.id } });
     res.json({ message: 'Replenishment task deleted successfully' });
   } catch (error) {
-    console.error('Delete replenishment task error:', error);
-    res.status(500).json({ error: 'Failed to delete replenishment task' });
+    return handlePrismaError(error, res, 'Replenishment task');
   }
 });
 
@@ -12407,8 +12424,7 @@ app.delete('/api/replenishment/configs/:id', verifyToken, async (req, res) => {
     await prisma.replenishmentConfig.delete({ where: { id: req.params.id } });
     res.json({ message: 'Replenishment config deleted successfully' });
   } catch (error) {
-    console.error('Delete replenishment config error:', error);
-    res.status(500).json({ error: 'Failed to delete replenishment config' });
+    return handlePrismaError(error, res, 'Replenishment config');
   }
 });
 
@@ -12714,8 +12730,7 @@ app.delete('/api/inventory/cycle-counts/:id', verifyToken, async (req, res) => {
     await prisma.cycleCount.delete({ where: { id: req.params.id } });
     res.json({ message: 'Cycle count deleted successfully' });
   } catch (error) {
-    console.error('Delete cycle count error:', error);
-    res.status(500).json({ error: 'Failed to delete cycle count' });
+    return handlePrismaError(error, res, 'Cycle count');
   }
 });
 
@@ -12799,8 +12814,7 @@ app.delete('/api/inventory/adjustments/:id', verifyToken, async (req, res) => {
     await prisma.stockAdjustment.delete({ where: { id: req.params.id } });
     res.json({ message: 'Adjustment deleted successfully' });
   } catch (error) {
-    console.error('Delete adjustment error:', error);
-    res.status(500).json({ error: 'Failed to delete adjustment' });
+    return handlePrismaError(error, res, 'Stock adjustment');
   }
 });
 
@@ -12860,8 +12874,7 @@ app.delete('/api/inventory/batches/:id', verifyToken, async (req, res) => {
     await prisma.inventory.delete({ where: { id: req.params.id } });
     res.json({ message: 'Batch deleted successfully' });
   } catch (error) {
-    console.error('Delete batch error:', error);
-    res.status(500).json({ error: 'Failed to delete batch' });
+    return handlePrismaError(error, res, 'Batch');
   }
 });
 
@@ -13019,8 +13032,7 @@ app.delete('/api/alternative-skus/:id', verifyToken, async (req, res) => {
     
     res.json({ message: 'Alternative SKU deleted successfully' });
   } catch (error) {
-    console.error('Error deleting alternative SKU:', error);
-    res.status(500).json({ error: 'Failed to delete alternative SKU' });
+    return handlePrismaError(error, res, 'Alternative SKU');
   }
 });
 
@@ -13301,8 +13313,7 @@ app.delete('/api/supplier-products/:id', verifyToken, async (req, res) => {
     
     res.json({ message: 'Supplier product deleted successfully' });
   } catch (error) {
-    console.error('Error deleting supplier product:', error);
-    res.status(500).json({ error: 'Failed to delete supplier product' });
+    return handlePrismaError(error, res, 'Supplier product');
   }
 });
 
@@ -13453,8 +13464,7 @@ app.delete('/api/consumables/:id', verifyToken, async (req, res) => {
     
     res.json({ message: 'Consumable deleted successfully' });
   } catch (error) {
-    console.error('Error deleting consumable:', error);
-    res.status(500).json({ error: 'Failed to delete consumable' });
+    return handlePrismaError(error, res, 'Consumable');
   }
 });
 
@@ -13760,8 +13770,7 @@ app.delete('/api/marketplace-connections/:id', verifyToken, async (req, res) => 
     
     res.json({ message: 'Marketplace connection deleted successfully' });
   } catch (error) {
-    console.error('Error deleting marketplace connection:', error);
-    res.status(500).json({ error: 'Failed to delete marketplace connection' });
+    return handlePrismaError(error, res, 'Marketplace connection');
   }
 });
 
@@ -14080,8 +14089,7 @@ app.delete('/api/courier-connections/:id', verifyToken, async (req, res) => {
     
     res.json({ message: 'Courier connection deleted successfully' });
   } catch (error) {
-    console.error('Error deleting courier connection:', error);
-    res.status(500).json({ error: 'Failed to delete courier connection' });
+    return handlePrismaError(error, res, 'Courier connection');
   }
 });
 
@@ -14542,8 +14550,7 @@ app.delete('/api/sku-mappings/:id', verifyToken, async (req, res) => {
     await prisma.skuMapping.delete({ where: { id: req.params.id } });
     res.json({ message: 'Mapping deleted successfully' });
   } catch (error) {
-    console.error('Error deleting SKU mapping:', error);
-    res.status(500).json({ error: 'Failed to delete SKU mapping' });
+    return handlePrismaError(error, res, 'SKU mapping');
   }
 });
 
@@ -15049,8 +15056,7 @@ app.delete('/api/labels/:id', verifyToken, async (req, res) => {
     labelTemplates.splice(index, 1);
     res.json({ message: 'Label deleted successfully' });
   } catch (error) {
-    console.error('Error deleting label:', error);
-    res.status(500).json({ error: 'Failed to delete label' });
+    return handlePrismaError(error, res, 'Label');
   }
 });
 
@@ -15238,8 +15244,7 @@ app.delete('/api/printer-settings/printers/:id', verifyToken, async (req, res) =
     printerSettings.printers.splice(index, 1);
     res.json({ message: 'Printer removed successfully' });
   } catch (error) {
-    console.error('Error removing printer:', error);
-    res.status(500).json({ error: 'Failed to remove printer' });
+    return handlePrismaError(error, res, 'Printer');
   }
 });
 

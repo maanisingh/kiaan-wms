@@ -276,22 +276,22 @@ export default function PackerDashboardPage() {
         <Col xs={24} lg={12}>
           <Card title="Quick Actions">
             <div className="grid grid-cols-1 gap-3">
-              <Link href="/packing">
+              <Link href="/protected/packing">
                 <Button block size="large" type="primary">
                   View All Packing Orders
                 </Button>
               </Link>
-              <Link href="/labels">
+              <Link href="/protected/labels">
                 <Button block size="large" icon={<PrinterOutlined />}>
                   Print Shipping Labels
                 </Button>
               </Link>
-              <Link href="/shipments">
+              <Link href="/protected/shipments">
                 <Button block size="large">
                   Process Shipments
                 </Button>
               </Link>
-              <Link href="/scanner">
+              <Link href="/protected/scanner">
                 <Button block size="large">
                   Open Scanner
                 </Button>

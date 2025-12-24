@@ -426,9 +426,9 @@ export default function ClientInventoryPage() {
 
       {/* Breadcrumb Links */}
       <div className="flex gap-2 text-sm">
-        <Link href="/clients" className="text-blue-600 hover:underline">Clients</Link>
+        <Link href="/protected/clients" className="text-blue-600 hover:underline">Clients</Link>
         <span>/</span>
-        <Link href={`/clients/${params.id}`} className="text-blue-600 hover:underline">{client?.name}</Link>
+        <Link href={`/protected/clients/${params.id}`} className="text-blue-600 hover:underline">{client?.name}</Link>
         <span>/</span>
         <span className="text-gray-600">Inventory</span>
       </div>

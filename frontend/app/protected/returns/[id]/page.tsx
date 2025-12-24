@@ -454,7 +454,7 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/returns">
+          <Link href="/protected/returns">
             <Button icon={<ArrowLeftOutlined />}>Back to Returns</Button>
           </Link>
         </div>
@@ -542,7 +542,7 @@ export default function ReturnDetailPage({ params }: { params: { id: string } })
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <Link href="/returns">
+          <Link href="/protected/returns">
             <Button icon={<ArrowLeftOutlined />}>Back to Returns</Button>
           </Link>
           <div>

@@ -146,7 +146,7 @@ export default function FulfillmentDetailPage({ params }: { params: { id: string
     <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/fulfillment">
+            <Link href="/protected/fulfillment">
               <Button icon={<ArrowLeftOutlined />}>Back to Fulfillment</Button>
             </Link>
             <div>

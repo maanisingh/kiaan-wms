@@ -118,16 +118,16 @@ export default function WarehouseStaffDashboardPage() {
         {/* Quick Actions */}
         <Card title="Quick Actions">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/goods-receiving">
+            <Link href="/protected/goods-receiving">
               <Button block size="large">Receive Goods</Button>
             </Link>
-            <Link href="/inventory/movements">
+            <Link href="/protected/inventory/movements">
               <Button block size="large">Stock Movement</Button>
             </Link>
-            <Link href="/inventory/cycle-counts">
+            <Link href="/protected/inventory/cycle-counts">
               <Button block size="large">Cycle Count</Button>
             </Link>
-            <Link href="/shipments">
+            <Link href="/protected/shipments">
               <Button block size="large">Process Shipment</Button>
             </Link>
           </div>

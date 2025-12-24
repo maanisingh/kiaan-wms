@@ -272,7 +272,7 @@ export default function ShipmentManagementPage() {
       key: 'shipmentNumber',
       width: 130,
       render: (text: string, record: any) => (
-        <Link href={`/shipments/${record.id}`}>
+        <Link href={`/protected/shipments/${record.id}`}>
           <span className="font-medium text-blue-600 cursor-pointer hover:underline">{text}</span>
         </Link>
       )
@@ -288,7 +288,7 @@ export default function ShipmentManagementPage() {
       key: 'actions',
       width: 120,
       render: (_: any, record: any) => (
-        <Link href={`/shipments/${record.id}`}>
+        <Link href={`/protected/shipments/${record.id}`}>
           <Button type="link" icon={<EyeOutlined />} size="small">View</Button>
         </Link>
       ),
@@ -316,7 +316,7 @@ export default function ShipmentManagementPage() {
         loading={loading}
         scroll={{ x: 1200 }}
         onRow={(record) => ({
-          onClick: () => router.push(`/shipments/${record.id}`),
+          onClick: () => router.push(`/protected/shipments/${record.id}`),
           style: { cursor: 'pointer' }
         })}
       />

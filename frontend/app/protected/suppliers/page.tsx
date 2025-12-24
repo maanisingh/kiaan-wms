@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -33,6 +34,7 @@ interface Supplier {
 export default function SuppliersPage() {
   const { modal, message } = App.useApp();
   const router = useRouter();
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -153,7 +155,7 @@ export default function SuppliersPage() {
       render: (text: string, record: Supplier) => (
         <div
           className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
-          onClick={() => router.push(`/suppliers/${record.id}`)}
+          onClick={() => router.push(`/protected/suppliers/${record.id}`)}
         >
           <ContactsOutlined className="text-blue-500" />
           <span className="font-medium">{text}</span>
@@ -193,16 +195,18 @@ export default function SuppliersPage() {
           <Button
             type="link"
             icon={<EyeOutlined />}
-            onClick={() => router.push(`/suppliers/${record.id}`)}
+            onClick={() => router.push(`/protected/suppliers/${record.id}`)}
           >
             View
           </Button>
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Edit
           </Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },

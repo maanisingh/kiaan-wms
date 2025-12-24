@@ -275,12 +275,12 @@ export default function PickerDashboardPage() {
         <Col xs={24} lg={12}>
           <Card title="Quick Actions">
             <div className="grid grid-cols-1 gap-3">
-              <Link href="/picking">
+              <Link href="/protected/picking">
                 <Button block size="large" type="primary">
                   View All Pick Lists
                 </Button>
               </Link>
-              <Link href="/scanner">
+              <Link href="/protected/scanner">
                 <Button block size="large">
                   Open Scanner
                 </Button>

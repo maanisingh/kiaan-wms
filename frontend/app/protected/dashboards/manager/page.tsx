@@ -102,16 +102,16 @@ export default function ManagerDashboardPage() {
         {/* Quick Actions */}
         <Card title="Manager Actions">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/users">
+            <Link href="/protected/users">
               <Button block size="large">Manage Staff</Button>
             </Link>
-            <Link href="/reports">
+            <Link href="/protected/reports">
               <Button block size="large">View Reports</Button>
             </Link>
-            <Link href="/warehouses">
+            <Link href="/protected/warehouses">
               <Button block size="large">Warehouse Management</Button>
             </Link>
-            <Link href="/inventory">
+            <Link href="/protected/inventory">
               <Button block size="large">Inventory Overview</Button>
             </Link>
           </div>

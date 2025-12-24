@@ -1,5 +1,35 @@
 // Role-based access control configuration
 
+export type Action = 'create' | 'read' | 'update' | 'delete';
+
+// Role-specific action permissions
+export const ROLE_ACTIONS: Record<string, Action[]> = {
+  'super_admin': ['create', 'read', 'update', 'delete'],
+  'company_admin': ['create', 'read', 'update', 'delete'],
+  'warehouse_manager': ['create', 'read', 'update', 'delete'],
+  'inventory_manager': ['create', 'read', 'update', 'delete'],
+  'admin': ['create', 'read', 'update', 'delete'],
+  'manager': ['create', 'read', 'update'], // NO DELETE for managers
+  'picker': ['read', 'update'],
+  'packer': ['read', 'update'],
+  'warehouse_staff': ['create', 'read', 'update'],
+  'viewer': ['read'],
+};
+
+// Features available by role
+export const ROLE_FEATURES: Record<string, string[]> = {
+  'super_admin': ['company_management', 'user_management', 'system_settings', 'all_companies', 'delete_records'],
+  'company_admin': ['user_management', 'company_settings', 'delete_records'],
+  'warehouse_manager': ['user_management', 'warehouse_settings', 'delete_records'],
+  'inventory_manager': ['inventory_settings', 'delete_records'],
+  'admin': ['user_management', 'system_settings', 'delete_records'],
+  'manager': ['daily_operations'], // NO user_management, NO delete_records
+  'picker': ['picking_operations'],
+  'packer': ['packing_operations'],
+  'warehouse_staff': ['warehouse_operations'],
+  'viewer': ['view_reports'],
+};
+
 export type Role =
   | 'super_admin'
   | 'company_admin'
@@ -17,6 +47,9 @@ const ALL_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 
 
 // Admin roles (can manage system settings)
 const ADMIN_ROLES: Role[] = ['super_admin', 'company_admin', 'admin'];
+
+// User management roles - managers cannot manage users
+const USER_MANAGEMENT_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 'admin'];
 
 // Management roles (can manage operations) - includes warehouse_manager
 const MANAGEMENT_ROLES: Role[] = ['super_admin', 'company_admin', 'warehouse_manager', 'inventory_manager', 'admin', 'manager'];
@@ -57,7 +90,7 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/settings/integrations': MANAGEMENT_ROLES,
   '/settings/scanner': ALL_ROLES,
   '/settings/vat-rates': MANAGEMENT_ROLES,
-  '/users': MANAGEMENT_ROLES,
+  '/users': USER_MANAGEMENT_ROLES, // Managers cannot access user management
   '/roles': ADMIN_ROLES,
 
   // Super Admin + Company Admin for companies
@@ -340,4 +373,61 @@ export function getRoleDescription(role: string): string {
     'viewer': 'Read-only access to reports and analytics',
   };
   return descriptions[normalizedRole] || 'Standard user access';
+}
+
+/**
+ * Check if user can perform a specific action
+ */
+export function canPerformAction(userRole: string, action: Action): boolean {
+  if (!userRole) return false;
+  const normalizedRole = normalizeRole(userRole);
+  const allowedActions = ROLE_ACTIONS[normalizedRole];
+  if (!allowedActions) return false;
+  return allowedActions.includes(action);
+}
+
+/**
+ * Check if user can delete records
+ */
+export function canDelete(userRole: string): boolean {
+  return canPerformAction(userRole, 'delete');
+}
+
+/**
+ * Check if user can create records
+ */
+export function canCreate(userRole: string): boolean {
+  return canPerformAction(userRole, 'create');
+}
+
+/**
+ * Check if user can update records
+ */
+export function canUpdate(userRole: string): boolean {
+  return canPerformAction(userRole, 'update');
+}
+
+/**
+ * Check if user has a specific feature
+ */
+export function hasFeature(userRole: string, feature: string): boolean {
+  if (!userRole) return false;
+  const normalizedRole = normalizeRole(userRole);
+  const features = ROLE_FEATURES[normalizedRole];
+  if (!features) return false;
+  return features.includes(feature);
+}
+
+/**
+ * Check if user can manage users
+ */
+export function canManageUsers(userRole: string): boolean {
+  return hasFeature(userRole, 'user_management');
+}
+
+/**
+ * Check if user can delete records (via feature check)
+ */
+export function canDeleteRecords(userRole: string): boolean {
+  return hasFeature(userRole, 'delete_records');
 }

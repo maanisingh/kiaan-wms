@@ -15,6 +15,7 @@ import {
 import { formatCurrency, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -42,6 +43,7 @@ interface Brand {
 
 export default function ProductsPage() {
   const { modal, message } = App.useApp(); // Use App context for modal and message
+  const { canDelete } = usePermissions(); // Permission check for delete operations
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,15 +255,17 @@ export default function ProductsPage() {
               Edit
             </Button>
           </Link>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            size="small"
-            onClick={() => handleDelete(record.id, record.name)}
-          >
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              size="small"
+              onClick={() => handleDelete(record.id, record.name)}
+            >
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -379,7 +383,7 @@ export default function ProductsPage() {
             <Option value="INACTIVE">Inactive</Option>
             <Option value="DISCONTINUED">Discontinued</Option>
           </Select>
-          {selectedRows.length > 0 && (
+          {selectedRows.length > 0 && canDelete() && (
             <Button danger onClick={handleBulkDelete}>
               Delete Selected ({selectedRows.length})
             </Button>

@@ -490,7 +490,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: { id: stri
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/purchase-orders">
+          <Link href="/protected/purchase-orders">
             <Button icon={<ArrowLeftOutlined />}>Back to Purchase Orders</Button>
           </Link>
         </div>
@@ -509,7 +509,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: { id: stri
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/purchase-orders">
+          <Link href="/protected/purchase-orders">
             <Button icon={<ArrowLeftOutlined />}>Back to Purchase Orders</Button>
           </Link>
         </div>
@@ -526,7 +526,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: { id: stri
     <div className="space-y-6" ref={printRef}>
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
-          <Link href="/purchase-orders">
+          <Link href="/protected/purchase-orders">
             <Button icon={<ArrowLeftOutlined />}>Back</Button>
           </Link>
           <div>

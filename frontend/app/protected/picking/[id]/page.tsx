@@ -427,7 +427,7 @@ export default function PickingDetailPage() {
       {/* Header */}
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/picking">
+          <Link href="/protected/picking">
             <Button icon={<ArrowLeftOutlined />}>Back to Pick Lists</Button>
           </Link>
           <div>

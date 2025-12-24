@@ -132,7 +132,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/users">
+            <Link href="/protected/users">
               <Button icon={<ArrowLeftOutlined />}>Back to Users</Button>
             </Link>
             <div>
