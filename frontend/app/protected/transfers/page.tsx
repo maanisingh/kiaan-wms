@@ -14,6 +14,7 @@ import { useModal } from '@/hooks/useModal';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -21,6 +22,7 @@ const { TextArea } = Input;
 
 export default function TransfersPage() {
   const { modal, message } = App.useApp();
+  const { canDelete } = usePermissions();
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -312,9 +314,11 @@ export default function TransfersPage() {
               Edit
             </Button>
           )}
-          <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },

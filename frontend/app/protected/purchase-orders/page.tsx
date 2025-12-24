@@ -23,6 +23,7 @@ import {
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import apiService from '@/services/api';
 import dayjs from 'dayjs';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -67,6 +68,7 @@ interface Product {
 }
 
 export default function PurchaseOrdersPage() {
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -473,18 +475,20 @@ export default function PurchaseOrdersPage() {
               </Popconfirm>
             </>
           )}
-          <Popconfirm
-            title="Delete this purchase order?"
-            description="This action cannot be undone."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="link" icon={<DeleteOutlined />} size="small" danger>
-              Delete
-            </Button>
-          </Popconfirm>
+          {canDelete() && (
+            <Popconfirm
+              title="Delete this purchase order?"
+              description="This action cannot be undone."
+              onConfirm={() => handleDelete(record.id)}
+              okText="Yes"
+              cancelText="No"
+              okButtonProps={{ danger: true }}
+            >
+              <Button type="link" icon={<DeleteOutlined />} size="small" danger>
+                Delete
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

@@ -8,6 +8,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -56,6 +57,7 @@ interface ReturnItem {
 }
 
 export default function ReturnsAndRMAManagementPage() {
+  const { canDelete } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [returns, setReturns] = useState<any[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -455,7 +457,9 @@ export default function ReturnsAndRMAManagementPage() {
           {record.status === 'processing' && (
             <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); handleQuickApprove(record); }}>Approve</Button>
           )}
-          <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => { e.stopPropagation(); handleDelete(record); }} />
+          {canDelete() && (
+            <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => { e.stopPropagation(); handleDelete(record); }} />
+          )}
         </Space>
       ),
     },

@@ -22,6 +22,7 @@ import {
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import Link from 'next/link';
 import apiService from '@/services/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Search } = Input;
 
@@ -56,6 +57,7 @@ interface SalesOrder {
 
 export default function SalesOrdersPage() {
   const { modal, message } = App.useApp();
+  const { canDelete } = usePermissions();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,15 +241,17 @@ export default function SalesOrdersPage() {
               Edit
             </Button>
           </Link>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            size="small"
-            onClick={() => handleDelete(record.id, record.orderNumber)}
-          >
-            Delete
-          </Button>
+          {canDelete() && (
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              size="small"
+              onClick={() => handleDelete(record.id, record.orderNumber)}
+            >
+              Delete
+            </Button>
+          )}
         </Space>
       ),
     },
